@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MedTracker" />
+  <meta name="theme-color" content="#09090B" />
+  <title>MedTracker</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="apple-touch-icon" href="./icon-192x192.png" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body, #root { height: 100%; width: 100%; background: #09090B; overflow-x: hidden; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overscroll-behavior-y: contain; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #27272A; border-radius: 999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3F3F46; }
+    ::selection { background: #818CF840; color: #FAFAFA; }
+    input:focus, select:focus, textarea:focus { border-color: #818CF8 !important; box-shadow: 0 0 0 3px #818CF825 !important; }
+    button, a, [role="button"] { -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; }
+    button { transition: opacity 0.15s ease, transform 0.1s ease, background 0.15s ease; }
+    button:active { transform: scale(0.97); }
+    @media (max-width: 480px) { body { font-size: 14px; } }
+    @media (min-width: 768px) and (max-width: 1199px) { body { font-size: 15px; } }
+    @supports (padding: env(safe-area-inset-bottom)) { #root { padding-bottom: env(safe-area-inset-bottom); } }
+  </style>
+  <script>
+    if(!window.storage){window.storage={get:function(k){try{var v=localStorage.getItem(k);return Promise.resolve(v!==null?{value:v}:null)}catch(e){return Promise.resolve(null)}},set:function(k,v){try{localStorage.setItem(k,v);return Promise.resolve(true)}catch(e){return Promise.resolve(false)}}}}
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.jsx"></script>
+  <script>if('serviceWorker' in navigator){navigator.serviceWorker.register('./sw.js')}</script>
+</body>
+</html>

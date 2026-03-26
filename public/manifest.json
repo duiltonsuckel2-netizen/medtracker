@@ -1,7 +1,7 @@
 {
   "name": "MedTracker",
   "short_name": "MedTracker",
-  "description": "Controle de medicamentos",
+  "description": "Controle de estudos médicos e revisões",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#0A0A0B",

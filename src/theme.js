@@ -4,6 +4,7 @@ const FN = "'Nunito',sans-serif";
 const DARK = { bg:"#0A0A0B", surface:"#111113", card:"#17171A", card2:"#1F1F23", border:"#27272A", border2:"#3F3F46", text:"#F4F4F5", text2:"#A1A1AA", text3:"#71717A", blue:"#60A5FA", purple:"#A78BFA", teal:"#2DD4BF", green:"#22C55E", yellow:"#F59E0B", red:"#F87171", pink:"#F472B6" };
 const LIGHT = { bg:"#F4F4F5", surface:"#EBEBEF", card:"#FFFFFF", card2:"#EDEDF0", border:"#D4D4D8", border2:"#A1A1AA", text:"#09090B", text2:"#3F3F46", text3:"#52525B", blue:"#2563EB", purple:"#7C3AED", teal:"#0D9488", green:"#15803D", yellow:"#B45309", red:"#DC2626", pink:"#DB2777" };
 let C = DARK, SH, card;
+function isLightColor(hex) { const h = (hex||"").replace("#",""); if(h.length<6) return false; const r=parseInt(h.substr(0,2),16), g=parseInt(h.substr(2,2),16), b=parseInt(h.substr(4,2),16); return (r*299+g*587+b*114)/1000>160; }
 const R = { sm:8, md:12, lg:16, xl:20, pill:999 };
 const S = { xs:2, sm:4, md:8, lg:12, xl:16 };
 const H = { sm:36, md:44, lg:52 };
@@ -14,7 +15,7 @@ function applyTheme(dark) {
 }
 applyTheme(true);
 const inp = (extra={}) => ({ background:C.surface, border:`1px solid ${C.border2}`, borderRadius:R.md, padding:"10px 14px", color:C.text, fontSize:14, fontFamily:F, width:"100%", outline:"none", transition:"border-color 0.15s, box-shadow 0.15s", ...extra });
-const btn = (bg, extra={}) => ({ background:bg, border:"none", borderRadius:R.md, padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:500, fontFamily:F, transition:"opacity 0.15s, transform 0.1s", ...extra });
+const btn = (bg, extra={}) => ({ background:bg, border:"none", borderRadius:R.md, padding:"10px 18px", color:isLightColor(bg) ? "#1a1a1a" : "#fff", cursor:"pointer", fontSize:13, fontWeight:500, fontFamily:F, transition:"opacity 0.15s, transform 0.1s", ...extra });
 const tag = (color) => ({ display:"inline-flex", alignItems:"center", padding:"3px 10px", borderRadius:R.pill, fontSize:10, fontWeight:600, fontFamily:FM, color, background:color+"20", border:`1px solid ${color}44`, lineHeight:1.4 });
 const NUM = { fontFamily:FN, fontVariantNumeric:"tabular-nums" };
 const numUnit = (v, u) => [v, u];

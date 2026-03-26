@@ -142,7 +142,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
                     <span style={{ fontSize: 14, fontWeight: 600 }}>{r.theme}</span>
                     <span style={tag(a?.color || "#6B7280")}>{a?.label}</span>
                     <span style={tag(C.red)}>{days === 0 ? "hoje" : `${Math.abs(days)}d atraso`}</span>
-                    <span style={tag(C.card2)}>{INT_LABELS[r.intervalIndex]}</span>
+                    <span style={tag(C.text3)}>{INT_LABELS[r.intervalIndex]}</span>
                   </div>
                   <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>Último: <span style={{ color: perfColor(r.lastPerf) }}>{r.lastPerf}%</span> em {fmtDate(r.lastStudied)} · {r.history?.length || 0}× revisado</div>
                   {r.subtemaNote && (

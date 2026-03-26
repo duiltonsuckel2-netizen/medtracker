@@ -5,7 +5,7 @@ export const F = "'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
 export const FN = "'Nunito','Inter',-apple-system,BlinkMacSystemFont,sans-serif";
 export const FM = "'JetBrains Mono','Inter Mono',ui-monospace,'SF Mono',monospace";
 
-// Palettes
+// Palettes — text3 bumped for WCAG AA contrast (≥4.5:1 on bg)
 export const DARK = {
   bg: "#09090B",
   surface: "#111114",
@@ -15,7 +15,7 @@ export const DARK = {
   border2: "#38383E",
   text: "#F4F4F5",
   text2: "#A1A1AA",
-  text3: "#5A5A63",
+  text3: "#71717A",
   green: "#34D399",
   blue: "#818CF8",
   teal: "#2DD4BF",
@@ -34,8 +34,8 @@ export const LIGHT = {
   border: "#E9E8E4",
   border2: "#DCDBD7",
   text: "#1A1A1C",
-  text2: "#5C5C66",
-  text3: "#9C9CA6",
+  text2: "#52525B",
+  text3: "#71717A",
   green: "#2D9D5E",
   blue: "#6366F1",
   teal: "#0D9488",
@@ -128,7 +128,17 @@ export const tag = (col) => ({
   letterSpacing: 0.2,
 });
 
-// Typography helpers
+// ── TYPOGRAPHY SCALE ────────────────────────────────────────────────────
+export const TY = {
+  h1: { fontSize: 24, fontWeight: 800, letterSpacing: -0.5, lineHeight: 1.2, fontFamily: F },
+  h2: { fontSize: 20, fontWeight: 700, letterSpacing: -0.3, lineHeight: 1.25, fontFamily: F },
+  h3: { fontSize: 16, fontWeight: 700, letterSpacing: -0.2, lineHeight: 1.3, fontFamily: F },
+  body: { fontSize: 14, fontWeight: 400, lineHeight: 1.5, fontFamily: F },
+  caption: { fontSize: 12, fontWeight: 500, lineHeight: 1.4, fontFamily: F },
+  overline: { fontSize: 10, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", fontFamily: F },
+};
+
+// Typography helpers — Nunito for all numeric displays
 export const NUM = { fontFamily: FN, fontVariantNumeric: "tabular-nums lining-nums" };
 export const numUnit = (num, unit, numSize = 32, unitSize = 16) => (
   React.createElement("span", { style: { ...NUM } },
@@ -136,3 +146,27 @@ export const numUnit = (num, unit, numSize = 32, unitSize = 16) => (
     React.createElement("span", { style: { fontSize: unitSize, fontWeight: 700, opacity: 0.55 } }, unit)
   )
 );
+
+// Performance icon helpers
+export const perfIcon = (pct) => pct >= 85 ? "✓" : pct >= 60 ? "⚠" : "✗";
+export const perfIconColor = (pct) => pct >= 85 ? "#22C55E" : pct >= 60 ? "#EAB308" : "#EF4444";
+
+// CSS keyframe injection (call once on mount)
+let _injected = false;
+export function injectKeyframes() {
+  if (_injected) return;
+  _injected = true;
+  const style = document.createElement("style");
+  style.textContent = `
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pulseCheck { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+    @keyframes progressGrow { from { width: 0%; } }
+    @keyframes skeletonShimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+    .fade-slide-in { animation: fadeSlideIn 0.25s ease-out; }
+    .pulse-check { animation: pulseCheck 0.3s ease-out; }
+    .progress-animated { animation: progressGrow 0.6s ease-out; }
+    .skeleton-shimmer { background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.06) 50%, transparent 75%); background-size: 200% 100%; animation: skeletonShimmer 1.5s infinite; }
+    .skeleton-shimmer-light { background: linear-gradient(90deg, transparent 25%, rgba(0,0,0,0.04) 50%, transparent 75%); background-size: 200% 100%; animation: skeletonShimmer 1.5s infinite; }
+  `;
+  document.head.appendChild(style);
+}

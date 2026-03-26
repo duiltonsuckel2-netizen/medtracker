@@ -1,3 +1,47 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" /><meta name="apple-mobile-web-app-capable" content="yes" /><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" /><meta name="apple-mobile-web-app-title" content="MedTracker" /><meta name="theme-color" content="#0A0A0B" /><title>MedTracker</title><style>*{margin:0;padding:0;box-sizing:border-box}html,body,#root{height:100%;width:100%;background:#0A0A0B;overflow-x:hidden}body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;overscroll-behavior-y:contain}</style>  <script type="module" crossorigin src="./assets/index-64uNZ8-2.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-nqMpL4T3.css">
-</head><body><div id="root"></div></body></html>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0A0A0B" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="MedTracker — Acompanhe seus estudos de medicina com revisão espaçada, análise de provas e agenda inteligente." />
+    <title>MedTracker</title>
+    <link rel="icon" href="/medtracker/favicon.svg" type="image/svg+xml" />
+    <link rel="manifest" href="/medtracker/manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=JetBrains+Mono:wght@500&family=Nunito:wght@700;800&display=swap" as="style" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&family=JetBrains+Mono:wght@500&family=Nunito:wght@700;800&display=swap" rel="stylesheet" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+      body { background: #0A0A0B; overflow-x: hidden; overscroll-behavior-y: contain; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+      button, a { touch-action: manipulation; }
+      @media (max-width: 640px) {
+        input, select, textarea { font-size: 16px !important; }
+      }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #27272A; border-radius: 999px; }
+      input[type="number"]::-webkit-inner-spin-button,
+      input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+      input[type="number"] { -moz-appearance: textfield; }
+      select { -webkit-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 5l3 3 3-3' fill='none' stroke='%2371717A' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px !important; }
+    </style>
+    <script type="module" crossorigin src="/medtracker/assets/index-C86dH4gw.js"></script>
+    <link rel="modulepreload" crossorigin href="/medtracker/assets/recharts-B5J3kNy2.js">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/medtracker/sw.js').catch(() => {});
+        });
+      }
+    </script>
+  </body>
+</html>

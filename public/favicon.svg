@@ -1,10 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-  <g stroke="#8B5CF6" stroke-width="22" fill="none" stroke-linejoin="round" stroke-linecap="round">
-    <!-- Cross outline (perimeter of + shape) -->
-    <path d="M233 58 L279 58 L279 104 L325 104 L325 150 L279 150 L279 162 L233 162 L233 150 L187 150 L187 104 L233 104 Z"/>
-    <!-- Left book page -->
-    <path d="M88 168 L170 168 L256 282 L256 382 Q256 410 230 410 L118 410 Q88 410 88 380 Z"/>
-    <!-- Right book page -->
-    <path d="M424 168 L342 168 L256 282 L256 382 Q256 410 282 410 L394 410 Q424 410 424 380 Z"/>
+  <g stroke="#8B5CF6" stroke-width="26" fill="none" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Cross outline (perimeter shape) -->
+    <path d="M230 62 H282 V98 H326 V150 H282 V176 H230 V150 H186 V98 H230 Z"/>
+    <!-- Book: top M-shape -->
+    <path d="M86 176 H170 L256 296 L342 176 H426"/>
+    <!-- Book: left side + bottom curve to center -->
+    <path d="M86 176 V384 Q86 416 118 416 H232 Q256 416 256 390"/>
+    <!-- Book: right side + bottom curve to center -->
+    <path d="M426 176 V384 Q426 416 394 416 H280 Q256 416 256 390"/>
+    <!-- Book: center spine -->
+    <path d="M256 296 V390"/>
   </g>
 </svg>

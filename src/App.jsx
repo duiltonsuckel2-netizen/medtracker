@@ -124,7 +124,7 @@ function App() {
               width: window.innerWidth >= 768 ? 40 : 30, height: window.innerWidth >= 768 ? 40 : 30, borderRadius: 10,
               background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`,
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: window.innerWidth >= 768 ? 19 : 14, boxShadow: `0 0 12px ${C.blue}30`,
+              fontSize: window.innerWidth >= 768 ? 19 : 14,
             }}>{"\u2695"}</div>
             <span style={{ fontSize: window.innerWidth >= 768 ? 20 : 15, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>Med</span>
           </div>
@@ -152,7 +152,7 @@ function App() {
                   fontWeight: active ? 700 : 500,
                   transition: "all 0.15s ease",
                   opacity: active ? 1 : 0.5,
-                  boxShadow: active ? `0 0 16px rgba(129,140,248,0.15)` : "none",
+                  boxShadow: "none",
                   flexShrink: 0,
                 }}>
                   {t.label}

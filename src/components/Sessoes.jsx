@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AREAS, areaMap } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, perc, fmtDate, perfColor, perfLabel } from "../utils.js";
-import { Fld, Empty } from "./UI.jsx";
+import { Fld, Empty, Tooltip } from "./UI.jsx";
 
 function Sessoes({ sessions, onAdd, onDel }) {
   const empty = { date: today(), area: "clinica", theme: "", total: "", acertos: "" };
@@ -19,7 +19,7 @@ function Sessoes({ sessions, onAdd, onDel }) {
         <button onClick={() => setShow((v) => !v)} style={btn(show ? C.card2 : C.blue)}>{show ? "— Fechar" : "+ Nova sessão"}</button>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button onClick={() => setFil("all")} style={btn(fil === "all" ? C.card2 : C.surface, { padding: "8px 14px", fontSize: 12, minHeight: H.sm, borderRadius: R.sm, border: fil === "all" ? `1px solid ${C.border}` : `1px solid ${C.border}`, color: fil === "all" ? C.text : C.text3, boxShadow: fil === "all" ? SH.sm : "none", opacity: fil === "all" ? 1 : 0.7 })}>Todas</button>{AREAS.map((a) => <button key={a.id} onClick={() => setFil(a.id)} style={btn(fil === a.id ? a.color : C.surface, { padding: "8px 14px", fontSize: 12, minHeight: H.sm, borderRadius: R.sm, border: fil === a.id ? "none" : `1px solid ${C.border}`, color: fil === a.id ? "#fff" : C.text3, boxShadow: fil === a.id ? SH.sm : "none", opacity: fil === a.id ? 1 : 0.7 })}>{a.short}</button>)}</div>
       </div>
-      {show && <div style={{ ...card, border: "1px solid #3B82F655" }}>
+      {show && <div style={{ ...card, border: "1px solid #3B82F655", animation: "fadeInUp 0.25s ease" }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.blue, marginBottom: 16 }}>Nova sessão de aula</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
           <Fld label="Data"><input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} style={inp()} /></Fld>
@@ -33,9 +33,9 @@ function Sessoes({ sessions, onAdd, onDel }) {
         </div>
         <button onClick={submit} style={btn("#34D399")}>Registrar sessão</button>
       </div>}
-      {filtered.length === 0 ? <Empty msg="Nenhuma sessão registrada ainda." /> : filtered.map((s) => { const a = areaMap[s.area]; const p = perc(s.acertos, s.total); return (
-        <div key={s.id} style={{ ...card, display: "flex", gap: 14, alignItems: "flex-start" }}>
-          <div style={{ width: 52, height: 52, borderRadius: R.sm, background: perfColor(p) + "18", border: `2px solid ${perfColor(p)}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ fontSize: 16, fontWeight: 700, color: perfColor(p), ...NUM }}>{p}%</span></div>
+      {filtered.length === 0 ? <Empty icon={fil !== "all" ? "\uD83D\uDD0D" : "\uD83D\uDCDD"} msg={fil !== "all" ? "Nenhuma sessão encontrada para esta área." : "Nenhuma sessão registrada ainda."} action={!show ? () => setShow(true) : undefined} actionLabel={!show ? "+ Registrar primeira sessão" : undefined} /> : filtered.map((s, idx) => { const a = areaMap[s.area]; const p = perc(s.acertos, s.total); return (
+        <div key={s.id} style={{ ...card, display: "flex", gap: 14, alignItems: "flex-start", animation: `fadeInUp 0.3s ease ${Math.min(idx * 0.04, 0.3)}s both` }}>
+          <Tooltip text={`${perfLabel(p)}: ${s.acertos}/${s.total} acertos`}><div style={{ width: 52, height: 52, borderRadius: R.sm, background: perfColor(p) + "18", border: `2px solid ${perfColor(p)}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ fontSize: 16, fontWeight: 700, color: perfColor(p), ...NUM }}>{p}%</span></div></Tooltip>
           <div style={{ flex: 1 }}><div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}><span style={{ fontSize: 15, fontWeight: 600 }}>{s.theme}</span><span style={tag(a?.color || "#6B7280")}>{a?.label}</span></div><div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(s.date)} · {s.total}q · <span style={{ color: C.green }}>✓{s.acertos}</span> <span style={{ color: C.red }}>✗{s.erros}</span></div></div>
           <button onClick={() => onDel(s.id)} style={{ background: "none", border: "none", color: C.border2, cursor: "pointer", fontSize: 16, padding: 4 }}>✕</button>
         </div>

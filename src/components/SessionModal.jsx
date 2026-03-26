@@ -19,8 +19,8 @@ function SessionModal({ onAdd, onClose }) {
     return SEMANAS.flatMap((sem) => sem.aulas.filter((a) => a.area === shortKey).map((a) => ({ label: `${sem.semana} — ${a.topic}`, topic: a.topic, semana: sem.semana }))).reverse();
   }, [areaShort]);
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: S.xl, overflowY: "auto" }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div style={{ background: C.card, borderRadius: R.xl, padding: S.xxl, maxWidth: 560, width: "100%", border: `1px solid ${C.border}`, marginTop: 40, boxShadow: SH.lg, maxHeight: "85vh", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: S.xl, overflowY: "auto", animation: "backdropIn 0.2s ease" }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: C.card, borderRadius: R.xl, padding: S.xxl, maxWidth: 560, width: "100%", border: `1px solid ${C.border}`, marginTop: 40, boxShadow: SH.lg, maxHeight: "85vh", overflowY: "auto", animation: "modalIn 0.3s ease" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: C.blue }}>+ Nova sessão de aula</div>
           <button onClick={onClose} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 20, padding: 4 }}>✕</button>

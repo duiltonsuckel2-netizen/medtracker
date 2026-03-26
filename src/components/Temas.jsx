@@ -3,14 +3,15 @@ import { useState } from "react";
 import { AREAS, INTERVALS, INT_LABELS, areaMap } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, diffDays, fmtDate, perfColor } from "../utils.js";
-import { Fld } from "./UI.jsx";
+import { Fld, Tooltip, useDebounce } from "./UI.jsx";
 
 function Temas({ reviews, onEdit }) {
   const [editing, setEditing] = useState(null); const [editForm, setEditForm] = useState({ intervalIndex: 0, nextDue: "" });
   const [fil, setFil] = useState("all"); const [search, setSearch] = useState("");
   const startEdit = (r) => { setEditing(r.id); setEditForm({ intervalIndex: r.intervalIndex, nextDue: r.nextDue }); };
   const confirm = () => { onEdit(editing, editForm.intervalIndex, editForm.nextDue); setEditing(null); };
-  const filtered = reviews.filter((r) => fil === "all" || r.area === fil).filter((r) => !search || r.theme.toLowerCase().includes(search.toLowerCase())).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+  const debouncedSearch = useDebounce(search, 250);
+  const filtered = reviews.filter((r) => fil === "all" || r.area === fil).filter((r) => !debouncedSearch || r.theme.toLowerCase().includes(debouncedSearch.toLowerCase())).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   const chipStyle = (active, color) => ({
     padding: "7px 16px", fontSize: 12, fontFamily: F, fontWeight: active ? 700 : 500,
     minHeight: H.sm, height: H.sm, borderRadius: R.pill, cursor: "pointer",
@@ -33,27 +34,35 @@ function Temas({ reviews, onEdit }) {
           {AREAS.map((a) => <button key={a.id} onClick={() => setFil(a.id)} style={chipStyle(fil === a.id, a.color)}>{a.short}</button>)}
         </div>
       </div>
-      {filtered.map((r) => { const a = areaMap[r.area]; const days = diffDays(r.nextDue, today()); const isDue = r.nextDue <= today(); const isE = editing === r.id;
+      {filtered.length === 0 && <div style={{ color: C.text3, fontSize: 13, padding: "40px 20px", textAlign: "center", animation: "fadeIn 0.3s ease" }}>
+        <div style={{ fontSize: 36, marginBottom: 12, opacity: 0.5 }}>{debouncedSearch ? "\uD83D\uDD0D" : "\uD83D\uDCDA"}</div>
+        <div style={{ lineHeight: 1.5 }}>{debouncedSearch ? `Nenhum tema encontrado para "${debouncedSearch}"` : "Nenhum tema cadastrado ainda."}</div>
+        {!debouncedSearch && <div style={{ fontSize: 11, color: C.text3, marginTop: 8 }}>Registre uma sessão de aula para começar a acompanhar seus temas.</div>}
+      </div>}
+      {filtered.map((r, idx) => { const a = areaMap[r.area]; const days = diffDays(r.nextDue, today()); const isDue = r.nextDue <= today(); const isE = editing === r.id;
         const deadlineBg = isDue ? C.red : C.text3;
         const deadlineText = isDue ? (days === 0 ? "hoje" : `${Math.abs(days)}d atrás`) : `em ${days}d`;
+        const perfTip = r.lastPerf >= 85 ? "Bom: acima de 85% de acertos" : r.lastPerf >= 60 ? "Regular: entre 60-84% de acertos" : "Fraco: abaixo de 60% de acertos";
+        const intervalTip = `Etapa ${r.intervalIndex + 1}/${INTERVALS.length} — revisão a cada ${INTERVALS[r.intervalIndex]} dia(s)`;
+        const deadlineTip = isDue ? (days === 0 ? "Revisão pendente para hoje" : `Revisão atrasada em ${Math.abs(days)} dia(s)`) : `Faltam ${days} dia(s) para a próxima revisão`;
         return (
-        <div key={r.id} style={{ ...card, borderLeft: `3px solid ${isDue ? C.red : a?.color + "50"}`, padding: `${S.xl}px`, boxShadow: SH.sm }}>
+        <div key={r.id} style={{ ...card, borderLeft: `3px solid ${isDue ? C.red : a?.color + "50"}`, padding: `${S.xl}px`, boxShadow: SH.sm, animation: `fadeInUp 0.3s ease ${Math.min(idx * 0.04, 0.3)}s both` }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: S.lg }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: C.text, lineHeight: 1.3, marginBottom: S.sm }}>{r.theme}</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginBottom: S.md }}>
                 <span style={{ ...tag(a?.color || C.text3), fontSize: 11, padding: "3px 10px" }}>{a?.label}</span>
-                <span style={{ fontSize: 11, color: C.text2, fontWeight: 500, padding: "3px 10px", background: C.card2, borderRadius: R.pill, border: `1px solid ${C.border}` }}>{INT_LABELS[r.intervalIndex]}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: deadlineBg, padding: "3px 10px", background: deadlineBg + "12", borderRadius: R.pill, border: `1px solid ${deadlineBg}25` }}>{deadlineText}</span>
+                <Tooltip text={intervalTip}><span style={{ fontSize: 11, color: C.text2, fontWeight: 500, padding: "3px 10px", background: C.card2, borderRadius: R.pill, border: `1px solid ${C.border}` }}>{INT_LABELS[r.intervalIndex]}</span></Tooltip>
+                <Tooltip text={deadlineTip}><span style={{ fontSize: 11, fontWeight: 600, color: deadlineBg, padding: "3px 10px", background: deadlineBg + "12", borderRadius: R.pill, border: `1px solid ${deadlineBg}25` }}>{deadlineText}</span></Tooltip>
               </div>
               <div style={{ display: "flex", gap: S.lg, fontSize: 12, color: C.text3, flexWrap: "wrap", alignItems: "center" }}>
-                <span>Último <span style={{ color: perfColor(r.lastPerf), fontWeight: 700, fontFamily: FN }}>{r.lastPerf}%</span></span>
+                <Tooltip text={perfTip}><span>Último <span style={{ color: perfColor(r.lastPerf), fontWeight: 700, fontFamily: FN }}>{r.lastPerf}%</span></span></Tooltip>
                 <span style={{ color: C.border2 }}>·</span>
                 <span>Próxima <span style={{ color: C.text2, fontWeight: 600 }}>{fmtDate(r.nextDue)}</span></span>
                 <span style={{ color: C.border2 }}>·</span>
-                <span><span style={{ color: C.text2, fontWeight: 600, fontFamily: FN }}>{r.history?.length || 0}</span>× revisado</span>
+                <Tooltip text={`${r.history?.length || 0} revisão(ões) registrada(s) para este tema`}><span><span style={{ color: C.text2, fontWeight: 600, fontFamily: FN }}>{r.history?.length || 0}</span>× revisado</span></Tooltip>
               </div>
-              {isE && <div style={{ marginTop: S.xl, padding: S.lg, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>
+              {isE && <div style={{ marginTop: S.xl, padding: S.lg, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}`, animation: "fadeInUp 0.2s ease" }}>
                 <div style={{ fontSize: 12, color: C.blue, fontWeight: 600, marginBottom: S.md }}>Editar: "{r.theme}"</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
                   <Fld label="Etapa concluída"><select value={editForm.intervalIndex} onChange={(e) => setEditForm((f) => ({ ...f, intervalIndex: Number(e.target.value) }))} style={inp()}>{INTERVALS.map((iv, i) => <option key={i} value={i}>{INT_LABELS[i]} — {iv} dia{iv > 1 ? "s" : ""}</option>)}</select></Fld>

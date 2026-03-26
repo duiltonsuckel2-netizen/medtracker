@@ -101,7 +101,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.lg }}>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: R.xl, padding: `${S.xl}px`, boxShadow: SH.sm }}>
+      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: R.xl, padding: `${S.xl}px`, boxShadow: SH.sm, animation: "fadeInUp 0.3s ease" }}>
         <div style={{ display: "flex", alignItems: "center", gap: S.xl }}>
           <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
             <svg width="56" height="56" style={{ transform: "rotate(-90deg)" }}><circle cx="28" cy="28" r="22" fill="none" stroke={C.border2} strokeWidth="4.5" /><circle cx="28" cy="28" r="22" fill="none" stroke={pCol} strokeWidth="4.5" strokeDasharray={`${(prog / 100) * 138.2} 138.2`} strokeLinecap="round" /></svg>
@@ -160,11 +160,11 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
 
       {view === "current" && (
         <div style={{ display: "flex", flexDirection: "column", gap: S.lg }}>
-          {week.map((day) => {
+          {week.map((day, dayIdx) => {
             const isToday = day.id === todayDayFallback; const dd = day.items.filter((i) => i.done).length;
             const dayProg = day.items.length > 0 ? Math.round((dd / day.items.length) * 100) : 0;
             return (
-              <div key={day.id} style={{ background: C.card, border: `1px solid ${isToday ? C.blue + "50" : C.border}`, borderRadius: R.xl, overflow: "hidden", boxShadow: isToday ? SH.glow(C.blue) : SH.sm }}>
+              <div key={day.id} style={{ background: C.card, border: `1px solid ${isToday ? C.blue + "50" : C.border}`, borderRadius: R.xl, overflow: "hidden", boxShadow: isToday ? SH.glow(C.blue) : SH.sm, animation: `fadeInUp 0.3s ease ${Math.min(dayIdx * 0.05, 0.35)}s both` }}>
                 <div style={{ padding: `${S.xl}px ${S.xl}px ${S.lg}px`, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${C.border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: S.md }}>
                     <span style={{ fontSize: 16, fontWeight: 800, color: isToday ? C.blue : C.text, letterSpacing: -0.2 }}>{day.label}</span>
@@ -210,7 +210,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
                       </div>
                     );
                   })}
-                  {addingTo === day.id && <div style={{ display: "flex", gap: S.sm, marginTop: S.xs }}>
+                  {addingTo === day.id && <div style={{ display: "flex", gap: S.sm, marginTop: S.xs, animation: "fadeInUp 0.2s ease" }}>
                     <input autoFocus value={newItem} onChange={(e) => setNewItem(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addItem(day.id); if (e.key === "Escape") { setAddingTo(null); setNewItem(""); } }} placeholder="Novo item…" style={{ ...inp(), flex: 1, padding: "10px 14px", fontSize: 13 }} />
                     <button onClick={() => addItem(day.id)} style={btn(C.blue, { padding: "10px 16px", fontSize: 13 })}>+</button>
                   </div>}
@@ -223,25 +223,25 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
 
       {view === "history" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {history.length === 0 && <Empty msg="Nenhuma semana arquivada ainda." />}
-          {history.map((entry, i) => <HistoryEntry key={i} entry={entry} />)}
+          {history.length === 0 && <Empty icon={"\uD83D\uDCC5"} msg="Nenhuma semana arquivada ainda." />}
+          {history.map((entry, i) => <HistoryEntry key={i} entry={entry} delay={Math.min(i * 0.05, 0.3)} />)}
         </div>
       )}
     </div>
   );
 }
 
-function HistoryEntry({ entry }) {
+function HistoryEntry({ entry, delay = 0 }) {
   const [open, setOpen] = useState(false);
   const pC = entry.progress >= 85 ? C.green : entry.progress >= 60 ? C.yellow : C.red;
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden" }}>
+    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden", animation: `fadeInUp 0.3s ease ${delay}s both` }}>
       <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }} onClick={() => setOpen((o) => !o)}>
         <div style={{ width: 46, height: 46, borderRadius: R.md, background: pC + "18", border: `2px solid ${pC}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: SH.glow(pC) }}><span style={{ fontSize: 14, fontWeight: 700, color: pC, ...NUM }}>{entry.progress}%</span></div>
         <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{entry.label}</div><div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{entry.done}/{entry.total} concluídos</div></div>
         <span style={{ color: C.text3 }}>{open ? "▲" : "▼"}</span>
       </div>
-      {open && <div style={{ padding: "0 18px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      {open && <div style={{ padding: "0 18px 16px", display: "flex", flexDirection: "column", gap: 8, animation: "fadeIn 0.2s ease" }}>
         {entry.days.map((day) => <div key={day.id}>
           <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>{day.label}</div>
           {day.items.map((it) => <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", opacity: it.done ? 0.4 : 0.85 }}>

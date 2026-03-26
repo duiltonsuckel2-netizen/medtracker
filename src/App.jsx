@@ -89,7 +89,28 @@ function App() {
     notify(`\u2713 ${newRevs.length} revisões importadas do Notion`);
   }
 
-  if (!ready) return <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: C.bg, color: C.text3, fontFamily: F, fontSize: 18 }}>carregando…</div>;
+  if (!ready) return (
+    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: F }}>
+      <div style={{ padding: "80px 24px 24px", maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        {[1, 2, 3].map((i) => (
+          <div key={i} style={{
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: R.xl,
+            padding: S.xl, boxShadow: SH.sm, display: "flex", flexDirection: "column", gap: 12,
+            animation: `fadeIn 0.3s ease ${i * 0.1}s both`,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 44, height: 44, borderRadius: R.sm, background: `linear-gradient(90deg, ${C.card2} 25%, ${C.border}40 50%, ${C.card2} 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ width: "60%", height: 14, borderRadius: 8, background: `linear-gradient(90deg, ${C.card2} 25%, ${C.border}40 50%, ${C.card2} 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
+                <div style={{ width: "35%", height: 10, borderRadius: 8, background: `linear-gradient(90deg, ${C.card2} 25%, ${C.border}40 50%, ${C.card2} 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
+              </div>
+            </div>
+            <div style={{ width: "80%", height: 10, borderRadius: 8, background: `linear-gradient(90deg, ${C.card2} 25%, ${C.border}40 50%, ${C.card2} 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.5s ease-in-out infinite" }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   const dueR = reviews.filter((r) => r.nextDue <= today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   const upR = reviews.filter((r) => r.nextDue > today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
@@ -166,6 +187,7 @@ function App() {
                 fontSize: 10, color: C.green, fontFamily: FM, fontWeight: 600,
                 background: `rgba(34,197,94,0.1)`, padding: "4px 10px", borderRadius: R.pill,
                 border: `1px solid rgba(34,197,94,0.2)`,
+                animation: "slideInRight 0.25s ease",
               }}>
                 {flash}
               </span>

@@ -66,12 +66,12 @@ function SessionModal({ onSave, onClose }) {
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="fade-in" style={{ background: C.card, borderRadius: 20, padding: 24, maxWidth: 420, width: "100%", border: `1px solid ${C.border2}`, boxShadow: SH.lg }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Nova sess\u00e3o</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 18 }}>\u2715</button>
+          <div style={{ fontSize: 16, fontWeight: 700 }}>Nova sessão</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 18 }}>✕</button>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <Fld label="Data"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp()} /></Fld>
-          <Fld label="Grande \u00e1rea">
+          <Fld label="Grande área">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(90px,1fr))", gap: 6 }}>
               {AREAS.map((a) => (
                 <button key={a.id} onClick={() => setArea(a.id)} style={{ padding: "8px 6px", borderRadius: R.md, border: area === a.id ? `2px solid ${a.color}` : `1px solid ${C.border}`, background: area === a.id ? a.color + "18" : C.surface, cursor: "pointer", fontSize: 11, fontWeight: area === a.id ? 700 : 400, color: area === a.id ? a.color : C.text2, fontFamily: F, textAlign: "center", transition: "all .2s ease" }}>{a.label}</button>
@@ -81,7 +81,7 @@ function SessionModal({ onSave, onClose }) {
           {/* Theme with auto-complete */}
           <div style={{ position: "relative" }}>
             <Fld label="Tema" error={touched.theme && errors.theme}>
-              <input ref={themeRef} type="text" value={theme} onChange={(e) => { setTheme(e.target.value); setShowSuggestions(true); if (errors.theme) setErrors((er) => ({ ...er, theme: null })); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { touch("theme"); validate("theme"); }} placeholder="Ex: Pneumonia, ICC, Fraturas\u2026" style={inp(errStyle("theme"))} />
+              <input ref={themeRef} type="text" value={theme} onChange={(e) => { setTheme(e.target.value); setShowSuggestions(true); if (errors.theme) setErrors((er) => ({ ...er, theme: null })); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { touch("theme"); validate("theme"); }} placeholder="Ex: Pneumonia, ICC, Fraturas…" style={inp(errStyle("theme"))} />
             </Fld>
             {showSuggestions && suggestions.length > 0 && (
               <div ref={sugRef} style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, boxShadow: SH.lg, maxHeight: 160, overflowY: "auto", marginTop: 4 }}>
@@ -92,7 +92,7 @@ function SessionModal({ onSave, onClose }) {
             )}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <Fld label="Total quest\u00f5es" error={touched.total && errors.total}><input type="number" min="0" value={total} onChange={(e) => { setTotal(e.target.value); if (errors.total) setErrors((er) => ({ ...er, total: null })); }} onBlur={() => { touch("total"); validate("total"); }} style={inp(errStyle("total"))} /></Fld>
+            <Fld label="Total questões" error={touched.total && errors.total}><input type="number" min="0" value={total} onChange={(e) => { setTotal(e.target.value); if (errors.total) setErrors((er) => ({ ...er, total: null })); }} onBlur={() => { touch("total"); validate("total"); }} style={inp(errStyle("total"))} /></Fld>
             <Fld label="Acertos" error={touched.acertos && errors.acertos}><input type="number" min="0" value={acertos} onChange={(e) => { setAcertos(e.target.value); if (errors.acertos) setErrors((er) => ({ ...er, acertos: null })); }} onBlur={() => { touch("acertos"); validate("acertos"); }} style={inp({ borderColor: "#34D39944", ...errStyle("acertos") })} /></Fld>
           </div>
           <Fld label="Semana do cronograma (opcional)">
@@ -102,7 +102,7 @@ function SessionModal({ onSave, onClose }) {
               ))}
             </div>
           </Fld>
-          <button onClick={submit} style={btn("#34D399", { width: "100%", marginTop: 4 })}>\u2713 Salvar sess\u00e3o</button>
+          <button onClick={submit} style={btn("#34D399", { width: "100%", marginTop: 4 })}>✓ Salvar sessão</button>
         </div>
       </div>
     </div>

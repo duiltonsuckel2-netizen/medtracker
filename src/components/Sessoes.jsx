@@ -20,7 +20,7 @@ function Sessoes({ sessions }) {
         {AREAS.map((a) => <button key={a.id} onClick={() => { setFilterArea(a.id); setVisibleCount(PAGE_SIZE); }} style={btn(filterArea === a.id ? a.color : C.card, { padding: "6px 12px", fontSize: 11, border: `1px solid ${filterArea === a.id ? a.color : C.border}` })}>{a.short}</button>)}
       </div>
       {filtered.length === 0
-        ? <Empty icon={"\ud83d\udcda"} msg="Nenhuma sess\u00e3o registrada." />
+        ? <Empty icon={"📚"} msg="Nenhuma sessão registrada." />
         : visible.map((s) => {
           const a = areaMap[s.area]; const p = perc(s.acertos, s.total);
           const borderColor = p >= 85 ? C.green + "60" : p >= 60 ? C.yellow + "60" : C.red + "60";
@@ -32,7 +32,7 @@ function Sessoes({ sessions }) {
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{s.theme}</div>
-                <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(s.date)} \u00b7 {s.total}q \u00b7 {s.acertos} acertos</div>
+                <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(s.date)} · {s.total}q · {s.acertos} acertos</div>
               </div>
               <span style={{ ...tag(a?.color || "#6B7280"), borderLeft: `3px solid ${a?.color || "#6B7280"}` }}>{a?.short}</span>
             </div>

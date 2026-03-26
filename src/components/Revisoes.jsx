@@ -177,10 +177,10 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
           else later.push(r);
         });
         if (thisWeek.length) groups.push({ label: "Esta semana", items: thisWeek, accent: C.blue });
-        if (nextWeek.length) groups.push({ label: "Pr\u00f3xima semana", items: nextWeek, accent: C.purple });
+        if (nextWeek.length) groups.push({ label: "Próxima semana", items: nextWeek, accent: C.purple });
         if (later.length) groups.push({ label: "Mais adiante", items: later, accent: C.text3 });
 
-        if (upcoming.length === 0) return <Empty icon="\u{1f4c5}" msg="Nenhuma revis\u00e3o futura agendada." />;
+        if (upcoming.length === 0) return <Empty icon="📅" msg="Nenhuma revisão futura agendada." />;
 
         return groups.map((g) => (
           <div key={g.label}>
@@ -215,7 +215,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: perfColor(r.lastPerf) + "18", border: `2px solid ${perfColor(r.lastPerf)}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(r.lastPerf), fontFamily: FN }}>{r.lastPerf}%</span>
                       </div>
-                      <button onClick={() => { setSubtemaModal({ revId: r.id, theme: r.theme, area: r.area }); setSubtemaResult(null); setSubtemaStatus("idle"); setSubtemaImg(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.text3, padding: 2, opacity: 0.5 }} title="Subtemas">{"\ud83d\udcca"}</button>
+                      <button onClick={() => { setSubtemaModal({ revId: r.id, theme: r.theme, area: r.area }); setSubtemaResult(null); setSubtemaStatus("idle"); setSubtemaImg(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.text3, padding: 2, opacity: 0.5 }} title="Subtemas">{"📊"}</button>
                     </div>
                   </div>
                 );

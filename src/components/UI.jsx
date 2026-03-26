@@ -40,7 +40,7 @@ function ChartTip({ active, payload, label, averages }) {
           </div>
         );
       })}
-      {payload.some((_, i) => averages?.[payload[i]?.dataKey] != null) && <div style={{ fontSize: 10, color: C.text3, marginTop: 4, borderTop: `1px solid ${C.border}`, paddingTop: 4 }}>vs. sua m\u00e9dia</div>}
+      {payload.some((_, i) => averages?.[payload[i]?.dataKey] != null) && <div style={{ fontSize: 10, color: C.text3, marginTop: 4, borderTop: `1px solid ${C.border}`, paddingTop: 4 }}>vs. sua média</div>}
     </div>
   );
 }

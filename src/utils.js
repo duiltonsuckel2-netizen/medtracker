@@ -30,12 +30,21 @@ export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   const a2 = sem.aulas[1] || null;
   const nextSem = SEMANAS[semIdx + 1];
   const rbd = { sab: [], dom: [], seg: [], ter: [], qua: [], qui: [], sex: [] };
+  const satDate = dates.sab;
+  const overdue = [];
   allReviews.forEach((r) => {
     if (!r.nextDue) return;
     const dayId = Object.keys(dates).find((k) => dates[k] === r.nextDue);
     if (dayId) {
-      rbd[dayId].push({ id: uid(), text: `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true });
+      rbd[dayId].push({ id: uid(), text: `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true, reviewKey: r.key || `${r.area}__${r.theme.toLowerCase().trim()}` });
+    } else if (r.nextDue < satDate) {
+      overdue.push(r);
     }
+  });
+  const spreadDays = ["seg", "ter", "qua", "qui"];
+  overdue.forEach((r, i) => {
+    const dayId = spreadDays[i % spreadDays.length];
+    rbd[dayId].push({ id: uid(), text: `⚠️ 🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true, reviewKey: r.key || `${r.area}__${r.theme.toLowerCase().trim()}` });
   });
   const targetDays = ["seg", "ter", "qua", "qui"];
   (alertThemes || []).forEach((at) => {

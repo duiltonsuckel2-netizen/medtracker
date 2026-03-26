@@ -35,8 +35,34 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
         const todayDow = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][new Date().getDay()];
         const dayOrder = ["sab", "dom", "seg", "ter", "qua", "qui", "sex"];
         const todayIdx = dayOrder.indexOf(todayDow);
+
+        // Merge any new reviews not already in the saved agenda
+        const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
+        if (idx >= 0) setSemIdx(idx);
+        const freshWeek = buildWeekTemplate(idx >= 0 ? idx : 0, reviews, alertThemes);
+        const existingKeys = new Set();
+        saved.forEach((day) => day.items.forEach((it) => { if (it.reviewKey) existingKeys.add(it.reviewKey); }));
+        // Also detect reviews by text pattern for items without reviewKey (legacy)
+        saved.forEach((day) => day.items.forEach((it) => { if (it.isReview && it.text) existingKeys.add(it.text.replace(/^⚠️\s*/, "")); }));
+        const spreadDays = ["seg", "ter", "qua", "qui"];
+        let spreadIdx = 0;
+        const newItems = {};
+        freshWeek.forEach((day) => day.items.forEach((it) => {
+          if (!it.isReview) return;
+          const key = it.reviewKey || it.text.replace(/^⚠️\s*/, "");
+          if (!existingKeys.has(key)) {
+            const targetDay = day.id || spreadDays[spreadIdx++ % spreadDays.length];
+            if (!newItems[targetDay]) newItems[targetDay] = [];
+            newItems[targetDay].push(it);
+          }
+        }));
+        let merged = saved;
+        if (Object.keys(newItems).length > 0) {
+          merged = saved.map((day) => newItems[day.id] ? { ...day, items: [...day.items, ...newItems[day.id]] } : day);
+        }
+
         const rollovers = [];
-        const updated = saved.map((day) => {
+        const updated = merged.map((day) => {
           if (dayOrder.indexOf(day.id) >= todayIdx) return day;
           const pendingReviews = day.items.filter((it) => !it.done && it.isReview);
           if (!pendingReviews.length) return day;
@@ -48,9 +74,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
             ...day, items: [...day.items, ...rollovers.map((r) => ({ ...r, text: "⚠️ " + r.text.replace(/^🔄\s*/, "🔄 ") }))]
           });
           setWeek(rolled); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: savedSemana, days: rolled });
-        } else { setWeek(saved); }
-        const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
-        if (idx >= 0) setSemIdx(idx);
+        } else { setWeek(updated); if (Object.keys(newItems).length > 0) saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: savedSemana, days: updated }); }
       } else {
         if (saved && savedWeekKey) {
           const tot = saved.reduce((s, d) => s + d.items.length, 0);

@@ -24,6 +24,36 @@ function App() {
   const [showSessionModal, setShowSessionModal] = useState(false);
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
+
+  // ── Export / Import backup ──
+  function exportData() {
+    const data = { sessions, reviews, revLogs, exams, exportedAt: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = `medtracker-backup-${today()}.json`; a.click();
+    URL.revokeObjectURL(url);
+    notify("\u2713 Backup exportado");
+  }
+  function importData() {
+    const input = document.createElement("input"); input.type = "file"; input.accept = ".json";
+    input.onchange = (e) => {
+      const file = e.target.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (data.sessions) pS(data.sessions);
+          if (data.reviews) pR(data.reviews);
+          if (data.revLogs) pL(data.revLogs);
+          if (data.exams) pE(data.exams);
+          notify(`\u2713 Backup restaurado (${new Date(data.exportedAt || Date.now()).toLocaleDateString("pt-BR")})`);
+        } catch { notify("\u2717 Arquivo inv\u00e1lido"); }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
   useEffect(() => {
     Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_seeded12", false)]).then(([s, r, rl, e, seeded]) => {
       if (!seeded) {
@@ -106,7 +136,9 @@ function App() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
             {flash && (<span style={{ fontSize: 10, color: C.green, fontFamily: FM, fontWeight: 600, background: `rgba(34,197,94,0.1)`, padding: "4px 10px", borderRadius: R.pill, border: `1px solid rgba(34,197,94,0.2)` }}>{flash}</span>)}
-            <button onClick={toggleTheme} style={{ background: `linear-gradient(135deg, rgba(129,140,248,0.15), rgba(196,181,253,0.2))`, border: `1px solid rgba(196,181,253,0.25)`, borderRadius: R.pill, width: 32, height: 32, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s ease", flexShrink: 0, color: C.purple }}>{darkMode ? "\u2600" : "\u263D"}</button>
+            <button onClick={exportData} title="Exportar backup" style={{ background: `linear-gradient(135deg, rgba(129,140,248,0.15), rgba(196,181,253,0.2))`, border: `1px solid rgba(196,181,253,0.25)`, borderRadius: R.pill, width: 32, height: 32, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s ease", flexShrink: 0, color: C.purple }}>{"\u2B07"}</button>
+            <button onClick={importData} title="Importar backup" style={{ background: `linear-gradient(135deg, rgba(129,140,248,0.15), rgba(196,181,253,0.2))`, border: `1px solid rgba(196,181,253,0.25)`, borderRadius: R.pill, width: 32, height: 32, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s ease", flexShrink: 0, color: C.purple }}>{"\u2B06"}</button>
+            <button onClick={toggleTheme} title={darkMode ? "Modo claro" : "Modo escuro"} style={{ background: `linear-gradient(135deg, rgba(129,140,248,0.15), rgba(196,181,253,0.2))`, border: `1px solid rgba(196,181,253,0.25)`, borderRadius: R.pill, width: 32, height: 32, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s ease", flexShrink: 0, color: C.purple }}>{darkMode ? "\u2600" : "\u263D"}</button>
           </div>
         </div>
       </div>

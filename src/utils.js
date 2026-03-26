@@ -7,9 +7,19 @@ export const diffDays = (a, b) => Math.round((new Date(a + "T12:00:00") - new Da
 export const perc = (ac, tot) => tot > 0 ? Math.round((ac / tot) * 100) : 0;
 export const uid = () => Math.random().toString(36).slice(2, 10);
 export const fmtDate = (s) => s ? new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "";
-export const perfColor = (p) => p >= 85 ? "#22C55E" : p >= 60 ? "#EAB308" : "#EF4444";
-export const perfLabel = (p) => p >= 85 ? "Bom" : p >= 60 ? "Regular" : "Fraco";
-export function nxtIdx(cur, pct) { if (pct >= 85) return Math.min(cur + 1, INTERVALS.length - 1); if (pct >= 75) return cur; return Math.max(0, cur - 1); }
+export const perfColor = (p) => p >= 75 ? "#22C55E" : p >= 60 ? "#EAB308" : "#EF4444";
+export const perfLabel = (p) => p >= 75 ? "Bom" : p >= 60 ? "Regular" : "Fraco";
+export function nxtIdx(cur, pct) { if (pct >= 75) return Math.min(cur + 1, INTERVALS.length - 1); return cur; /* <75%: keep same milestone, retry logic handled in App */ }
+
+// Evita sex/sáb/dom: sex→qui, sáb→seg, dom→seg
+export function avoidWeekend(dateStr) {
+  const d = new Date(dateStr + "T12:00:00");
+  const dow = d.getDay(); // 0=dom, 5=sex, 6=sáb
+  if (dow === 5) return addDays(dateStr, -1); // sex → qui
+  if (dow === 6) return addDays(dateStr, 2);  // sáb → seg
+  if (dow === 0) return addDays(dateStr, 1);  // dom → seg
+  return dateStr;
+}
 
 export function weekDates(satStr) {
   const sat = new Date(satStr + "T12:00:00");
@@ -31,26 +41,48 @@ export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   const nextSem = SEMANAS[semIdx + 1];
   const rbd = { sab: [], dom: [], seg: [], ter: [], qua: [], qui: [], sex: [] };
   const satDate = dates.sab;
+  const sexDate = dates.sex;
   const overdue = [];
+  const weekdayPool = ["seg", "ter", "qua", "qui"];
+  const mkItem = (r, prefix) => ({ id: uid(), text: `${prefix}🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true, reviewKey: r.key || `${r.area}__${r.theme.toLowerCase().trim()}` });
   allReviews.forEach((r) => {
     if (!r.nextDue) return;
     const dayId = Object.keys(dates).find((k) => dates[k] === r.nextDue);
     if (dayId) {
-      rbd[dayId].push({ id: uid(), text: `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true, reviewKey: r.key || `${r.area}__${r.theme.toLowerCase().trim()}` });
+      // Move sex/sab/dom reviews to weekdays (qui for sex, seg for sab/dom)
+      if (dayId === "sex") { rbd.qui.push(mkItem(r, "")); }
+      else if (dayId === "sab" || dayId === "dom") { rbd.seg.push(mkItem(r, "")); }
+      else { rbd[dayId].push(mkItem(r, "")); }
     } else if (r.nextDue < satDate) {
       overdue.push(r);
+    } else if (r.nextDue > sexDate) {
+      // Falls after this week — skip
     }
   });
-  const spreadDays = ["seg", "ter", "qua", "qui"];
+  // Spread overdue reviews across weekdays
   overdue.forEach((r, i) => {
-    const dayId = spreadDays[i % spreadDays.length];
-    rbd[dayId].push({ id: uid(), text: `⚠️ 🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true, reviewKey: r.key || `${r.area}__${r.theme.toLowerCase().trim()}` });
+    const dayId = weekdayPool[i % weekdayPool.length];
+    rbd[dayId].push(mkItem(r, "⚠️ "));
   });
-  const targetDays = ["seg", "ter", "qua", "qui"];
   (alertThemes || []).forEach((at) => {
-    const best = targetDays.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
+    const best = weekdayPool.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
     rbd[best].push({ id: uid(), text: `🎯 Revisar: ${at.theme} (${areaMap[at.area]?.short || at.area})`, done: false, fixed: false, isReview: true });
   });
+  // Balance: max 4 reviews per weekday, redistribute excess to least-loaded day
+  const MAX_PER_DAY = 4;
+  for (let pass = 0; pass < 3; pass++) {
+    for (const day of weekdayPool) {
+      const revItems = rbd[day].filter((it) => it.isReview);
+      if (revItems.length > MAX_PER_DAY) {
+        const excess = revItems.slice(MAX_PER_DAY);
+        rbd[day] = [...rbd[day].filter((it) => !it.isReview), ...revItems.slice(0, MAX_PER_DAY)];
+        excess.forEach((it) => {
+          const best = weekdayPool.reduce((a, b) => rbd[a].filter((x) => x.isReview).length <= rbd[b].filter((x) => x.isReview).length ? a : b);
+          rbd[best].push(it);
+        });
+      }
+    }
+  }
   const fl = (id) => ({ id, text: "📚 Flashcards", done: false, fixed: true });
   return [
     { id: "sab", label: `Sábado ${fmtDate(dates.sab)}`, items: [fl("fl_sab"), ...(a1 ? [{ id: "sa1", text: `📖 Aula: ${a1.topic} (${a1.area})`, done: false, fixed: false }] : []), ...(a2 ? [{ id: "sa2", text: `📖 Aula: ${a2.topic} (${a2.area})`, done: false, fixed: false }] : []), ...rbd.sab] },

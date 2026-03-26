@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, SEED_SESSIONS, areaMap, buildUnicamp2024Exam } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
-import { today, addDays, perc, uid, fmtDate, nxtIdx } from "./utils.js";
+import { today, addDays, perc, uid, fmtDate, nxtIdx, avoidWeekend } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
 import { Agenda } from "./components/Agenda.jsx";
 import { Dashboard } from "./components/Dashboard.jsx";
@@ -133,34 +133,41 @@ function App() {
   const pR = (v) => { setReviews(v); saveKey("rp26_reviews", v); };
   const pL = (v) => { setRevLogs(v); saveKey("rp26_revlogs", v); };
   const pE = (v) => { setExams(v); saveKey("rp26_exams", v); };
-  // Calcula nextDue baseado no D0 (firstStudied). Se avançou, usa milestone do D0.
-  // Se manteve/voltou (performance baixa), reagenda em 7 dias pra tentar de novo.
-  function calcNextDue(firstStudied, prevIdx, newIdx) {
-    if (newIdx > prevIdx) return addDays(firstStudied, INTERVALS[newIdx]);
-    // Manteve ou voltou: reagendar em 7 dias a partir de hoje
-    return addDays(today(), 7);
+  // Calcula nextDue baseado no D0 (firstStudied).
+  // ≥75%: avança milestone, nextDue = D0 + INTERVALS[next] (evita fim de semana)
+  // <75%: retry crescente — 7d, 14d, depois mensal (30d). consecutiveFails tracked.
+  const RETRY_INTERVALS = [7, 14, 30];
+  function calcNextDue(firstStudied, prevIdx, newIdx, pct, consecutiveFails) {
+    if (pct >= 75) {
+      return avoidWeekend(addDays(firstStudied, INTERVALS[newIdx]));
+    }
+    // <75%: retry cycle — 7d, 14d, mensal
+    const retryDays = RETRY_INTERVALS[Math.min(consecutiveFails || 0, RETRY_INTERVALS.length - 1)];
+    return avoidWeekend(addDays(today(), retryDays));
   }
   function addSession(session) {
     const s = { ...session, id: uid(), createdAt: today() }; pS([s, ...sessions]);
     const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
     const ex = reviews.find((r) => r.key === key); const pct = perc(session.acertos, session.total); const ni = nxtIdx(0, pct);
     const fs = ex?.firstStudied || today();
-    const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(fs, INTERVALS[ni]), lastPerf: pct, lastStudied: today(), firstStudied: fs, history: [...(ex?.history || []), { date: today(), pct }] };
+    const nd = avoidWeekend(addDays(fs, INTERVALS[ni]));
+    const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: nd, lastPerf: pct, lastStudied: today(), firstStudied: fs, consecutiveFails: 0, history: [...(ex?.history || []), { date: today(), pct }] };
     pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
     notify("✓ Sessão registrada — 1ª revisão em " + INTERVALS[ni] + "d");
   }
   function addRevLog(areaId, theme, total, acertos) {
     const pct = perc(acertos, total); pL([{ id: uid(), date: today(), area: areaId, theme, total, acertos, pct }, ...revLogs]);
     const key = `${areaId}__${theme.toLowerCase().trim()}`; const ex = reviews.find((r) => r.key === key);
-    if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); const nd = calcNextDue(ex.firstStudied || ex.lastStudied, ex.intervalIndex, ni); pR(reviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: nd, lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r)); }
-    else { const ni = nxtIdx(0, pct); const fs = today(); pR([{ id: uid(), key, area: areaId, theme, intervalIndex: ni, nextDue: addDays(fs, INTERVALS[ni]), lastPerf: pct, lastStudied: fs, firstStudied: fs, history: [{ date: fs, pct }] }, ...reviews]); }
+    if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); const fails = pct >= 75 ? 0 : (ex.consecutiveFails || 0) + 1; const nd = calcNextDue(ex.firstStudied || ex.lastStudied, ex.intervalIndex, ni, pct, ex.consecutiveFails || 0); pR(reviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: nd, lastPerf: pct, lastStudied: today(), consecutiveFails: fails, history: [...(r.history || []), { date: today(), pct }] } : r)); }
+    else { const ni = nxtIdx(0, pct); const fs = today(); const nd = avoidWeekend(addDays(fs, INTERVALS[ni])); pR([{ id: uid(), key, area: areaId, theme, intervalIndex: ni, nextDue: nd, lastPerf: pct, lastStudied: fs, firstStudied: fs, consecutiveFails: 0, history: [{ date: fs, pct }] }, ...reviews]); }
     notify("✓ Revisão registrada");
   }
   function markReview(revId, acertos, total) {
     const pct = perc(acertos, total); const rev = reviews.find((r) => r.id === revId); if (!rev) return;
     const ni = nxtIdx(rev.intervalIndex, pct);
-    const nd = calcNextDue(rev.firstStudied || rev.lastStudied, rev.intervalIndex, ni);
-    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd, lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] }));
+    const fails = pct >= 75 ? 0 : (rev.consecutiveFails || 0) + 1;
+    const nd = calcNextDue(rev.firstStudied || rev.lastStudied, rev.intervalIndex, ni, pct, rev.consecutiveFails || 0);
+    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd, lastPerf: pct, lastStudied: today(), consecutiveFails: fails, history: [...(r.history || []), { date: today(), pct }] }));
     pL([{ id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct }, ...revLogs]);
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }

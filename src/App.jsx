@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx } from "./utils.js";
@@ -23,7 +23,7 @@ function App() {
   const [ready, setReady] = useState(false);
   const [flash, setFlash] = useState("");
   const [showSessionModal, setShowSessionModal] = useState(false);
-  const [tabTransition, setTabTransition] = useState(false);
+  const [tabKey, setTabKey] = useState(0);
 
   useEffect(() => { injectKeyframes(); }, []);
 
@@ -32,9 +32,8 @@ function App() {
 
   function switchTab(id) {
     if (id === tab) return;
-    setTabTransition(true);
     setTab(id);
-    setTimeout(() => setTabTransition(false), 250);
+    setTabKey((k) => k + 1);
   }
 
   useEffect(() => {
@@ -114,7 +113,6 @@ function App() {
     { id: "temas", label: "Temas" },
   ];
 
-  const contentStyle = { opacity: tabTransition ? 0 : 1, transform: tabTransition ? "translateY(6px)" : "translateY(0)", transition: "opacity .2s ease, transform .2s ease" };
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: F, color: C.text }}>
@@ -138,9 +136,9 @@ function App() {
         </div>
       </div>
       {showSessionModal && <SessionModal onSave={(s) => { addSession(s); setShowSessionModal(false); }} onClose={() => setShowSessionModal(false)} />}
-      {/* CONTENT with fade transition */}
+      {/* CONTENT */}
       <div style={{ padding: `${S.xl}px`, maxWidth: 1200, margin: "0 auto", paddingBottom: 100 }}>
-        <div style={contentStyle}>
+        <div key={tabKey} className="fade-in">
           <div style={{ display: tab === "agenda" ? "block" : "none" }}><Agenda reviews={reviews} revLogs={revLogs} alertThemes={alertThemes} onAddSubtemaNote={() => {}} /></div>
           {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} />}
           {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" />}

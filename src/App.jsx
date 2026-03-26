@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam } from "./data.js";
+import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, SEED_SESSIONS, areaMap, buildUnicamp2024Exam } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
@@ -36,15 +36,79 @@ function App() {
     setTabKey((k) => k + 1);
   }
 
+  function buildReviewHistories(revs) {
+    // Map log themes to review keys for cross-referencing
+    const themeToKey = {};
+    revs.forEach((r) => { themeToKey[r.key] = r.key; });
+    // Build lookup: try to match each log to a review by fuzzy theme match
+    const logsByKey = {};
+    SEED_LOGS.forEach((l) => {
+      const directKey = `${l.area}__${l.theme.toLowerCase().trim()}`;
+      // Find best matching review key
+      let matchKey = null;
+      if (revs.find((r) => r.key === directKey)) { matchKey = directKey; }
+      else {
+        const lWords = l.theme.toLowerCase().split(/[\s,./()—-]+/).filter((w) => w.length > 3);
+        let best = null, bestScore = 0;
+        for (const r of revs) {
+          if (r.area !== l.area) continue;
+          const rWords = r.theme.toLowerCase().split(/[\s,./()—-]+/).filter((w) => w.length > 3);
+          let score = 0;
+          for (const lw of lWords) for (const rw of rWords) {
+            if (lw === rw || rw.includes(lw) || lw.includes(rw)) score += Math.max(lw.length, rw.length);
+          }
+          if (score > bestScore) { bestScore = score; best = r.key; }
+        }
+        if (bestScore >= 4) matchKey = best;
+      }
+      if (matchKey) {
+        if (!logsByKey[matchKey]) logsByKey[matchKey] = [];
+        logsByKey[matchKey].push({ date: l.date, pct: l.pct });
+      }
+    });
+    return revs.map((r) => {
+      const logs = logsByKey[r.key];
+      const history = logs && logs.length > 0
+        ? logs.sort((a, b) => a.date.localeCompare(b.date))
+        : [{ date: r.lastStudied, pct: r.lastPerf }];
+      return { ...r, history };
+    });
+  }
+
   useEffect(() => {
-    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_seeded12", false)]).then(([s, r, rl, e, seeded]) => {
+    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_seeded12", false), loadKey("rp26_migrated_v2", false)]).then(([s, r, rl, e, seeded, migrated]) => {
       if (!seeded) {
-        const revs = SEED_REVIEWS.map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}`, history: [{ date: r.lastStudied, pct: r.lastPerf }] }));
+        // Fresh install: seed with full history
+        const revs = buildReviewHistories(SEED_REVIEWS.map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}` })));
         const logs = SEED_LOGS.map((l) => ({ ...l, id: uid() }));
+        const sess = SEED_SESSIONS.map((s) => ({ ...s, id: uid() }));
         const se = buildUnicamp2024Exam();
-        setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]);
-        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true);
-      } else { setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []); }
+        setSessions(sess); setReviews(revs); setRevLogs(logs); setExams([se]);
+        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", sess); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true); saveKey("rp26_migrated_v2", true);
+      } else if (!migrated) {
+        // Existing user: enrich data without losing anything
+        let revs = Array.isArray(r) ? r : [];
+        let logs = Array.isArray(rl) ? rl : [];
+        let sess = Array.isArray(s) ? s : [];
+        // Add missing reviews (e.g. Hipertensão Porta)
+        const existingKeys = new Set(revs.map((r) => r.key));
+        SEED_REVIEWS.forEach((sr) => {
+          const key = `${sr.area}__${sr.theme.toLowerCase().trim()}`;
+          if (!existingKeys.has(key)) {
+            revs = [{ ...sr, id: uid(), key, history: [{ date: sr.lastStudied, pct: sr.lastPerf }] }, ...revs];
+          }
+        });
+        // Enrich review histories from logs
+        revs = buildReviewHistories(revs);
+        // Add seed sessions if user has none
+        if (sess.length === 0) {
+          sess = SEED_SESSIONS.map((s) => ({ ...s, id: uid() }));
+        }
+        setSessions(sess); setReviews(revs); setRevLogs(logs); setExams(Array.isArray(e) ? e : []);
+        saveKey("rp26_reviews", revs); saveKey("rp26_sessions", sess); saveKey("rp26_migrated_v2", true);
+      } else {
+        setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []);
+      }
       setReady(true);
     });
   }, []);

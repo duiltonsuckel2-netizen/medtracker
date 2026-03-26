@@ -35,6 +35,7 @@ export const SEED_REVIEWS = [
   { area: "go",         theme: "IST — Úlceras Genitais (Sem. 03)",                                   lastPerf: 93, intervalIndex: 3, nextDue: "2026-04-11", lastStudied: "2026-02-10" },
   { area: "cirurgia",   theme: "Sd. Disfágica — Esôfago (Sem. 04)",                                 lastPerf: 88, intervalIndex: 3, nextDue: "2026-04-15", lastStudied: "2026-02-14" },
   { area: "ped",        theme: "Sd. Respiratórias I (Sem. 04)",                                      lastPerf: 88, intervalIndex: 3, nextDue: "2026-04-18", lastStudied: "2026-02-17" },
+  { area: "cirurgia",   theme: "Hipertensão Porta (Sem. 02)",                                        lastPerf: 80, intervalIndex: 2, nextDue: "2026-04-05", lastStudied: "2026-03-06" },
 ];
 
 export const SEED_LOGS = [
@@ -91,6 +92,37 @@ export const SEED_LOGS = [
   {date:"2026-03-23", area:"go",         theme:"Sangramentos 1º trimestre",       total:35, acertos:30, pct:85},
   {date:"2026-03-23", area:"preventiva", theme:"SUS (APS)",                       total:40, acertos:29, pct:72},
   {date:"2026-03-24", area:"cirurgia",   theme:"Hemorragia digestiva II",          total:20, acertos:17, pct:85},
+];
+
+// ── Sessões de estudo (aulas assistidas) — reconstruído do cronograma Sem. 01-10 ──
+export const SEED_SESSIONS = [
+  // Sem. 01 — sáb 24/01
+  { area: "clinica",    theme: "Sd. Ictérica — Hepatites",                   acertos: 26, total: 40, createdAt: "2026-01-24" },
+  { area: "ped",        theme: "Doenças Exantemáticas",                      acertos: 48, total: 60, createdAt: "2026-01-24" },
+  // Sem. 02 — sáb 31/01
+  { area: "clinica",    theme: "Sd. Ictérica — Vias Biliares",              acertos: 31, total: 40, createdAt: "2026-01-31" },
+  { area: "cirurgia",   theme: "Hipertensão Porta",                          acertos: 25, total: 30, createdAt: "2026-01-31" },
+  // Sem. 03 — sáb 07/02
+  { area: "cirurgia",   theme: "Insuficiência Hepática",                     acertos: 21, total: 30, createdAt: "2026-02-07" },
+  { area: "go",         theme: "IST — Úlceras Genitais",                     acertos: 75, total: 80, createdAt: "2026-02-07" },
+  // Sem. 04 — sáb 14/02
+  { area: "cirurgia",   theme: "Sd. Disfágica — Esôfago",                   acertos: 53, total: 60, createdAt: "2026-02-14" },
+  { area: "ped",        theme: "Sd. Respiratórias I",                        acertos: 53, total: 60, createdAt: "2026-02-14" },
+  // Sem. 05 — sáb 21/02
+  { area: "cirurgia",   theme: "Sd. Dispéptica e Doenças do TGI Superior",  acertos: 61, total: 69, createdAt: "2026-02-21" },
+  { area: "ped",        theme: "Sd. Respiratórias II",                       acertos: 56, total: 61, createdAt: "2026-02-21" },
+  // Sem. 06 — sáb 28/02
+  { area: "clinica",    theme: "Sd. Diarreica",                              acertos: 45, total: 60, createdAt: "2026-02-28" },
+  { area: "cirurgia",   theme: "Hemorragia Digestiva I",                     acertos: 50, total: 60, createdAt: "2026-02-28" },
+  // Sem. 08 — sáb 07/03
+  { area: "clinica",    theme: "HAS e Sd. Metabólica",                       acertos: 47, total: 60, createdAt: "2026-03-07" },
+  { area: "cirurgia",   theme: "Hemorragia Digestiva II — Proctologia",      acertos: 42, total: 48, createdAt: "2026-03-07" },
+  // Sem. 09 — sáb 14/03
+  { area: "preventiva", theme: "SUS — APS e Financiamento",                  acertos: 48, total: 60, createdAt: "2026-03-14" },
+  { area: "go",         theme: "Sangramentos da 1ª Metade da Gravidez",      acertos: 23, total: 30, createdAt: "2026-03-14" },
+  // Sem. 10 — sáb 21/03
+  { area: "cirurgia",   theme: "Dor Abdominal / Abdome Agudo",              acertos: 48, total: 60, createdAt: "2026-03-21" },
+  { area: "go",         theme: "Sangramento da 2ª Metade da Gravidez",       acertos: 51, total: 60, createdAt: "2026-03-21" },
 ];
 
 export const UNICAMP_THEMES = { 1: "Pneumonia/Sepse (Anemia Falciforme)", 2: "HAS e Sd. Metabólica", 3: "Profilaxia Antirrábica", 4: "Profilaxia Antirrábica", 5: "Artrite Psoriásica", 6: "IC/HTP", 7: "Insuf. Respiratória/IOT", 8: "Neuropatia/Anemia Megaloblástica", 9: "Anafilaxia", 10: "Pericardite", 11: "Rabdomiólise", 12: "Micobacteriose não tuberculosa", 13: "Hematoma Extradural/TCE", 14: "Hematoma Extradural", 15: "Tumor de parótida", 16: "Doença de Hirschsprung", 17: "Diabetes Insipidus Central", 18: "Nódulo Sister Mary Joseph/Ca gástrico", 19: "Dissecção de Aorta", 20: "Hemorragia classe III/ATLS", 21: "Empiema pleural", 22: "Estenose traqueia pós-intubação", 23: "Coledocolitíase/Colangite", 24: "HPB", 25: "Sd. Nefrótica", 26: "Anafilaxia pediátrica", 27: "Intox. por escorpião", 28: "RCP Pediátrica", 29: "Leucemia Aguda (Down)", 30: "Intussuscepção", 31: "Reanimação neonatal", 32: "Válvula de uretra posterior", 33: "Constipação/Encoprese", 34: "Sífilis congênita", 35: "Hipotireoidismo pediátrico", 36: "Pitiríase Rósea", 37: "TH na menopausa", 38: "RCIU/DG", 39: "Sífilis gestação/PCDT", 40: "Obstrução tubária/HSG", 41: "Acretismo placentário", 42: "HELLP", 43: "NIV/HPV", 44: "RCIU/Doppler", 45: "ACO - amenorreia de privação", 46: "IUE", 47: "Derrame pleural/Ca mama", 48: "Cisto ovariano", 49: "Estudo ecológico", 50: "Estudo transversal", 51: "Bradford Hill", 52: "Dec. óbito - linha A", 53: "Prevenção quaternária", 54: "Regionalização SUS", 55: "Freq. epidemiológica", 56: "Indicador epidemiológico", 57: "Prev. quaternária/sobrediagnóstico", 58: "PTS", 59: "Tx mortalidade bruta", 60: "Tx mortalidade padronizada", 61: "Artrite séptica", 62: "CAD", 63: "Wernicke/tiamina", 64: "Opioides/naloxona", 65: "Pleurite tuberculosa", 66: "Miastenia gravis", 67: "Hipersensibilidade alopurinol", 68: "Sífilis reinfecção", 69: "Meningite/dexametasona", 70: "Pré-diabetes", 71: "Intolerância lactose/SII", 72: "Feocromocitoma", 73: "Mixoma atrial", 74: "Hidrocele comunicante", 75: "Ác. tranexâmico/trauma", 76: "Ruptura de aorta", 77: "Lesão vascular poplítea", 78: "Choque neurogênico", 79: "Dose máxima lidocaína", 80: "Válvula biológica/gestação", 81: "Drenagem pleural incorreta", 82: "Abdome agudo perfurativo", 83: "Ca tireoide/sobrediagnóstico", 84: "Hemangioma hepático", 85: "ITU lactente", 86: "Febre maculosa", 87: "Hiperplasia adrenal congênita", 88: "RCP neonatal", 89: "Hepatite A", 90: "Puberdade precoce", 91: "Corpo estranho brônquio", 92: "Hepatite B/profilaxia vertical", 93: "Varicela materna/RN", 94: "Epifisiólise/SCFE", 95: "Baixa estatura familiar", 96: "Coqueluche", 97: "Vacinação gestação/dTpa", 98: "Vaginose bacteriana", 99: "DG/insulina puerpério", 100: "Mamografia BI-RADS", 101: "Partograma", 102: "Fórceps", 103: "RPMO pré-termo", 104: "ACO/migrânea", 105: "DPP", 106: "Células glandulares atípicas", 107: "Insuf. ovariana prematura", 108: "Sangramento pós-menopausa", 109: "Prev. lombalgia", 110: "Organofosforado", 111: "Eixos Saúde Trabalhador", 112: "Modelo atenção SUS", 113: "Coorte", 114: "Diarreia aguda", 115: "Bioética deliberativa", 116: "Atropina/organofosforado", 117: "SINAN", 118: "Colinesterase eritrocitária", 119: "Catarata/radiação", 120: "Silicose/Caplan" };

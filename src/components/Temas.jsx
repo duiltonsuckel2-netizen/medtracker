@@ -37,7 +37,7 @@ function Temas({ reviews, onEdit }) {
         const deadlineBg = isDue ? C.red : C.text3;
         const deadlineText = isDue ? (days === 0 ? "hoje" : `${Math.abs(days)}d atrás`) : `em ${days}d`;
         return (
-        <div key={r.id} style={{ ...card, borderLeft: `3px solid ${isDue ? C.red : a?.color + "50"}`, padding: `${S.xl}px`, boxShadow: SH.sm }}>
+        <div key={r.id} style={{ ...card, borderTop: `2px solid ${isDue ? C.red + "60" : a?.color + "35"}`, padding: `${S.xl}px` }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: S.lg }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: C.text, lineHeight: 1.3, marginBottom: S.sm }}>{r.theme}</div>

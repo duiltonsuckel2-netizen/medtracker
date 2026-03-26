@@ -59,16 +59,16 @@ export const H = { sm: 36, md: 44, lg: 48 };
 
 // Shadows
 export const SH_DARK = {
-  sm: "0 1px 2px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.03)",
-  md: "0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03)",
-  lg: "0 8px 24px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)",
-  glow: (col) => `0 0 20px ${col}15, 0 2px 8px rgba(0,0,0,0.3)`,
+  sm: "0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04)",
+  md: "0 4px 12px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04)",
+  lg: "0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.05)",
+  glow: () => "0 4px 12px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.04)",
 };
 export const SH_LIGHT = {
-  sm: "0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)",
-  md: "0 3px 10px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",
-  lg: "0 8px 24px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)",
-  glow: (col) => `0 2px 12px ${col}18, 0 1px 3px rgba(0,0,0,0.06)`,
+  sm: "0 1px 4px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.03)",
+  md: "0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",
+  lg: "0 8px 32px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)",
+  glow: () => "0 4px 16px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03)",
 };
 export let SH = SH_DARK;
 
@@ -76,9 +76,21 @@ export let SH = SH_DARK;
 export function applyTheme(dark) {
   C = dark ? DARK : LIGHT;
   SH = dark ? SH_DARK : SH_LIGHT;
-  card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: R.xl, padding: S.xl, boxShadow: SH.sm };
+  card = {
+    background: dark
+      ? "linear-gradient(135deg, rgba(26,26,31,0.85), rgba(22,22,28,0.75))"
+      : "linear-gradient(135deg, rgba(255,255,255,0.9), rgba(250,249,247,0.8))",
+    backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+    border: `1px solid ${C.border}`,
+    borderRadius: R.xl, padding: S.xl, boxShadow: SH.md,
+  };
 }
-export let card = { background: C.card, border: `1px solid ${C.border}`, borderRadius: R.xl, padding: S.xl, boxShadow: SH.sm };
+export let card = {
+  background: "linear-gradient(135deg, rgba(26,26,31,0.85), rgba(22,22,28,0.75))",
+  backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+  border: `1px solid ${C.border}`,
+  borderRadius: R.xl, padding: S.xl, boxShadow: SH.md,
+};
 
 export const inp = (ex = {}) => ({
   background: C.surface,

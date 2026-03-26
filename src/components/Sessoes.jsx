@@ -19,7 +19,7 @@ function Sessoes({ sessions, onAdd, onDel }) {
         <button onClick={() => setShow((v) => !v)} style={btn(show ? C.card2 : C.blue)}>{show ? "— Fechar" : "+ Nova sessão"}</button>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button onClick={() => setFil("all")} style={btn(fil === "all" ? C.card2 : C.surface, { padding: "8px 14px", fontSize: 12, minHeight: H.sm, borderRadius: R.sm, border: fil === "all" ? `1px solid ${C.border}` : `1px solid ${C.border}`, color: fil === "all" ? C.text : C.text3, boxShadow: fil === "all" ? SH.sm : "none", opacity: fil === "all" ? 1 : 0.7 })}>Todas</button>{AREAS.map((a) => <button key={a.id} onClick={() => setFil(a.id)} style={btn(fil === a.id ? a.color : C.surface, { padding: "8px 14px", fontSize: 12, minHeight: H.sm, borderRadius: R.sm, border: fil === a.id ? "none" : `1px solid ${C.border}`, color: fil === a.id ? "#fff" : C.text3, boxShadow: fil === a.id ? SH.sm : "none", opacity: fil === a.id ? 1 : 0.7 })}>{a.short}</button>)}</div>
       </div>
-      {show && <div style={{ ...card, border: "1px solid #3B82F655" }}>
+      {show && <div style={{ ...card, border: `1px solid ${C.blue}35` }}>
         <div style={{ fontSize: 15, fontWeight: 700, color: C.blue, marginBottom: 16 }}>Nova sessão de aula</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12, marginBottom: 12 }}>
           <Fld label="Data"><input type="date" value={form.date} onChange={(e) => set("date", e.target.value)} style={inp()} /></Fld>

@@ -101,7 +101,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.lg }}>
-      <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: R.xl, padding: `${S.xl}px`, boxShadow: SH.sm }}>
+      <div style={{ ...card, padding: `${S.xl}px` }}>
         <div style={{ display: "flex", alignItems: "center", gap: S.xl }}>
           <div style={{ position: "relative", width: 56, height: 56, flexShrink: 0 }}>
             <svg width="56" height="56" style={{ transform: "rotate(-90deg)" }}><circle cx="28" cy="28" r="22" fill="none" stroke={C.border2} strokeWidth="4.5" /><circle cx="28" cy="28" r="22" fill="none" stroke={pCol} strokeWidth="4.5" strokeDasharray={`${(prog / 100) * 138.2} 138.2`} strokeLinecap="round" /></svg>
@@ -117,8 +117,8 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
         </div>
       </div>
       <div style={{ display: "flex", gap: S.md, alignItems: "center", flexWrap: "wrap" }}>
-        <div style={{ display: "flex", background: C.card, border: `1px solid ${C.border}`, borderRadius: R.pill, padding: 3, gap: 2, boxShadow: SH.sm }}>
-          {["current", "history"].map((v) => <button key={v} onClick={() => setView(v)} style={{ background: view === v ? C.purple + "20" : "none", border: view === v ? `1px solid ${C.purple}35` : "1px solid transparent", borderRadius: R.pill, padding: "8px 18px", color: view === v ? C.purple : C.text3, fontSize: 12, fontFamily: F, cursor: "pointer", fontWeight: view === v ? 700 : 500, boxShadow: view === v ? SH.glow(C.purple) : "none", minHeight: 36 }}>{v === "current" ? "Semana" : "Histórico"}</button>)}
+        <div style={{ display: "flex", background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.pill, padding: 3, gap: 2, boxShadow: SH.sm }}>
+          {["current", "history"].map((v) => <button key={v} onClick={() => setView(v)} style={{ background: view === v ? C.purple + "20" : "none", border: view === v ? `1px solid ${C.purple}35` : "1px solid transparent", borderRadius: R.pill, padding: "8px 18px", color: view === v ? C.purple : C.text3, fontSize: 12, fontFamily: F, cursor: "pointer", fontWeight: view === v ? 700 : 500, boxShadow: view === v ? SH.sm : "none", minHeight: 36 }}>{v === "current" ? "Semana" : "Histórico"}</button>)}
         </div>
         <div style={{ flex: 1 }} />
         <select value={semIdx} onChange={(e) => rebuildForSem(Number(e.target.value))} style={{ ...inp(), width: "auto", fontSize: 11, padding: "6px 10px" }}>
@@ -133,7 +133,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
         const weekDateSet = new Set(Object.values(dates));
         const revs = reviews.filter((r) => r.nextDue && weekDateSet.has(r.nextDue)).map((r) => ({ theme: r.theme, area: r.area, nextDue: r.nextDue })).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
         return (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.lg, padding: `${S.xl}px`, boxShadow: SH.sm }}>
+          <div style={{ ...card, borderRadius: R.lg, padding: `${S.xl}px` }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: S.lg }}>{semana.semana} — aulas + revisões agendadas</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
               {semana.aulas.map((a, i) => (
@@ -164,7 +164,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
             const isToday = day.id === todayDayFallback; const dd = day.items.filter((i) => i.done).length;
             const dayProg = day.items.length > 0 ? Math.round((dd / day.items.length) * 100) : 0;
             return (
-              <div key={day.id} style={{ background: C.card, border: `1px solid ${isToday ? C.blue + "50" : C.border}`, borderRadius: R.xl, overflow: "hidden", boxShadow: isToday ? SH.glow(C.blue) : SH.sm }}>
+              <div key={day.id} style={{ ...card, border: isToday ? `1px solid ${C.blue}40` : `1px solid ${C.border}`, borderRadius: R.xl, overflow: "hidden", padding: 0 }}>
                 <div style={{ padding: `${S.xl}px ${S.xl}px ${S.lg}px`, display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `1px solid ${C.border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: S.md }}>
                     <span style={{ fontSize: 16, fontWeight: 800, color: isToday ? C.blue : C.text, letterSpacing: -0.2 }}>{day.label}</span>
@@ -235,9 +235,9 @@ function HistoryEntry({ entry }) {
   const [open, setOpen] = useState(false);
   const pC = entry.progress >= 85 ? C.green : entry.progress >= 60 ? C.yellow : C.red;
   return (
-    <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden" }}>
+    <div style={{ ...card, borderRadius: 18, overflow: "hidden", padding: 0 }}>
       <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }} onClick={() => setOpen((o) => !o)}>
-        <div style={{ width: 46, height: 46, borderRadius: R.md, background: pC + "18", border: `2px solid ${pC}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: SH.glow(pC) }}><span style={{ fontSize: 14, fontWeight: 700, color: pC, ...NUM }}>{entry.progress}%</span></div>
+        <div style={{ width: 46, height: 46, borderRadius: R.md, background: pC + "18", border: `1px solid ${pC}30`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><span style={{ fontSize: 14, fontWeight: 700, color: pC, ...NUM }}>{entry.progress}%</span></div>
         <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{entry.label}</div><div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{entry.done}/{entry.total} concluídos</div></div>
         <span style={{ color: C.text3 }}>{open ? "▲" : "▼"}</span>
       </div>

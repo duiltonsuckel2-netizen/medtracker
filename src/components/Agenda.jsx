@@ -27,7 +27,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   useEffect(() => {
     const satKey = currentSatKey();
     Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([saved, hist]) => {
-      const nh = hist || [];
+      const nh = Array.isArray(hist) ? hist : [];
       if (saved && saved._weekKey === satKey) {
         const todayDow = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][new Date().getDay()];
         const dayOrder = ["sab", "dom", "seg", "ter", "qua", "qui", "sex"];

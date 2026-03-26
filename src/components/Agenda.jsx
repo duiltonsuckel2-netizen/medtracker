@@ -27,7 +27,9 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   }
 
   function persistWeek(days, weekKey, semanaName) {
-    saveKey("rp_agenda_v7", { _weekKey: weekKey, _semana: semanaName, days });
+    try {
+      localStorage.setItem("rp_agenda_v7", JSON.stringify({ _weekKey: weekKey, _semana: semanaName, days }));
+    } catch (e) { console.error("persistWeek failed:", e); }
   }
 
   function rolloverPending(days) {
@@ -54,15 +56,16 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
     Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([saved, hist]) => {
       const nh = hist || [];
       const isWrapped = saved && !Array.isArray(saved) && saved.days;
-      const savedKey = isWrapped ? saved._weekKey : (saved && saved._weekKey);
-      const savedSemana = isWrapped ? saved._semana : (saved && saved._semana);
-      const savedDays = isWrapped ? saved.days : saved;
-      if (savedDays && savedKey === satKey) {
+      const savedKey = isWrapped ? saved._weekKey : null;
+      const savedSemana = isWrapped ? saved._semana : null;
+      const savedDays = isWrapped ? saved.days : (Array.isArray(saved) ? saved : null);
+      const isCurrentWeek = savedDays && (savedKey === satKey || !savedKey);
+      if (isCurrentWeek) {
         const rolled = rolloverPending(savedDays);
         weekKeyRef.current = satKey;
         semanaNameRef.current = savedSemana;
         setWeek(rolled);
-        if (rolled !== savedDays) persistWeek(rolled, satKey, savedSemana);
+        persistWeek(rolled, satKey, savedSemana);
         const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (idx >= 0) setSemIdx(idx);
       } else {

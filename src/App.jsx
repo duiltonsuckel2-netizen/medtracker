@@ -44,7 +44,7 @@ function App() {
         const se = buildUnicamp2024Exam();
         setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]);
         saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true);
-      } else { setSessions(s); setReviews(r); setRevLogs(rl); setExams(e); }
+      } else { setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []); }
       setReady(true);
     });
   }, []);

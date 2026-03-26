@@ -32,7 +32,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
       .map((t) => {
         const sorted = [...t.sessions].sort((a, b) => a.date.localeCompare(b.date));
         const first = sorted[0].pct; const last = sorted[sorted.length - 1].pct;
-        const prev = sorted.length >= 3 ? sorted[sorted.length - 2].pct : null;
+        const prev = sorted.length >= 2 ? sorted[sorted.length - 2].pct : null;
         const trend = last - first;
         const avg = Math.round(sorted.reduce((s, x) => s + x.pct, 0) / sorted.length);
         return { ...t, sorted, first, last, prev, trend, avg, n: sorted.length };

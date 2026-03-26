@@ -63,22 +63,28 @@ function SessionModal({ onSave, onClose }) {
   const errStyle = (field) => touched[field] && errors[field] ? { borderColor: C.red + "88", boxShadow: `0 0 0 2px ${C.red}18` } : {};
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="fade-in" style={{ background: C.card, borderRadius: 20, padding: 24, maxWidth: 420, width: "100%", border: `1px solid ${C.border2}`, boxShadow: SH.lg }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Nova sessão</div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 18 }}>✕</button>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 0 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="fade-in" style={{ background: C.card, borderRadius: "20px 20px 0 0", padding: "20px 20px 28px", maxWidth: 480, width: "100%", border: `1px solid ${C.border2}`, borderBottom: "none", boxShadow: SH.lg, maxHeight: "90vh", overflowY: "auto" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>Nova sessão</div>
+          <button onClick={onClose} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.sm, color: C.text3, cursor: "pointer", fontSize: 16, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {/* Data */}
           <Fld label="Data"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp()} /></Fld>
+
+          {/* Grande Área — grid fixo 3 colunas */}
           <Fld label="Grande área">
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(90px,1fr))", gap: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
               {AREAS.map((a) => (
-                <button key={a.id} onClick={() => setArea(a.id)} style={{ padding: "8px 6px", borderRadius: R.md, border: area === a.id ? `2px solid ${a.color}` : `1px solid ${C.border}`, background: area === a.id ? a.color + "18" : C.surface, cursor: "pointer", fontSize: 11, fontWeight: area === a.id ? 700 : 400, color: area === a.id ? a.color : C.text2, fontFamily: F, textAlign: "center", transition: "all .2s ease" }}>{a.label}</button>
+                <button key={a.id} onClick={() => setArea(a.id)} style={{ padding: "10px 8px", borderRadius: R.md, border: area === a.id ? `2px solid ${a.color}` : `1px solid ${C.border}`, background: area === a.id ? a.color + "18" : C.surface, cursor: "pointer", fontSize: 12, fontWeight: area === a.id ? 700 : 500, color: area === a.id ? a.color : C.text2, fontFamily: F, textAlign: "center", transition: "all .2s ease" }}>{a.label}</button>
               ))}
             </div>
           </Fld>
-          {/* Theme with auto-complete */}
+
+          {/* Tema com autocomplete */}
           <div style={{ position: "relative" }}>
             <Fld label="Tema" error={touched.theme && errors.theme}>
               <input ref={themeRef} type="text" value={theme} onChange={(e) => { setTheme(e.target.value); setShowSuggestions(true); if (errors.theme) setErrors((er) => ({ ...er, theme: null })); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { touch("theme"); validate("theme"); }} placeholder="Ex: Pneumonia, ICC, Fraturas…" style={inp(errStyle("theme"))} />
@@ -91,18 +97,24 @@ function SessionModal({ onSave, onClose }) {
               </div>
             )}
           </div>
+
+          {/* Total + Acertos lado a lado */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Fld label="Total questões" error={touched.total && errors.total}><input type="number" min="0" value={total} onChange={(e) => { setTotal(e.target.value); if (errors.total) setErrors((er) => ({ ...er, total: null })); }} onBlur={() => { touch("total"); validate("total"); }} style={inp(errStyle("total"))} /></Fld>
             <Fld label="Acertos" error={touched.acertos && errors.acertos}><input type="number" min="0" value={acertos} onChange={(e) => { setAcertos(e.target.value); if (errors.acertos) setErrors((er) => ({ ...er, acertos: null })); }} onBlur={() => { touch("acertos"); validate("acertos"); }} style={inp({ borderColor: "#34D39944", ...errStyle("acertos") })} /></Fld>
           </div>
+
+          {/* Semana — grid organizado 5 colunas */}
           <Fld label="Semana do cronograma (opcional)">
-            <div style={{ maxHeight: 120, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 4 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6 }}>
               {SEMANAS.map((s, i) => (
-                <button key={i} onClick={() => setSemIdx(semIdx === i ? null : i)} style={{ padding: "4px 10px", borderRadius: R.pill, border: semIdx === i ? `1px solid ${C.purple}` : `1px solid ${C.border}`, background: semIdx === i ? C.purple + "20" : "transparent", cursor: "pointer", fontSize: 10, color: semIdx === i ? C.purple : C.text3, fontFamily: FM, transition: "all .15s" }}>{s.semana}</button>
+                <button key={i} onClick={() => setSemIdx(semIdx === i ? null : i)} style={{ padding: "6px 4px", borderRadius: R.sm, border: semIdx === i ? `1.5px solid ${C.purple}` : `1px solid ${C.border}`, background: semIdx === i ? C.purple + "20" : "transparent", cursor: "pointer", fontSize: 11, color: semIdx === i ? C.purple : C.text3, fontFamily: FM, transition: "all .15s", textAlign: "center" }}>{s.semana}</button>
               ))}
             </div>
           </Fld>
-          <button onClick={submit} style={btn("#34D399", { width: "100%", marginTop: 4 })}>✓ Salvar sessão</button>
+
+          {/* Salvar */}
+          <button onClick={submit} style={btn("#34D399", { width: "100%", marginTop: 4, padding: "14px 18px", fontSize: 14, fontWeight: 600, borderRadius: R.lg })}>✓ Salvar sessão</button>
         </div>
       </div>
     </div>

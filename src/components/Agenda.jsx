@@ -23,16 +23,28 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
     const sat = new Date(now); sat.setDate(now.getDate() - daysSinceSat); sat.setHours(12, 0, 0, 0);
     return sat.toISOString().slice(0, 10);
   }
+  // Helper to unwrap saved data — handles both old array format and new object format
+  function unwrapSaved(saved) {
+    if (!saved) return null;
+    if (saved._days) return { days: saved._days, _weekKey: saved._weekKey, _semana: saved._semana };
+    if (Array.isArray(saved) && saved.length > 0) return { days: saved, _weekKey: undefined, _semana: undefined };
+    return null;
+  }
+  function wrapForSave(days, weekKey, semana) {
+    return { _days: Array.from(days), _weekKey: weekKey, _semana: semana };
+  }
   useEffect(() => {
     const satKey = currentSatKey();
-    Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([saved, hist]) => {
+    Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([raw, hist]) => {
       const nh = hist || [];
+      const saved = unwrapSaved(raw);
       if (saved && saved._weekKey === satKey) {
+        const days = saved.days;
         const todayDow = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][new Date().getDay()];
         const dayOrder = ["sab", "dom", "seg", "ter", "qua", "qui", "sex"];
         const todayIdx = dayOrder.indexOf(todayDow);
         const rollovers = [];
-        const updated = saved.map((day) => {
+        const updated = days.map((day) => {
           if (dayOrder.indexOf(day.id) >= todayIdx) return day;
           const pendingReviews = day.items.filter((it) => !it.done && it.isReview);
           if (!pendingReviews.length) return day;
@@ -43,22 +55,22 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
           const rolled = updated.map((day) => day.id !== todayDow ? day : {
             ...day, items: [...day.items, ...rollovers.map((r) => ({ ...r, text: "\u26a0\ufe0f " + r.text.replace(/^\ud83d\udd04\s*/, "\ud83d\udd04 ") }))]
           });
-          rolled._weekKey = satKey; rolled._semana = saved._semana;
-          setWeek(rolled); saveKey("rp_agenda_v7", rolled);
-        } else { setWeek(saved); }
+          setWeek(rolled); saveKey("rp_agenda_v7", wrapForSave(rolled, satKey, saved._semana));
+        } else { setWeek(days); }
         const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (idx >= 0) setSemIdx(idx);
       } else {
         if (saved && saved._weekKey) {
-          const tot = saved.reduce((s, d) => s + d.items.length, 0);
-          const don = saved.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
-          if (don > 0) { nh.unshift({ savedAt: saved._weekKey, label: `${saved._semana || "Semana"} \u2014 ${fmtDate(saved._weekKey)}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: saved }); saveKey("rp_agenda_history", nh.slice(0, 12)); }
+          const days = saved.days;
+          const tot = days.reduce((s, d) => s + d.items.length, 0);
+          const don = days.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
+          if (don > 0) { nh.unshift({ savedAt: saved._weekKey, label: `${saved._semana || "Semana"} \u2014 ${fmtDate(saved._weekKey)}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days }); saveKey("rp_agenda_history", nh.slice(0, 12)); }
         }
         let curIdx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (curIdx < 0) curIdx = 0;
         setSemIdx(curIdx);
-        const w = buildWeekTemplate(curIdx, reviews, alertThemes); w._weekKey = satKey; w._semana = SEMANAS[curIdx]?.semana;
-        setWeek(w); saveKey("rp_agenda_v7", w);
+        const w = buildWeekTemplate(curIdx, reviews, alertThemes);
+        setWeek(w); saveKey("rp_agenda_v7", wrapForSave(w, satKey, SEMANAS[curIdx]?.semana));
       }
       setHistory(nh.slice(0, 12));
     });
@@ -66,12 +78,10 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   function rebuildForSem(ni) {
     setSemIdx(ni);
     const satKey = SEM_SAT[SEMANAS[ni]?.semana] || currentSatKey();
-    const w = buildWeekTemplate(ni, reviews, alertThemes); w._weekKey = satKey; w._semana = SEMANAS[ni]?.semana;
-    setWeek(w); saveKey("rp_agenda_v7", w);
+    const w = buildWeekTemplate(ni, reviews, alertThemes);
+    setWeek(w); saveKey("rp_agenda_v7", wrapForSave(w, satKey, SEMANAS[ni]?.semana));
   }
-  function save(w) { w._weekKey = currentSatKey(); w._semana = SEMANAS[semIdx]?.semana; setWeek(w); saveKey("rp_agenda_v7", w); }
-  const weekRef = useRef(week);
-  useEffect(() => { if (week && week !== weekRef.current) { weekRef.current = week; saveKey("rp_agenda_v7", week); } }, [week]);
+  function save(w) { setWeek(w); saveKey("rp_agenda_v7", wrapForSave(w, currentSatKey(), SEMANAS[semIdx]?.semana)); }
   function toggleDone(did, iid) {
     save(week.map((d) => d.id !== did ? d : { ...d, items: d.items.map((it) => it.id !== iid ? it : { ...it, done: !it.done }) }));
     setJustToggled(iid);

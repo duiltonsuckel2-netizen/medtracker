@@ -3,7 +3,8 @@ import { useState, useMemo } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { AREAS, BENCHMARKS, areaMap } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit } from "../theme.js";
-import { today, addDays, diffDays, fmtDate, perc, perfColor, syncWithNotion } from "../utils.js";
+import { today, addDays, diffDays, fmtDate, perc, perfColor, syncWithNotion, weekDates } from "../utils.js";
+import { loadKey, saveKey } from "../storage.js";
 import { Fld, ChartTip } from "./UI.jsx";
 
 function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, onNewSession, onAlerts, forceTab }) {
@@ -13,6 +14,27 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   const [notionStatus, setNotionStatus] = useState("idle");
   const [notionMsg, setNotionMsg] = useState("");
   const [exportStatus, setExportStatus] = useState("idle");
+  const [agendaWeek] = useState(() => loadKey("rp_agenda_v7", null));
+  const [agendaHistory] = useState(() => loadKey("rp_agenda_history", []));
+  const [streakStart, setStreakStart] = useState(() => loadKey("rp_streak_start", "2026-02-02"));
+  const [showStreakReset, setShowStreakReset] = useState(false);
+  const [storedMaxStreak, setStoredMaxStreak] = useState(() => loadKey("rp_max_streak", 0));
+  const agendaActivity = useMemo(() => {
+    const activity = {};
+    function processWeek(days, satKey) {
+      if (!days || !satKey) return;
+      const dates = weekDates(satKey);
+      for (const day of days) {
+        if (!day?.id || !dates[day.id]) continue;
+        const total = day.items?.length || 0;
+        const done = (day.items || []).filter((i) => i.done).length;
+        if (total > 0) activity[dates[day.id]] = { done, total, pct: Math.round((done / total) * 100) };
+      }
+    }
+    if (agendaWeek && agendaWeek._weekKey) processWeek(agendaWeek, agendaWeek._weekKey);
+    (agendaHistory || []).forEach((entry) => { if (entry.days && entry.savedAt) processWeek(entry.days, entry.savedAt); });
+    return activity;
+  }, [agendaWeek, agendaHistory]);
   const revEvo = useMemo(() => {
     if (!revLogs.length) return [];
     const byW = {};
@@ -30,29 +52,17 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     const s = new Set([...revLogs.map((l) => l.date), ...sessions.map((s) => s.date || s.createdAt || "")].filter((d) => d && d >= START_DATE));
     return s;
   }, [revLogs, sessions]);
-  const diasEstudados = allStudyDates.size;
+  const diasEstudados = Math.max(0, streakStart ? diffDays(today(), streakStart) + 1 : 0);
   const totalRevisoes = revLogs.length;
-  const streak = useMemo(() => {
-    const sorted = [...allStudyDates].sort();
-    if (!sorted.length) return 0;
-    const todayStr = today();
-    const yesterdayStr = addDays(todayStr, -1);
-    let cur = allStudyDates.has(todayStr) ? todayStr : (allStudyDates.has(yesterdayStr) ? yesterdayStr : null);
-    if (!cur) return 0;
-    let count = 0;
-    while (allStudyDates.has(cur)) { count++; cur = addDays(cur, -1); }
-    return count;
-  }, [allStudyDates]);
-  const maxStreak = useMemo(() => {
-    const sorted = [...allStudyDates].sort();
-    let max = 0, run = 0, prev = null;
-    for (const d of sorted) {
-      if (prev && diffDays(d, prev) === 1) { run++; } else { run = 1; }
-      if (run > max) max = run;
-      prev = d;
-    }
-    return max;
-  }, [allStudyDates]);
+  const streak = diasEstudados;
+  const maxStreak = Math.max(streak, storedMaxStreak);
+  function resetStreak() {
+    if (streak > storedMaxStreak) { setStoredMaxStreak(streak); saveKey("rp_max_streak", streak); }
+    const newStart = addDays(today(), 1);
+    setStreakStart(newStart);
+    saveKey("rp_streak_start", newStart);
+    setShowStreakReset(false);
+  }
   const themeProgress = useMemo(() => {
     const byTheme = {};
     [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))].forEach((l) => {
@@ -108,12 +118,13 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     const days = [];
     for (let i = 83; i >= 0; i--) {
       const d = addDays(today(), -i);
-      const logsOnDay = [...revLogs, ...sessions].filter((l) => (l.date || l.createdAt || "").slice(0, 10) === d);
-      const intensity = logsOnDay.length > 4 ? 3 : logsOnDay.length > 2 ? 2 : logsOnDay.length > 0 ? 1 : 0;
-      days.push({ date: d, intensity, count: logsOnDay.length });
+      const agenda = agendaActivity[d];
+      const pct = agenda ? agenda.pct : 0;
+      const intensity = pct === 0 ? 0 : pct === 100 ? 4 : pct >= 85 ? 3 : pct >= 50 ? 2 : 1;
+      days.push({ date: d, intensity, pct, done: agenda?.done || 0, total: agenda?.total || 0 });
     }
     return days;
-  }, [allStudyDates, revLogs, sessions]);
+  }, [agendaActivity]);
   function exportReport() {
     setExportStatus("loading");
     try {
@@ -182,7 +193,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         <div style={{ ...card, background: C.surface, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.lg }}><div><div style={{ fontSize: 14, fontWeight: 600 }}>📄 Relatório de estudo</div><div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>A IA gera um relatório HTML completo com análise e recomendações</div></div><button onClick={exportReport} disabled={exportStatus === "loading"} style={btn(exportStatus === "done" ? C.green : C.blue, { padding: "9px 20px" })}>{exportStatus === "loading" ? "⏳ Gerando…" : exportStatus === "done" ? "✓ Baixado!" : "Exportar relatório"}</button></div>
       </>}
       {activeTab === "alerts" && <><div style={{ fontSize: 12, color: C.text3, fontFamily: FM }}>Pontos de atenção detectados automaticamente com base no seu desempenho.</div>{alerts.length === 0 && <div style={{ ...card, background: C.green + "10", border: `1px solid ${C.green}33` }}><div style={{ fontSize: 14, fontWeight: 600, color: C.green }}>✓ Nenhum alerta</div><div style={{ fontSize: 12, color: C.text3, marginTop: 4 }}>Seu desempenho está consistente. Continue assim!</div></div>}{alerts.map((a, i) => { const area = areaMap[a.area]; const borderColor = a.type === "danger" ? C.red : a.type === "warning" ? C.yellow : C.blue; return (<div key={i} style={{ ...card, borderLeft: `4px solid ${borderColor}`, padding: "14px 18px" }}><div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><span style={{ fontSize: 18, flexShrink: 0 }}>{a.icon}</span><div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 600, color: C.text }}>{a.title}</div><div style={{ fontSize: 12, color: C.text3, marginTop: 3 }}>{a.msg}</div>{area && <span style={{ ...tag(area.color), marginTop: 6, display: "inline-flex" }}>{area.label}</span>}</div></div></div>); })}{alerts.length > 0 && (<div style={{ ...card, background: C.surface, border: `1px solid ${C.border2}` }}><div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>💡 O que fazer</div><div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{alerts.filter((a) => a.type === "danger").length > 0 && <div style={{ fontSize: 12, color: C.text2 }}>🔴 <b>Pontos cegos:</b> refaça questões desses temas e identifique os subtópicos mais cobrados. Considere revisão manual.</div>}{alerts.filter((a) => a.type === "warning").length > 0 && <div style={{ fontSize: 12, color: C.text2 }}>🟡 <b>Revisões atrasadas:</b> priorize-as hoje antes de adicionar sessões novas.</div>}{alerts.filter((a) => a.type === "info").length > 0 && <div style={{ fontSize: 12, color: C.text2 }}>📉 <b>Em queda:</b> revise a teoria desses temas — pode ser que o desempenho alto inicial tenha sido sorte.</div>}</div></div>)}</>}
-      {activeTab === "heatmap" && <><div style={card}><div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Heatmap de estudo</div><div style={{ fontSize: 12, color: C.text3, marginBottom: 16 }}>Últimas 12 semanas — intensidade por número de sessões no dia</div><div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>{heatmapData.map((d, i) => (<div key={i} title={`${fmtDate(d.date)}: ${d.count} sessão(ões)`} style={{ width: 18, height: 18, borderRadius: 5, background: heatColors[Math.min(d.intensity, 4)], cursor: "default", transition: "transform 0.1s", border: `1px solid ${C.border}` }} />))}</div><div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}><span style={{ fontSize: 10, color: C.text3 }}>menos</span>{heatColors.map((c, i) => <div key={i} style={{ width: 12, height: 12, borderRadius: 3, background: c, border: `1px solid ${C.border}` }} />)}<span style={{ fontSize: 10, color: C.text3 }}>mais</span></div><div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10 }}>{[{ label: "Dias estudados", value: diasEstudados, sub: "total" },{ label: "Streak atual", value: `${streak}d 🔥`, sub: "consecutivos" },{ label: "Melhor streak", value: `${maxStreak}d`, sub: "recorde" },{ label: "Dias sem estudo", value: diffDays(today(), START_DATE) + 1 - diasEstudados, sub: "desde 02/02" }].map((s) => (<div key={s.label} style={{ background: C.surface, borderRadius: R.md, padding: S.lg, border: `1px solid ${C.border}`, boxShadow: SH.sm }}><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{s.label}</div><div style={{ fontSize: 22, fontWeight: 800, color: C.text, ...NUM, lineHeight: 1 }}>{s.value}</div><div style={{ fontSize: 10, color: C.text3, fontWeight: 400, marginTop: 3 }}>{s.sub}</div></div>))}</div></div></>}
+      {activeTab === "heatmap" && <><div style={card}><div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Heatmap de estudo</div><div style={{ fontSize: 12, color: C.text3, marginBottom: 16 }}>Últimas 12 semanas — completude da agenda por dia</div><div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>{heatmapData.map((d, i) => (<div key={i} title={`${fmtDate(d.date)}: ${d.total > 0 ? `${d.done}/${d.total} (${d.pct}%)` : "sem itens"}`} style={{ width: 18, height: 18, borderRadius: 5, background: heatColors[Math.min(d.intensity, 4)], cursor: "default", transition: "transform 0.1s", border: `1px solid ${C.border}` }} />))}</div><div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}><span style={{ fontSize: 10, color: C.text3 }}>menos</span>{heatColors.map((c, i) => <div key={i} style={{ width: 12, height: 12, borderRadius: 3, background: c, border: `1px solid ${C.border}` }} />)}<span style={{ fontSize: 10, color: C.text3 }}>mais</span></div><div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10 }}>{[{ label: "Dias estudados", value: diasEstudados, sub: "desde 02/02" },{ label: "Melhor streak", value: `${maxStreak}d`, sub: "recorde" }].map((s) => (<div key={s.label} style={{ background: C.surface, borderRadius: R.md, padding: S.lg, border: `1px solid ${C.border}`, boxShadow: SH.sm }}><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{s.label}</div><div style={{ fontSize: 22, fontWeight: 800, color: C.text, ...NUM, lineHeight: 1 }}>{s.value}</div><div style={{ fontSize: 10, color: C.text3, fontWeight: 400, marginTop: 3 }}>{s.sub}</div></div>))}<div style={{ background: C.surface, borderRadius: R.md, padding: S.lg, border: `1px solid ${C.yellow}30`, boxShadow: SH.sm, cursor: "pointer", position: "relative" }} onClick={() => setShowStreakReset((v) => !v)}><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Streak atual</div><div style={{ fontSize: 22, fontWeight: 800, color: C.yellow, ...NUM, lineHeight: 1 }}>{streak}d 🔥</div><div style={{ fontSize: 10, color: C.text3, fontWeight: 400, marginTop: 3 }}>consecutivos</div>{showStreakReset && <div className="fade-in" style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, marginTop: 4, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, boxShadow: SH.lg, overflow: "hidden" }}><button onClick={(e) => { e.stopPropagation(); resetStreak(); }} style={{ width: "100%", padding: "12px 14px", background: "none", border: "none", cursor: "pointer", color: C.red, fontSize: 13, fontWeight: 600, fontFamily: F, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={(e) => e.currentTarget.style.background = C.red + "12"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>🔄 Zerar streak</button></div>}</div></div></div></>}
       {activeTab === "notion" && <><div style={{ ...card, border: `1px solid ${C.blue}44` }}><div style={{ fontSize: 15, fontWeight: 700, color: C.blue, marginBottom: 4 }}>🔗 Sincronizar com Notion</div><div style={{ fontSize: 12, color: C.text3, marginBottom: 16, lineHeight: 1.6 }}>A integração usa a IA do Claude como intermediária — ela recebe seu token temporariamente, consulta a API do Notion, e retorna os dados das revisões formatados. O token não é armazenado em nenhum lugar.<br /><b style={{ color: C.text }}>1.</b> Token de integração (Settings → Connections → Create integration)<br /><b style={{ color: C.text }}>2.</b> Database ID (da URL da sua página MED, ex: notion.so/<b style={{ color: C.yellow }}>3098883c3e738...</b>)</div><div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}><Fld label="Notion Integration Token"><input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="secret_xxx..." style={inp({ borderColor: C.blue + "44" })} /></Fld><Fld label="Database ID"><input type="text" value={notionDbId} onChange={(e) => setNotionDbId(e.target.value)} placeholder="3098883c3e73819d85c4..." style={inp({ borderColor: C.blue + "44" })} /></Fld></div><button onClick={doNotionSync} disabled={notionStatus === "loading"} style={btn(C.blue, { width: "100%" })}>{notionStatus === "loading" ? "⏳ Sincronizando…" : "🔗 Sincronizar revisões"}</button>{notionMsg && (<div style={{ marginTop: 10, padding: "10px 14px", borderRadius: R.sm, background: notionStatus === "error" ? C.red + "18" : C.green + "18", border: `1px solid ${notionStatus === "error" ? C.red : C.green}44`, fontSize: 12, color: notionStatus === "error" ? C.red : C.green, fontFamily: FM }}>{notionMsg}</div>)}<div style={{ marginTop: 14, padding: 12, background: C.bg, borderRadius: R.sm, border: `1px solid ${C.border}` }}><div style={{ fontSize: 11, fontWeight: 600, color: C.text3, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Como funciona</div><div style={{ fontSize: 11, color: C.text3, lineHeight: 1.7 }}>A integração usa a IA do Claude como intermediária — ela recebe seu token temporariamente, consulta a API do Notion, e retorna os dados das revisões formatados. O token não é armazenado em nenhum lugar.<br /><span style={{ color: C.yellow }}>⚠ Para funcionar, você deve compartilhar o database MED com sua integração no Notion.</span></div></div></div></>}
     </div>
   );

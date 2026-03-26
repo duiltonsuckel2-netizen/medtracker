@@ -32,9 +32,10 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
       .map((t) => {
         const sorted = [...t.sessions].sort((a, b) => a.date.localeCompare(b.date));
         const first = sorted[0].pct; const last = sorted[sorted.length - 1].pct;
+        const prev = sorted.length >= 3 ? sorted[sorted.length - 2].pct : null;
         const trend = last - first;
         const avg = Math.round(sorted.reduce((s, x) => s + x.pct, 0) / sorted.length);
-        return { ...t, sorted, first, last, trend, avg, n: sorted.length };
+        return { ...t, sorted, first, last, prev, trend, avg, n: sorted.length };
       })
       .sort((a, b) => b.n - a.n);
   }, [revLogs, sessions]);
@@ -259,6 +260,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
               <div style={{ display: "flex", gap: S.lg, alignItems: "center", marginBottom: S.xl }}>
                 <div><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>início</div><div style={{ fontSize: 18, fontWeight: 800, color: perfColor(t.first), fontFamily: FN, lineHeight: 1 }}>{t.first}%</div></div>
                 <span style={{ fontSize: 14, color: C.border2 }}>→</span>
+                {t.prev !== null && <><div><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>última rev.</div><div style={{ fontSize: 18, fontWeight: 800, color: perfColor(t.prev), fontFamily: FN, lineHeight: 1 }}>{t.prev}%</div></div>
+                <span style={{ fontSize: 14, color: C.border2 }}>→</span></>}
                 <div><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>atual</div><div style={{ fontSize: 18, fontWeight: 800, color: perfColor(t.last), fontFamily: FN, lineHeight: 1 }}>{t.last}%</div></div>
                 <div style={{ marginLeft: "auto", fontSize: 11, color: trendColor, fontWeight: 700, fontFamily: FN }}>{t.trend >= 0 ? "+" : ""}{t.trend}pp</div>
               </div>

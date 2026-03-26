@@ -5,6 +5,9 @@ import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js
 import { today, fmtDate, uid, weekDates, buildWeekTemplate } from "../utils.js";
 import { Empty } from "./UI.jsx";
 
+const STORAGE_KEY = "rp_agenda_v8";
+const HISTORY_KEY = "rp_agenda_history";
+
 function currentSatKey() {
   const now = new Date(); const dow = now.getDay();
   const daysSinceSat = dow === 6 ? 0 : dow + 1;
@@ -12,19 +15,19 @@ function currentSatKey() {
   return sat.toISOString().slice(0, 10);
 }
 
-function readStorage() {
+function loadWeek() {
   try {
-    const raw = localStorage.getItem("rp_agenda_v7");
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    const saved = JSON.parse(raw);
-    if (saved && !Array.isArray(saved) && saved.days) return { days: saved.days, weekKey: saved._weekKey, semana: saved._semana };
-    if (Array.isArray(saved)) return { days: saved, weekKey: null, semana: null };
+    const obj = JSON.parse(raw);
+    if (obj && obj.days && Array.isArray(obj.days)) return obj;
   } catch {}
   return null;
 }
 
-function writeStorage(days, weekKey, semana) {
-  try { localStorage.setItem("rp_agenda_v7", JSON.stringify({ _weekKey: weekKey, _semana: semana, days })); } catch (e) { console.error("write failed:", e); }
+function saveWeek(days, weekKey, semana) {
+  const obj = { _weekKey: weekKey, _semana: semana, days };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); } catch (e) { console.error(e); }
 }
 
 function rolloverPending(days) {
@@ -46,46 +49,50 @@ function rolloverPending(days) {
   });
 }
 
-function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
-  const satKey = useRef(currentSatKey()).current;
+function initAgenda(reviews, alertThemes) {
+  const satKey = currentSatKey();
+  const stored = loadWeek();
 
-  const [initState] = useState(() => {
-    const stored = readStorage();
-    if (stored && stored.days && (stored.weekKey === satKey || !stored.weekKey)) {
-      const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
-      return { days: stored.days, semIdx: idx >= 0 ? idx : 0, weekKey: satKey, semana: stored.semana };
-    }
+  let days, semIdx, semana;
+
+  if (stored && (stored._weekKey === satKey || !stored._weekKey)) {
+    days = rolloverPending(stored.days);
+    semana = stored._semana;
+    const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
+    semIdx = idx >= 0 ? idx : 0;
+  } else {
     let curIdx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
     if (curIdx < 0) curIdx = 0;
-    const w = buildWeekTemplate(curIdx, reviews, alertThemes);
-    return { days: w, semIdx: curIdx, weekKey: satKey, semana: SEMANAS[curIdx]?.semana };
-  });
+    days = buildWeekTemplate(curIdx, reviews, alertThemes);
+    semIdx = curIdx;
+    semana = SEMANAS[curIdx]?.semana;
+  }
 
-  const [week, setWeek] = useState(initState.days);
+  saveWeek(days, satKey, semana);
+  return { days, semIdx, weekKey: satKey, semana };
+}
+
+function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
+  const [state, setState] = useState(() => initAgenda(reviews, alertThemes));
   const [history, setHistory] = useState(() => {
-    try { const raw = localStorage.getItem("rp_agenda_history"); return raw ? JSON.parse(raw) || [] : []; } catch { return []; }
+    try { const raw = localStorage.getItem(HISTORY_KEY); return raw ? JSON.parse(raw) || [] : []; } catch { return []; }
   });
   const [view, setView] = useState("current");
   const [editing, setEditing] = useState(null);
   const [editText, setEditText] = useState("");
   const [addingTo, setAddingTo] = useState(null);
   const [newItem, setNewItem] = useState("");
-  const [semIdx, setSemIdx] = useState(initState.semIdx);
-  const weekKeyRef = useRef(initState.weekKey);
-  const semanaNameRef = useRef(initState.semana);
-  const weekRef = useRef(initState.days);
+  const weekRef = useRef(state.days);
 
-  // Persist on mount to ensure new format is saved
-  useEffect(() => { writeStorage(week, weekKeyRef.current, semanaNameRef.current); }, []);
+  const week = state.days;
+  const semIdx = state.semIdx;
 
-  // Rollover pending items from past days
-  useEffect(() => {
-    const rolled = rolloverPending(week);
-    if (rolled !== week) {
-      setWeek(rolled);
-      writeStorage(rolled, weekKeyRef.current, semanaNameRef.current);
-    }
-  }, []);
+  function updateWeek(newDays) {
+    const wk = state.weekKey || currentSatKey();
+    const sn = state.semana;
+    saveWeek(newDays, wk, sn);
+    setState((prev) => ({ ...prev, days: newDays }));
+  }
 
   // Midnight auto-rollover
   useEffect(() => {
@@ -96,45 +103,39 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
       return midnight - now + 500;
     }
     let timer;
-    function scheduleMidnightRollover() {
+    function schedule() {
       timer = setTimeout(() => {
         const current = weekRef.current;
         if (current) {
           const rolled = rolloverPending(current);
-          if (rolled !== current) {
-            setWeek(rolled);
-            writeStorage(rolled, weekKeyRef.current || currentSatKey(), semanaNameRef.current);
-          }
+          if (rolled !== current) updateWeek(rolled);
         }
-        scheduleMidnightRollover();
+        schedule();
       }, msUntilMidnight());
     }
-    scheduleMidnightRollover();
+    schedule();
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => { weekRef.current = week; }, [week]);
 
   function rebuildForSem(ni) {
-    setSemIdx(ni);
     const sk = SEM_SAT[SEMANAS[ni]?.semana] || currentSatKey();
     const w = buildWeekTemplate(ni, reviews, alertThemes);
-    weekKeyRef.current = sk;
-    semanaNameRef.current = SEMANAS[ni]?.semana;
-    setWeek(w); writeStorage(w, sk, SEMANAS[ni]?.semana);
+    saveWeek(w, sk, SEMANAS[ni]?.semana);
+    setState({ days: w, semIdx: ni, weekKey: sk, semana: SEMANAS[ni]?.semana });
   }
 
-  function save(days) { const wk = weekKeyRef.current || currentSatKey(); const sn = semanaNameRef.current || SEMANAS[semIdx]?.semana; weekKeyRef.current = wk; semanaNameRef.current = sn; setWeek(days); writeStorage(days, wk, sn); }
-  function toggleDone(did, iid) { save(week.map((d) => d.id !== did ? d : { ...d, items: d.items.map((it) => it.id !== iid ? it : { ...it, done: !it.done }) })); }
+  function toggleDone(did, iid) { updateWeek(week.map((d) => d.id !== did ? d : { ...d, items: d.items.map((it) => it.id !== iid ? it : { ...it, done: !it.done }) })); }
   function startEdit(did, item) { setEditing({ did, iid: item.id }); setEditText(item.text); }
-  function commitEdit() { if (!editing) return; save(week.map((d) => d.id !== editing.did ? d : { ...d, items: d.items.map((it) => it.id !== editing.iid ? it : { ...it, text: editText }) })); setEditing(null); }
-  function deleteItem(did, iid) { save(week.map((d) => d.id !== did ? d : { ...d, items: d.items.filter((it) => it.id !== iid) })); }
-  function addItem(did) { if (!newItem.trim()) return; save(week.map((d) => d.id !== did ? d : { ...d, items: [...d.items, { id: uid(), text: newItem.trim(), done: false, fixed: false }] })); setNewItem(""); setAddingTo(null); }
+  function commitEdit() { if (!editing) return; updateWeek(week.map((d) => d.id !== editing.did ? d : { ...d, items: d.items.map((it) => it.id !== editing.iid ? it : { ...it, text: editText }) })); setEditing(null); }
+  function deleteItem(did, iid) { updateWeek(week.map((d) => d.id !== did ? d : { ...d, items: d.items.filter((it) => it.id !== iid) })); }
+  function addItem(did) { if (!newItem.trim()) return; updateWeek(week.map((d) => d.id !== did ? d : { ...d, items: [...d.items, { id: uid(), text: newItem.trim(), done: false, fixed: false }] })); setNewItem(""); setAddingTo(null); }
 
   function archiveAndReset(newIdx) {
     const tot = week.reduce((s, d) => s + d.items.length, 0); const don = week.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
     const entry = { savedAt: today(), label: `${SEMANAS[semIdx]?.semana || "Semana"} — ${fmtDate(currentSatKey())}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: week };
-    const nh = [entry, ...history].slice(0, 12); setHistory(nh); try { localStorage.setItem("rp_agenda_history", JSON.stringify(nh)); } catch (e) { console.error(e); }
+    const nh = [entry, ...history].slice(0, 12); setHistory(nh); try { localStorage.setItem(HISTORY_KEY, JSON.stringify(nh)); } catch (e) { console.error(e); }
     const ni = newIdx ?? Math.min(semIdx + 1, SEMANAS.length - 1);
     rebuildForSem(ni);
   }

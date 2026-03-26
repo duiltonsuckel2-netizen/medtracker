@@ -115,21 +115,21 @@ function App() {
       }}>
         <div style={{
           display: "flex", alignItems: "center",
-          padding: "12px 16px 10px",
+          padding: window.innerWidth >= 768 ? "18px 28px 16px" : "12px 16px 10px",
           maxWidth: 1200, margin: "0 auto",
           gap: 0,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginRight: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: window.innerWidth >= 768 ? 12 : 8, flexShrink: 0, marginRight: window.innerWidth >= 768 ? 20 : 12 }}>
             <div style={{
-              width: 30, height: 30, borderRadius: 8,
+              width: window.innerWidth >= 768 ? 40 : 30, height: window.innerWidth >= 768 ? 40 : 30, borderRadius: 10,
               background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`,
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 14, boxShadow: `0 0 12px ${C.blue}30`,
+              fontSize: window.innerWidth >= 768 ? 19 : 14, boxShadow: `0 0 12px ${C.blue}30`,
             }}>{"\u2695"}</div>
-            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>Med</span>
+            <span style={{ fontSize: window.innerWidth >= 768 ? 20 : 15, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>Med</span>
           </div>
           <div style={{
-            display: "flex", gap: 4, flex: 1,
+            display: "flex", gap: window.innerWidth >= 768 ? 8 : 4, flex: 1,
             overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none",
             WebkitOverflowScrolling: "touch",
             padding: "2px 0",
@@ -138,7 +138,7 @@ function App() {
               const active = tab === t.id;
               return (
                 <button key={t.id} onClick={() => setTab(t.id)} style={{
-                  padding: "7px 14px",
+                  padding: window.innerWidth >= 768 ? "10px 20px" : "7px 14px",
                   background: active
                     ? `linear-gradient(135deg, rgba(129,140,248,0.25), rgba(196,181,253,0.3))`
                     : "transparent",
@@ -147,7 +147,7 @@ function App() {
                   cursor: "pointer",
                   whiteSpace: "nowrap",
                   color: active ? C.text : C.text3,
-                  fontSize: 13,
+                  fontSize: window.innerWidth >= 768 ? 16 : 13,
                   fontFamily: F,
                   fontWeight: active ? 700 : 500,
                   transition: "all 0.15s ease",
@@ -160,11 +160,11 @@ function App() {
               );
             })}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: window.innerWidth >= 768 ? 10 : 6, flexShrink: 0, marginLeft: window.innerWidth >= 768 ? 12 : 8 }}>
             {flash && (
               <span style={{
-                fontSize: 10, color: C.green, fontFamily: FM, fontWeight: 600,
-                background: `rgba(34,197,94,0.1)`, padding: "4px 10px", borderRadius: R.pill,
+                fontSize: window.innerWidth >= 768 ? 12 : 10, color: C.green, fontFamily: FM, fontWeight: 600,
+                background: `rgba(34,197,94,0.1)`, padding: window.innerWidth >= 768 ? "6px 14px" : "4px 10px", borderRadius: R.pill,
                 border: `1px solid rgba(34,197,94,0.2)`,
               }}>
                 {flash}
@@ -173,7 +173,7 @@ function App() {
             <button onClick={toggleTheme} style={{
               background: `linear-gradient(135deg, rgba(129,140,248,0.15), rgba(196,181,253,0.2))`,
               border: `1px solid rgba(196,181,253,0.25)`, borderRadius: R.pill,
-              width: 32, height: 32, cursor: "pointer", fontSize: 13,
+              width: window.innerWidth >= 768 ? 42 : 32, height: window.innerWidth >= 768 ? 42 : 32, cursor: "pointer", fontSize: window.innerWidth >= 768 ? 17 : 13,
               display: "flex", alignItems: "center", justifyContent: "center",
               transition: "all 0.2s ease", flexShrink: 0,
               color: C.purple,

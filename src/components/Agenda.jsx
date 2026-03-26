@@ -5,29 +5,45 @@ import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js
 import { today, fmtDate, uid, weekDates, buildWeekTemplate } from "../utils.js";
 import { Empty } from "./UI.jsx";
 
-const STORAGE_KEY = "rp_agenda_v8";
+const STORAGE_KEY = "rp_agenda_v9";
 const HISTORY_KEY = "rp_agenda_history";
 
 function currentSatKey() {
   const now = new Date(); const dow = now.getDay();
   const daysSinceSat = dow === 6 ? 0 : dow + 1;
-  const sat = new Date(now); sat.setDate(now.getDate() - daysSinceSat); sat.setHours(12, 0, 0, 0);
+  const sat = new Date(now); sat.setDate(sat.getDate() - daysSinceSat); sat.setHours(12, 0, 0, 0);
   return sat.toISOString().slice(0, 10);
 }
 
 function loadWeek() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (obj && obj.days && Array.isArray(obj.days)) return obj;
-  } catch {}
+  // Try current key first, then fallback to previous version
+  for (const key of [STORAGE_KEY, "rp_agenda_v8", "rp_agenda_v7", "rp_agenda_v6"]) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const obj = JSON.parse(raw);
+      if (obj && obj.days && Array.isArray(obj.days)) {
+        const doneCount = obj.days.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
+        console.log("[Agenda] Loaded from", key, "- done items:", doneCount, "weekKey:", obj._weekKey);
+        return obj;
+      }
+    } catch (e) { console.error("[Agenda] Load error for", key, e); }
+  }
+  console.log("[Agenda] No saved data found in any key");
   return null;
 }
 
 function saveWeek(days, weekKey, semana) {
   const obj = { _weekKey: weekKey, _semana: semana, days };
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); } catch (e) { console.error(e); }
+  try {
+    const json = JSON.stringify(obj);
+    localStorage.setItem(STORAGE_KEY, json);
+    // Verify the save worked
+    const verify = localStorage.getItem(STORAGE_KEY);
+    if (verify !== json) { console.error("[Agenda] SAVE VERIFICATION FAILED"); }
+    const doneCount = days.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
+    console.log("[Agenda] Saved, done items:", doneCount);
+  } catch (e) { console.error("[Agenda] Save error:", e); }
 }
 
 function rolloverPending(days) {
@@ -87,14 +103,21 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   const week = state.days;
   const semIdx = state.semIdx;
 
-  // All mutations go through this to avoid stale closures
+  // Save to localStorage whenever state.days changes
+  const isFirstRender = useRef(true);
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (state.days) {
+      saveWeek(state.days, state.weekKey || currentSatKey(), state.semana);
+    }
+  }, [state.days]);
+
+  // Functional updater — avoids stale closures
   function updateDays(updater) {
     setState((prev) => {
       const newDays = updater(prev.days);
-      const wk = prev.weekKey || currentSatKey();
-      const sn = prev.semana;
-      // Save to localStorage SYNCHRONOUSLY inside updater
-      saveWeek(newDays, wk, sn);
+      // Also save synchronously for immediate persistence
+      saveWeek(newDays, prev.weekKey || currentSatKey(), prev.semana);
       return { ...prev, days: newDays };
     });
   }

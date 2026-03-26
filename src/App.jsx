@@ -121,7 +121,7 @@ function App() {
         <div style={{ display: "flex", alignItems: "center", padding: "12px 16px 10px", maxWidth: 1200, margin: "0 auto", gap: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginRight: 12 }}>
             <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, boxShadow: `0 0 12px ${C.blue}30` }}>{"⚕"}</div>
-            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>Med</span>
+            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>MedTracker</span>
           </div>
           {/* Desktop tabs */}
           <div className="desktop-tabs" style={{ display: "flex", gap: 4, flex: 1, overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch", padding: "2px 0" }}>

@@ -210,12 +210,12 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
                         <span style={{ fontSize: 10, color: C.text3 }}>{fmtDate(r.nextDue)}</span>
                       </div>
                     </div>
-                    {/* Performance indicator */}
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                    {/* Performance indicator + subtemas */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: perfColor(r.lastPerf) + "18", border: `2px solid ${perfColor(r.lastPerf)}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(r.lastPerf), fontFamily: FN }}>{r.lastPerf}%</span>
                       </div>
-                      <button onClick={() => { setSubtemaModal({ revId: r.id, theme: r.theme, area: r.area }); setSubtemaResult(null); setSubtemaStatus("idle"); setSubtemaImg(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.text3, padding: 2, opacity: 0.5 }} title="Subtemas">{"📊"}</button>
+                      <button onClick={() => { setSubtemaModal({ revId: r.id, theme: r.theme, area: r.area }); setSubtemaResult(null); setSubtemaStatus("idle"); setSubtemaImg(null); }} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.md, cursor: "pointer", fontSize: 14, color: C.text3, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Subtemas">📊</button>
                     </div>
                   </div>
                 );

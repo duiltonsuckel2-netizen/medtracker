@@ -76,7 +76,7 @@ function App() {
   }
 
   useEffect(() => {
-    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_seeded12", false), loadKey("rp26_migrated_v3", false)]).then(([s, r, rl, e, seeded, migrated]) => {
+    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_seeded12", false), loadKey("rp26_migrated_v4", false)]).then(([s, r, rl, e, seeded, migrated]) => {
       if (!seeded) {
         // Fresh install: seed with full history
         const revs = buildReviewHistories(SEED_REVIEWS.map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}` })));
@@ -84,16 +84,16 @@ function App() {
         const sess = SEED_SESSIONS.map((s) => ({ ...s, id: uid() }));
         const se = buildUnicamp2024Exam();
         setSessions(sess); setReviews(revs); setRevLogs(logs); setExams([se]);
-        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", sess); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true); saveKey("rp26_migrated_v3", true);
+        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", sess); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true); saveKey("rp26_migrated_v4", true);
       } else if (!migrated) {
         // Existing user: enrich data without losing anything
         let revs = Array.isArray(r) ? r : [];
         let logs = Array.isArray(rl) ? rl : [];
         let sess = Array.isArray(s) ? s : [];
-        // Build a map of corrected intervalIndex from SEED_REVIEWS
-        const seedIdx = {};
-        SEED_REVIEWS.forEach((sr) => { seedIdx[`${sr.area}__${sr.theme.toLowerCase().trim()}`] = sr.intervalIndex; });
-        // Add missing reviews and fix intervalIndex from Notion-verified data
+        // Build maps of corrected intervalIndex and firstStudied from SEED_REVIEWS
+        const seedData = {};
+        SEED_REVIEWS.forEach((sr) => { seedData[`${sr.area}__${sr.theme.toLowerCase().trim()}`] = { intervalIndex: sr.intervalIndex, firstStudied: sr.firstStudied, nextDue: sr.nextDue }; });
+        // Add missing reviews
         const existingKeys = new Set(revs.map((r) => r.key));
         SEED_REVIEWS.forEach((sr) => {
           const key = `${sr.area}__${sr.theme.toLowerCase().trim()}`;
@@ -101,11 +101,16 @@ function App() {
             revs = [{ ...sr, id: uid(), key, history: [{ date: sr.lastStudied, pct: sr.lastPerf }] }, ...revs];
           }
         });
-        // Fix intervalIndex for all seed reviews (was off by 1)
+        // Fix intervalIndex, add firstStudied, and correct nextDue for all seed reviews
         revs = revs.map((r) => {
-          const correctIdx = seedIdx[r.key];
-          if (correctIdx != null && r.intervalIndex !== correctIdx) {
-            return { ...r, intervalIndex: correctIdx };
+          const sd = seedData[r.key];
+          if (sd) {
+            return { ...r, intervalIndex: sd.intervalIndex, firstStudied: sd.firstStudied, nextDue: sd.nextDue };
+          }
+          // For non-seed reviews: derive firstStudied from history or lastStudied
+          if (!r.firstStudied) {
+            const earliest = r.history?.length > 0 ? r.history[0].date : r.lastStudied;
+            return { ...r, firstStudied: earliest || r.lastStudied };
           }
           return r;
         });
@@ -116,7 +121,7 @@ function App() {
           sess = SEED_SESSIONS.map((s) => ({ ...s, id: uid() }));
         }
         setSessions(sess); setReviews(revs); setRevLogs(logs); setExams(Array.isArray(e) ? e : []);
-        saveKey("rp26_reviews", revs); saveKey("rp26_sessions", sess); saveKey("rp26_migrated_v3", true);
+        saveKey("rp26_reviews", revs); saveKey("rp26_sessions", sess); saveKey("rp26_migrated_v4", true);
       } else {
         setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []);
       }
@@ -128,25 +133,34 @@ function App() {
   const pR = (v) => { setReviews(v); saveKey("rp26_reviews", v); };
   const pL = (v) => { setRevLogs(v); saveKey("rp26_revlogs", v); };
   const pE = (v) => { setExams(v); saveKey("rp26_exams", v); };
+  // Calcula nextDue baseado no D0 (firstStudied). Se avançou, usa milestone do D0.
+  // Se manteve/voltou (performance baixa), reagenda em 7 dias pra tentar de novo.
+  function calcNextDue(firstStudied, prevIdx, newIdx) {
+    if (newIdx > prevIdx) return addDays(firstStudied, INTERVALS[newIdx]);
+    // Manteve ou voltou: reagendar em 7 dias a partir de hoje
+    return addDays(today(), 7);
+  }
   function addSession(session) {
     const s = { ...session, id: uid(), createdAt: today() }; pS([s, ...sessions]);
     const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
     const ex = reviews.find((r) => r.key === key); const pct = perc(session.acertos, session.total); const ni = nxtIdx(0, pct);
-    const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
+    const fs = ex?.firstStudied || today();
+    const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(fs, INTERVALS[ni]), lastPerf: pct, lastStudied: today(), firstStudied: fs, history: [...(ex?.history || []), { date: today(), pct }] };
     pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
     notify("✓ Sessão registrada — 1ª revisão em " + INTERVALS[ni] + "d");
   }
   function addRevLog(areaId, theme, total, acertos) {
     const pct = perc(acertos, total); pL([{ id: uid(), date: today(), area: areaId, theme, total, acertos, pct }, ...revLogs]);
     const key = `${areaId}__${theme.toLowerCase().trim()}`; const ex = reviews.find((r) => r.key === key);
-    if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); pR(reviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r)); }
-    else { pR([{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...reviews]); }
+    if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); const nd = calcNextDue(ex.firstStudied || ex.lastStudied, ex.intervalIndex, ni); pR(reviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: nd, lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r)); }
+    else { const ni = nxtIdx(0, pct); const fs = today(); pR([{ id: uid(), key, area: areaId, theme, intervalIndex: ni, nextDue: addDays(fs, INTERVALS[ni]), lastPerf: pct, lastStudied: fs, firstStudied: fs, history: [{ date: fs, pct }] }, ...reviews]); }
     notify("✓ Revisão registrada");
   }
   function markReview(revId, acertos, total) {
     const pct = perc(acertos, total); const rev = reviews.find((r) => r.id === revId); if (!rev) return;
     const ni = nxtIdx(rev.intervalIndex, pct);
-    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] }));
+    const nd = calcNextDue(rev.firstStudied || rev.lastStudied, rev.intervalIndex, ni);
+    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd, lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] }));
     pL([{ id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct }, ...revLogs]);
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
@@ -162,7 +176,8 @@ function App() {
     newRevs.forEach((nr) => {
       const key = `${nr.area}__${nr.theme.toLowerCase().trim()}`;
       const idx = existing.findIndex((r) => r.key === key);
-      const built = { ...nr, id: idx >= 0 ? existing[idx].id : uid(), key, history: idx >= 0 ? existing[idx].history : [{ date: nr.lastStudied, pct: nr.lastPerf }] };
+      const fs = idx >= 0 ? existing[idx].firstStudied || existing[idx].lastStudied : nr.firstStudied || nr.lastStudied;
+      const built = { ...nr, id: idx >= 0 ? existing[idx].id : uid(), key, firstStudied: fs, history: idx >= 0 ? existing[idx].history : [{ date: nr.lastStudied, pct: nr.lastPerf }] };
       if (idx >= 0) existing[idx] = built; else existing.unshift(built);
     });
     pR(existing); notify(`✓ ${newRevs.length} revisões importadas do Notion`);

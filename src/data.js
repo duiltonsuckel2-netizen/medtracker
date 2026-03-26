@@ -16,27 +16,28 @@ export const AREA_SHORT_MAP = { CM: "clinica", CIR: "cirurgia", GO: "go", PED: "
 
 // ── SEED DATA — gerado do export Notion fresco (24/03/2026) ──────────────
 export const SEED_REVIEWS = [
-  // ── Dados do Notion MED database — confirmado via calendário Notion 26/03/2026 ──
-  // intervalIndex corrigido: baseado no ciclo real de revisão (7d=1, 14d=2, 1m=3, 2m=4)
-  { area: "clinica",    theme: "Sd. Metabólica I — HAS e Dislipidemia (Sem. 08)",                    lastPerf: 78, intervalIndex: 2, nextDue: "2026-03-24", lastStudied: "2026-03-10" },
-  { area: "cirurgia",   theme: "Hemorragia Digestiva II — Proctologia (Sem. 08)",                    lastPerf: 85, intervalIndex: 3, nextDue: "2026-04-09", lastStudied: "2026-03-24" },
-  { area: "cirurgia",   theme: "Sd. Dispéptica e Doenças do TGI Superior (Sem. 05)",                 lastPerf: 88, intervalIndex: 3, nextDue: "2026-03-25", lastStudied: "2026-02-23" },
-  { area: "ped",        theme: "Sd. Respiratórias II (Sem. 05)",                                     lastPerf: 92, intervalIndex: 3, nextDue: "2026-03-26", lastStudied: "2026-02-24" },
-  { area: "clinica",    theme: "Sd. Ictérica I (Sem. 01)",                                           lastPerf: 65, intervalIndex: 4, nextDue: "2026-03-27", lastStudied: "2026-01-26" },
-  { area: "clinica",    theme: "Sd. Ictérica II (Sem. 02)",                                          lastPerf: 78, intervalIndex: 4, nextDue: "2026-03-28", lastStudied: "2026-01-27" },
-  { area: "cirurgia",   theme: "Sd. Álgica I — Dor Abdominal (Sem. 10)",                             lastPerf: 80, intervalIndex: 1, nextDue: "2026-03-29", lastStudied: "2026-03-22" },
-  { area: "go",         theme: "Sangramento da 2ª Metade da Gravidez (Sem. 10)",                      lastPerf: 85, intervalIndex: 1, nextDue: "2026-03-29", lastStudied: "2026-03-22" },
-  { area: "go",         theme: "Sangramentos da 1ª Metade da Gravidez (Sem. 09)",                     lastPerf: 77, intervalIndex: 2, nextDue: "2026-03-30", lastStudied: "2026-03-16" },
-  { area: "preventiva", theme: "SUS — Evolução Histórica e Financiamento (Sem. 09)",                  lastPerf: 80, intervalIndex: 2, nextDue: "2026-03-30", lastStudied: "2026-03-16" },
-  { area: "cirurgia",   theme: "Sd. Disfágica (Sem. 02)",                                            lastPerf: 83, intervalIndex: 4, nextDue: "2026-04-03", lastStudied: "2026-02-02" },
-  { area: "cirurgia",   theme: "Hemorragia Digestiva I (Sem. 06)",                                   lastPerf: 83, intervalIndex: 3, nextDue: "2026-04-02", lastStudied: "2026-03-03" },
-  { area: "clinica",    theme: "Sd. Diarreica (Sem. 06)",                                            lastPerf: 75, intervalIndex: 3, nextDue: "2026-04-02", lastStudied: "2026-03-03" },
-  { area: "ped",        theme: "Doenças Exantemáticas (Sem. 01)",                                    lastPerf: 83, intervalIndex: 4, nextDue: "2026-04-02", lastStudied: "2026-02-01" },
-  { area: "cirurgia",   theme: "Sd. Ictérica — Insuf. Hepática (Sem. 03)",                          lastPerf: 70, intervalIndex: 4, nextDue: "2026-04-07", lastStudied: "2026-02-06" },
-  { area: "go",         theme: "IST — Úlceras Genitais (Sem. 03)",                                   lastPerf: 93, intervalIndex: 4, nextDue: "2026-04-11", lastStudied: "2026-02-10" },
-  { area: "cirurgia",   theme: "Sd. Disfágica — Esôfago (Sem. 04)",                                 lastPerf: 88, intervalIndex: 4, nextDue: "2026-04-15", lastStudied: "2026-02-14" },
-  { area: "ped",        theme: "Sd. Respiratórias I (Sem. 04)",                                      lastPerf: 88, intervalIndex: 4, nextDue: "2026-04-18", lastStudied: "2026-02-17" },
-  { area: "cirurgia",   theme: "Hipertensão Porta (Sem. 02)",                                        lastPerf: 80, intervalIndex: 4, nextDue: "2026-04-03", lastStudied: "2026-02-04" },
+  // ── Dados do Notion — confirmado via calendário 26/03/2026 ──
+  // firstStudied = D0 (1as questões). nextDue = firstStudied + INTERVALS[intervalIndex]
+  // INTERVALS = [1d, 7d, 14d, 30d, 60d, 90d, 120d, 180d]
+  { area: "clinica",    theme: "Sd. Metabólica I — HAS e Dislipidemia (Sem. 08)",       lastPerf: 78, intervalIndex: 2, nextDue: "2026-03-24", lastStudied: "2026-03-10", firstStudied: "2026-03-10" },
+  { area: "cirurgia",   theme: "Hemorragia Digestiva II — Proctologia (Sem. 08)",       lastPerf: 85, intervalIndex: 3, nextDue: "2026-04-09", lastStudied: "2026-03-24", firstStudied: "2026-03-09" },
+  { area: "cirurgia",   theme: "Sd. Dispéptica e Doenças do TGI Superior (Sem. 05)",    lastPerf: 88, intervalIndex: 3, nextDue: "2026-03-25", lastStudied: "2026-02-23", firstStudied: "2026-02-23" },
+  { area: "ped",        theme: "Sd. Respiratórias II (Sem. 05)",                         lastPerf: 92, intervalIndex: 3, nextDue: "2026-03-26", lastStudied: "2026-02-24", firstStudied: "2026-02-24" },
+  { area: "clinica",    theme: "Sd. Ictérica I (Sem. 01)",                               lastPerf: 65, intervalIndex: 4, nextDue: "2026-03-27", lastStudied: "2026-01-26", firstStudied: "2026-01-26" },
+  { area: "clinica",    theme: "Sd. Ictérica II (Sem. 02)",                              lastPerf: 78, intervalIndex: 4, nextDue: "2026-03-28", lastStudied: "2026-01-27", firstStudied: "2026-01-27" },
+  { area: "cirurgia",   theme: "Sd. Álgica I — Dor Abdominal (Sem. 10)",                lastPerf: 80, intervalIndex: 1, nextDue: "2026-03-29", lastStudied: "2026-03-22", firstStudied: "2026-03-22" },
+  { area: "go",         theme: "Sangramento da 2ª Metade da Gravidez (Sem. 10)",         lastPerf: 85, intervalIndex: 1, nextDue: "2026-03-29", lastStudied: "2026-03-22", firstStudied: "2026-03-22" },
+  { area: "go",         theme: "Sangramentos da 1ª Metade da Gravidez (Sem. 09)",        lastPerf: 77, intervalIndex: 2, nextDue: "2026-03-30", lastStudied: "2026-03-16", firstStudied: "2026-03-16" },
+  { area: "preventiva", theme: "SUS — Evolução Histórica e Financiamento (Sem. 09)",     lastPerf: 80, intervalIndex: 2, nextDue: "2026-03-30", lastStudied: "2026-03-16", firstStudied: "2026-03-16" },
+  { area: "cirurgia",   theme: "Sd. Disfágica (Sem. 02)",                                lastPerf: 83, intervalIndex: 4, nextDue: "2026-04-03", lastStudied: "2026-02-02", firstStudied: "2026-02-02" },
+  { area: "cirurgia",   theme: "Hemorragia Digestiva I (Sem. 06)",                       lastPerf: 83, intervalIndex: 3, nextDue: "2026-04-02", lastStudied: "2026-03-03", firstStudied: "2026-03-02" },
+  { area: "clinica",    theme: "Sd. Diarreica (Sem. 06)",                                lastPerf: 75, intervalIndex: 3, nextDue: "2026-04-02", lastStudied: "2026-03-03", firstStudied: "2026-03-02" },
+  { area: "ped",        theme: "Doenças Exantemáticas (Sem. 01)",                        lastPerf: 83, intervalIndex: 4, nextDue: "2026-04-02", lastStudied: "2026-02-01", firstStudied: "2026-02-01" },
+  { area: "cirurgia",   theme: "Sd. Ictérica — Insuf. Hepática (Sem. 03)",              lastPerf: 70, intervalIndex: 4, nextDue: "2026-04-07", lastStudied: "2026-02-06", firstStudied: "2026-02-06" },
+  { area: "go",         theme: "IST — Úlceras Genitais (Sem. 03)",                       lastPerf: 93, intervalIndex: 4, nextDue: "2026-04-11", lastStudied: "2026-02-10", firstStudied: "2026-02-10" },
+  { area: "cirurgia",   theme: "Sd. Disfágica — Esôfago (Sem. 04)",                     lastPerf: 88, intervalIndex: 4, nextDue: "2026-04-15", lastStudied: "2026-02-14", firstStudied: "2026-02-14" },
+  { area: "ped",        theme: "Sd. Respiratórias I (Sem. 04)",                          lastPerf: 88, intervalIndex: 4, nextDue: "2026-04-18", lastStudied: "2026-02-17", firstStudied: "2026-02-17" },
+  { area: "cirurgia",   theme: "Hipertensão Porta (Sem. 02)",                            lastPerf: 80, intervalIndex: 4, nextDue: "2026-04-03", lastStudied: "2026-02-04", firstStudied: "2026-02-02" },
 ];
 
 export const SEED_LOGS = [

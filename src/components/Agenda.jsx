@@ -25,9 +25,13 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   }
   useEffect(() => {
     const satKey = currentSatKey();
-    Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([saved, hist]) => {
+    Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([raw, hist]) => {
       const nh = hist || [];
-      if (saved && saved._weekKey === satKey) {
+      // Handle both old format (array with custom props) and new format (object with .days)
+      const saved = raw && raw.days ? raw.days : (Array.isArray(raw) ? raw : null);
+      const savedWeekKey = raw && raw._weekKey ? raw._weekKey : (raw && raw.days ? raw._weekKey : undefined);
+      const savedSemana = raw && raw._semana ? raw._semana : undefined;
+      if (saved && savedWeekKey === satKey) {
         const todayDow = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][new Date().getDay()];
         const dayOrder = ["sab", "dom", "seg", "ter", "qua", "qui", "sex"];
         const todayIdx = dayOrder.indexOf(todayDow);
@@ -43,22 +47,21 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
           const rolled = updated.map((day) => day.id !== todayDow ? day : {
             ...day, items: [...day.items, ...rollovers.map((r) => ({ ...r, text: "\u26a0\ufe0f " + r.text.replace(/^\ud83d\udd04\s*/, "\ud83d\udd04 ") }))]
           });
-          rolled._weekKey = satKey; rolled._semana = saved._semana;
-          setWeek(rolled); saveKey("rp_agenda_v7", rolled);
+          setWeek(rolled); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: savedSemana, days: rolled });
         } else { setWeek(saved); }
         const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (idx >= 0) setSemIdx(idx);
       } else {
-        if (saved && saved._weekKey) {
+        if (saved && savedWeekKey) {
           const tot = saved.reduce((s, d) => s + d.items.length, 0);
           const don = saved.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
-          if (don > 0) { nh.unshift({ savedAt: saved._weekKey, label: `${saved._semana || "Semana"} \u2014 ${fmtDate(saved._weekKey)}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: saved }); saveKey("rp_agenda_history", nh.slice(0, 12)); }
+          if (don > 0) { nh.unshift({ savedAt: savedWeekKey, label: `${savedSemana || "Semana"} \u2014 ${fmtDate(savedWeekKey)}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: saved }); saveKey("rp_agenda_history", nh.slice(0, 12)); }
         }
         let curIdx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (curIdx < 0) curIdx = 0;
         setSemIdx(curIdx);
-        const w = buildWeekTemplate(curIdx, reviews, alertThemes); w._weekKey = satKey; w._semana = SEMANAS[curIdx]?.semana;
-        setWeek(w); saveKey("rp_agenda_v7", w);
+        const w = buildWeekTemplate(curIdx, reviews, alertThemes);
+        setWeek(w); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: SEMANAS[curIdx]?.semana, days: w });
       }
       setHistory(nh.slice(0, 12));
     });
@@ -66,12 +69,15 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   function rebuildForSem(ni) {
     setSemIdx(ni);
     const satKey = SEM_SAT[SEMANAS[ni]?.semana] || currentSatKey();
-    const w = buildWeekTemplate(ni, reviews, alertThemes); w._weekKey = satKey; w._semana = SEMANAS[ni]?.semana;
-    setWeek(w); saveKey("rp_agenda_v7", w);
+    const w = buildWeekTemplate(ni, reviews, alertThemes);
+    setWeek(w); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: SEMANAS[ni]?.semana, days: w });
   }
-  function save(w) { w._weekKey = currentSatKey(); w._semana = SEMANAS[semIdx]?.semana; setWeek(w); saveKey("rp_agenda_v7", w); }
-  const weekRef = useRef(week);
-  useEffect(() => { if (week && week !== weekRef.current) { weekRef.current = week; saveKey("rp_agenda_v7", week); } }, [week]);
+  function save(days) {
+    setWeek(days);
+    // Save as object so _weekKey and _semana survive JSON.stringify
+    // (custom properties on Arrays are silently dropped by JSON.stringify)
+    saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: SEMANAS[semIdx]?.semana, days });
+  }
   function toggleDone(did, iid) {
     save(week.map((d) => d.id !== did ? d : { ...d, items: d.items.map((it) => it.id !== iid ? it : { ...it, done: !it.done }) }));
     setJustToggled(iid);

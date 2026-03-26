@@ -15,6 +15,9 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   const [addingTo, setAddingTo] = useState(null);
   const [newItem, setNewItem] = useState("");
   const [semIdx, setSemIdx] = useState(0);
+  const weekKeyRef = useRef(null);
+  const semanaNameRef = useRef(null);
+  const weekRef = useRef(null);
 
   function currentSatKey() {
     const now = new Date(); const dow = now.getDay();
@@ -23,60 +26,100 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
     return sat.toISOString().slice(0, 10);
   }
 
+  function persistWeek(days, weekKey, semanaName) {
+    saveKey("rp_agenda_v7", { _weekKey: weekKey, _semana: semanaName, days });
+  }
+
+  function rolloverPending(days) {
+    const todayDow = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][new Date().getDay()];
+    const dayOrder = ["sab", "dom", "seg", "ter", "qua", "qui", "sex"];
+    const todayIdx = dayOrder.indexOf(todayDow);
+    const rollovers = [];
+    const updated = days.map((day) => {
+      if (dayOrder.indexOf(day.id) >= todayIdx) return day;
+      const pending = day.items.filter((it) => !it.done && !it.fixed);
+      if (!pending.length) return day;
+      rollovers.push(...pending.map((it) => ({ ...it, id: uid(), text: it.text.replace(/^⚠️\s*/, ""), done: false })));
+      return { ...day, items: day.items.filter((it) => it.done || it.fixed) };
+    });
+    if (rollovers.length === 0) return days;
+    return updated.map((day) => day.id !== todayDow ? day : {
+      ...day,
+      items: [...day.items, ...rollovers.map((r) => ({ ...r, text: "⚠️ " + r.text.replace(/^⚠️\s*/, "") }))]
+    });
+  }
+
   useEffect(() => {
     const satKey = currentSatKey();
     Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([saved, hist]) => {
       const nh = hist || [];
-      if (saved && saved._weekKey === satKey) {
-        const todayDow = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][new Date().getDay()];
-        const dayOrder = ["sab", "dom", "seg", "ter", "qua", "qui", "sex"];
-        const todayIdx = dayOrder.indexOf(todayDow);
-        const rollovers = [];
-        const updated = saved.map((day, di) => {
-          if (dayOrder.indexOf(day.id) >= todayIdx) return day;
-          const pendingReviews = day.items.filter((it) => !it.done && it.isReview);
-          if (!pendingReviews.length) return day;
-          rollovers.push(...pendingReviews.map((it) => ({ ...it, id: uid(), text: it.text.replace(/^⚠️\s*/, "") + "", done: false })));
-          return { ...day, items: day.items.filter((it) => it.done || !it.isReview) };
-        });
-        if (rollovers.length > 0) {
-          const rolled = updated.map((day) => day.id !== todayDow ? day : {
-            ...day,
-            items: [...day.items, ...rollovers.map((r) => ({ ...r, text: "⚠️ " + r.text.replace(/^🔄\s*/, "🔄 ") }))]
-          });
-          rolled._weekKey = satKey; rolled._semana = saved._semana;
-          setWeek(rolled); saveKey("rp_agenda_v7", rolled);
-        } else {
-          setWeek(saved);
-        }
+      const isWrapped = saved && !Array.isArray(saved) && saved.days;
+      const savedKey = isWrapped ? saved._weekKey : (saved && saved._weekKey);
+      const savedSemana = isWrapped ? saved._semana : (saved && saved._semana);
+      const savedDays = isWrapped ? saved.days : saved;
+      if (savedDays && savedKey === satKey) {
+        const rolled = rolloverPending(savedDays);
+        weekKeyRef.current = satKey;
+        semanaNameRef.current = savedSemana;
+        setWeek(rolled);
+        if (rolled !== savedDays) persistWeek(rolled, satKey, savedSemana);
         const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (idx >= 0) setSemIdx(idx);
       } else {
-        if (saved && saved._weekKey) {
-          const tot = saved.reduce((s, d) => s + d.items.length, 0);
-          const don = saved.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
-          if (don > 0) { nh.unshift({ savedAt: saved._weekKey, label: `${saved._semana || "Semana"} — ${fmtDate(saved._weekKey)}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: saved }); saveKey("rp_agenda_history", nh.slice(0, 12)); }
+        if (savedDays && savedKey) {
+          const tot = savedDays.reduce((s, d) => s + d.items.length, 0);
+          const don = savedDays.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
+          if (don > 0) { nh.unshift({ savedAt: savedKey, label: `${savedSemana || "Semana"} — ${fmtDate(savedKey)}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: savedDays }); saveKey("rp_agenda_history", nh.slice(0, 12)); }
         }
         let curIdx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (curIdx < 0) curIdx = 0;
         setSemIdx(curIdx);
-        const w = buildWeekTemplate(curIdx, reviews, alertThemes); w._weekKey = satKey; w._semana = SEMANAS[curIdx]?.semana;
-        setWeek(w); saveKey("rp_agenda_v7", w);
+        const w = buildWeekTemplate(curIdx, reviews, alertThemes);
+        weekKeyRef.current = satKey;
+        semanaNameRef.current = SEMANAS[curIdx]?.semana;
+        setWeek(w); persistWeek(w, satKey, SEMANAS[curIdx]?.semana);
       }
       setHistory(nh.slice(0, 12));
     });
   }, []);
 
+  useEffect(() => {
+    function msUntilMidnight() {
+      const now = new Date();
+      const midnight = new Date(now);
+      midnight.setHours(24, 0, 0, 0);
+      return midnight - now + 500;
+    }
+    let timer;
+    function scheduleMidnightRollover() {
+      timer = setTimeout(() => {
+        const current = weekRef.current;
+        if (current) {
+          const rolled = rolloverPending(current);
+          if (rolled !== current) {
+            setWeek(rolled);
+            persistWeek(rolled, weekKeyRef.current || currentSatKey(), semanaNameRef.current);
+          }
+        }
+        scheduleMidnightRollover();
+      }, msUntilMidnight());
+    }
+    scheduleMidnightRollover();
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => { weekRef.current = week; }, [week]);
+
   function rebuildForSem(ni) {
     setSemIdx(ni);
     const satKey = SEM_SAT[SEMANAS[ni]?.semana] || currentSatKey();
-    const w = buildWeekTemplate(ni, reviews, alertThemes); w._weekKey = satKey; w._semana = SEMANAS[ni]?.semana;
-    setWeek(w); saveKey("rp_agenda_v7", w);
+    const w = buildWeekTemplate(ni, reviews, alertThemes);
+    weekKeyRef.current = satKey;
+    semanaNameRef.current = SEMANAS[ni]?.semana;
+    setWeek(w); persistWeek(w, satKey, SEMANAS[ni]?.semana);
   }
 
-  function save(w) { w._weekKey = currentSatKey(); w._semana = SEMANAS[semIdx]?.semana; setWeek(w); saveKey("rp_agenda_v7", w); }
-  const weekRef = useRef(week);
-  useEffect(() => { if (week && week !== weekRef.current) { weekRef.current = week; saveKey("rp_agenda_v7", week); } }, [week]);
+  function save(days) { const wk = weekKeyRef.current || currentSatKey(); const sn = SEMANAS[semIdx]?.semana; weekKeyRef.current = wk; semanaNameRef.current = sn; setWeek(days); persistWeek(days, wk, sn); }
   function toggleDone(did, iid) { save(week.map((d) => d.id !== did ? d : { ...d, items: d.items.map((it) => it.id !== iid ? it : { ...it, done: !it.done }) })); }
   function startEdit(did, item) { setEditing({ did, iid: item.id }); setEditText(item.text); }
   function commitEdit() { if (!editing) return; save(week.map((d) => d.id !== editing.did ? d : { ...d, items: d.items.map((it) => it.id !== editing.iid ? it : { ...it, text: editText }) })); setEditing(null); }

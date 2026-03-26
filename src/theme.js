@@ -2,7 +2,7 @@ const F = "'Inter',system-ui,sans-serif";
 const FM = "'JetBrains Mono',monospace";
 const FN = "'Nunito',sans-serif";
 const DARK = { bg:"#0A0A0B", surface:"#111113", card:"#17171A", card2:"#1F1F23", border:"#27272A", border2:"#3F3F46", text:"#F4F4F5", text2:"#A1A1AA", text3:"#71717A", blue:"#60A5FA", purple:"#A78BFA", teal:"#2DD4BF", green:"#22C55E", yellow:"#F59E0B", red:"#F87171", pink:"#F472B6" };
-const LIGHT = { bg:"#F8FAFC", surface:"#F1F5F9", card:"#FFFFFF", card2:"#F8FAFC", border:"#E2E8F0", border2:"#CBD5E1", text:"#0F172A", text2:"#475569", text3:"#94A3B8", blue:"#3B82F6", purple:"#8B5CF6", teal:"#14B8A6", green:"#16A34A", yellow:"#D97706", red:"#EF4444", pink:"#EC4899" };
+const LIGHT = { bg:"#F8FAFC", surface:"#F1F5F9", card:"#FFFFFF", card2:"#F8FAFC", border:"#E2E8F0", border2:"#CBD5E1", text:"#0F172A", text2:"#475569", text3:"#64748B", blue:"#3B82F6", purple:"#8B5CF6", teal:"#14B8A6", green:"#16A34A", yellow:"#D97706", red:"#EF4444", pink:"#EC4899" };
 let C = DARK, SH, card;
 const R = { sm:8, md:12, lg:16, xl:20, pill:999 };
 const S = { xs:2, sm:4, md:8, lg:12, xl:16 };
@@ -13,9 +13,42 @@ function applyTheme(dark) {
   card = { background:C.card, border:`1px solid ${C.border}`, borderRadius:R.xl, padding:`${S.xl}px`, boxShadow:SH.md };
 }
 applyTheme(true);
-const inp = (extra={}) => ({ background:C.surface, border:`1px solid ${C.border2}`, borderRadius:R.md, padding:"10px 14px", color:C.text, fontSize:14, fontFamily:F, width:"100%", outline:"none", ...extra });
-const btn = (bg, extra={}) => ({ background:bg, border:"none", borderRadius:R.md, padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:500, fontFamily:F, ...extra });
+const inp = (extra={}) => ({ background:C.surface, border:`1px solid ${C.border2}`, borderRadius:R.md, padding:"10px 14px", color:C.text, fontSize:14, fontFamily:F, width:"100%", outline:"none", transition:"border-color 0.15s, box-shadow 0.15s", ...extra });
+const btn = (bg, extra={}) => ({ background:bg, border:"none", borderRadius:R.md, padding:"10px 18px", color:"#fff", cursor:"pointer", fontSize:13, fontWeight:500, fontFamily:F, transition:"opacity 0.15s, transform 0.1s", ...extra });
 const tag = (color) => ({ display:"inline-flex", alignItems:"center", padding:"3px 10px", borderRadius:R.pill, fontSize:10, fontWeight:600, fontFamily:FM, color, background:color+"18", border:`1px solid ${color}33`, lineHeight:1.4 });
 const NUM = { fontFamily:FN, fontVariantNumeric:"tabular-nums" };
 const numUnit = (v, u) => [v, u];
-export { C, DARK, LIGHT, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit, applyTheme };
+
+// Typography scale
+const TY = {
+  h1: { fontSize:24, fontWeight:800, letterSpacing:-0.5, lineHeight:1.2, fontFamily:F },
+  h2: { fontSize:20, fontWeight:700, letterSpacing:-0.3, lineHeight:1.25, fontFamily:F },
+  h3: { fontSize:16, fontWeight:700, letterSpacing:-0.2, lineHeight:1.3, fontFamily:F },
+  body: { fontSize:14, fontWeight:400, lineHeight:1.5, fontFamily:F },
+  caption: { fontSize:12, fontWeight:500, lineHeight:1.4, fontFamily:F },
+  overline: { fontSize:10, fontWeight:600, letterSpacing:1, textTransform:"uppercase", fontFamily:F },
+};
+
+// Performance helpers
+const perfIcon = (pct) => pct >= 85 ? "\u2713" : pct >= 60 ? "\u26a0" : "\u2717";
+const perfIconColor = (pct) => pct >= 85 ? "#22C55E" : pct >= 60 ? "#EAB308" : "#EF4444";
+
+// CSS keyframes (call once)
+let _injected = false;
+function injectKeyframes() {
+  if (_injected) return;
+  _injected = true;
+  const s = document.createElement("style");
+  s.textContent = `
+    @keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
+    @keyframes pulseCheck { 0% { transform:scale(1) } 50% { transform:scale(1.3) } 100% { transform:scale(1) } }
+    @keyframes skeletonShimmer { 0% { background-position:-200% 0 } 100% { background-position:200% 0 } }
+    .fade-in { animation:fadeSlideIn .25s ease-out }
+    .pulse-check { animation:pulseCheck .3s ease-out }
+    .skeleton { background:linear-gradient(90deg,transparent 25%,rgba(255,255,255,.06) 50%,transparent 75%); background-size:200% 100%; animation:skeletonShimmer 1.5s infinite }
+    @media(max-width:640px){ .bottom-nav{display:block!important} .desktop-tabs{display:none!important} }
+  `;
+  document.head.appendChild(s);
+}
+
+export { C, DARK, LIGHT, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit, applyTheme, TY, perfIcon, perfIconColor, injectKeyframes };

@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from "react";
 import { AREAS, areaMap, AREA_SHORT_MAP, SEMANAS, SEM_SAT } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, fmtDate, uid, weekDates, buildWeekTemplate } from "../utils.js";
-import { loadKey, saveKey } from "../storage.js";
 import { Empty } from "./UI.jsx";
 
 function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
@@ -53,37 +52,39 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
 
   useEffect(() => {
     const satKey = currentSatKey();
-    Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([saved, hist]) => {
-      const nh = hist || [];
-      const isWrapped = saved && !Array.isArray(saved) && saved.days;
-      const savedKey = isWrapped ? saved._weekKey : null;
-      const savedSemana = isWrapped ? saved._semana : null;
-      const savedDays = isWrapped ? saved.days : (Array.isArray(saved) ? saved : null);
-      const isCurrentWeek = savedDays && (savedKey === satKey || !savedKey);
-      if (isCurrentWeek) {
-        const rolled = rolloverPending(savedDays);
-        weekKeyRef.current = satKey;
-        semanaNameRef.current = savedSemana;
-        setWeek(rolled);
-        persistWeek(rolled, satKey, savedSemana);
-        const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
-        if (idx >= 0) setSemIdx(idx);
-      } else {
-        if (savedDays && savedKey) {
-          const tot = savedDays.reduce((s, d) => s + d.items.length, 0);
-          const don = savedDays.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
-          if (don > 0) { nh.unshift({ savedAt: savedKey, label: `${savedSemana || "Semana"} — ${fmtDate(savedKey)}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: savedDays }); saveKey("rp_agenda_history", nh.slice(0, 12)); }
-        }
-        let curIdx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
-        if (curIdx < 0) curIdx = 0;
-        setSemIdx(curIdx);
-        const w = buildWeekTemplate(curIdx, reviews, alertThemes);
-        weekKeyRef.current = satKey;
-        semanaNameRef.current = SEMANAS[curIdx]?.semana;
-        setWeek(w); persistWeek(w, satKey, SEMANAS[curIdx]?.semana);
+    let saved = null;
+    let hist = [];
+    try { const raw = localStorage.getItem("rp_agenda_v7"); if (raw) saved = JSON.parse(raw); } catch {}
+    try { const raw = localStorage.getItem("rp_agenda_history"); if (raw) hist = JSON.parse(raw); } catch {}
+    const nh = hist || [];
+    const isWrapped = saved && !Array.isArray(saved) && saved.days;
+    const savedKey = isWrapped ? saved._weekKey : null;
+    const savedSemana = isWrapped ? saved._semana : null;
+    const savedDays = isWrapped ? saved.days : (Array.isArray(saved) ? saved : null);
+    const isCurrentWeek = savedDays && (savedKey === satKey || !savedKey);
+    if (isCurrentWeek) {
+      const rolled = rolloverPending(savedDays);
+      weekKeyRef.current = satKey;
+      semanaNameRef.current = savedSemana;
+      setWeek(rolled);
+      persistWeek(rolled, satKey, savedSemana);
+      const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
+      if (idx >= 0) setSemIdx(idx);
+    } else {
+      if (savedDays && savedKey) {
+        const tot = savedDays.reduce((s, d) => s + d.items.length, 0);
+        const don = savedDays.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
+        if (don > 0) { nh.unshift({ savedAt: savedKey, label: `${savedSemana || "Semana"} — ${fmtDate(savedKey)}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: savedDays }); try { localStorage.setItem("rp_agenda_history", JSON.stringify(nh.slice(0, 12))); } catch {} }
       }
-      setHistory(nh.slice(0, 12));
-    });
+      let curIdx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
+      if (curIdx < 0) curIdx = 0;
+      setSemIdx(curIdx);
+      const w = buildWeekTemplate(curIdx, reviews, alertThemes);
+      weekKeyRef.current = satKey;
+      semanaNameRef.current = SEMANAS[curIdx]?.semana;
+      setWeek(w); persistWeek(w, satKey, SEMANAS[curIdx]?.semana);
+    }
+    setHistory(nh.slice(0, 12));
   }, []);
 
   useEffect(() => {
@@ -132,7 +133,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   function archiveAndReset(newIdx) {
     const tot = week.reduce((s, d) => s + d.items.length, 0); const don = week.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
     const entry = { savedAt: today(), label: `${SEMANAS[semIdx]?.semana || "Semana"} — ${fmtDate(currentSatKey())}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: week };
-    const nh = [entry, ...history].slice(0, 12); setHistory(nh); saveKey("rp_agenda_history", nh);
+    const nh = [entry, ...history].slice(0, 12); setHistory(nh); try { localStorage.setItem("rp_agenda_history", JSON.stringify(nh)); } catch {}
     const ni = newIdx ?? Math.min(semIdx + 1, SEMANAS.length - 1);
     rebuildForSem(ni);
   }

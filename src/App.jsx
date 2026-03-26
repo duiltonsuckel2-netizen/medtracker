@@ -76,7 +76,7 @@ function App() {
   }
 
   useEffect(() => {
-    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_seeded12", false), loadKey("rp26_migrated_v2", false)]).then(([s, r, rl, e, seeded, migrated]) => {
+    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_seeded12", false), loadKey("rp26_migrated_v3", false)]).then(([s, r, rl, e, seeded, migrated]) => {
       if (!seeded) {
         // Fresh install: seed with full history
         const revs = buildReviewHistories(SEED_REVIEWS.map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}` })));
@@ -84,19 +84,30 @@ function App() {
         const sess = SEED_SESSIONS.map((s) => ({ ...s, id: uid() }));
         const se = buildUnicamp2024Exam();
         setSessions(sess); setReviews(revs); setRevLogs(logs); setExams([se]);
-        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", sess); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true); saveKey("rp26_migrated_v2", true);
+        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", sess); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true); saveKey("rp26_migrated_v3", true);
       } else if (!migrated) {
         // Existing user: enrich data without losing anything
         let revs = Array.isArray(r) ? r : [];
         let logs = Array.isArray(rl) ? rl : [];
         let sess = Array.isArray(s) ? s : [];
-        // Add missing reviews (e.g. Hipertensão Porta)
+        // Build a map of corrected intervalIndex from SEED_REVIEWS
+        const seedIdx = {};
+        SEED_REVIEWS.forEach((sr) => { seedIdx[`${sr.area}__${sr.theme.toLowerCase().trim()}`] = sr.intervalIndex; });
+        // Add missing reviews and fix intervalIndex from Notion-verified data
         const existingKeys = new Set(revs.map((r) => r.key));
         SEED_REVIEWS.forEach((sr) => {
           const key = `${sr.area}__${sr.theme.toLowerCase().trim()}`;
           if (!existingKeys.has(key)) {
             revs = [{ ...sr, id: uid(), key, history: [{ date: sr.lastStudied, pct: sr.lastPerf }] }, ...revs];
           }
+        });
+        // Fix intervalIndex for all seed reviews (was off by 1)
+        revs = revs.map((r) => {
+          const correctIdx = seedIdx[r.key];
+          if (correctIdx != null && r.intervalIndex !== correctIdx) {
+            return { ...r, intervalIndex: correctIdx };
+          }
+          return r;
         });
         // Enrich review histories from logs
         revs = buildReviewHistories(revs);
@@ -105,7 +116,7 @@ function App() {
           sess = SEED_SESSIONS.map((s) => ({ ...s, id: uid() }));
         }
         setSessions(sess); setReviews(revs); setRevLogs(logs); setExams(Array.isArray(e) ? e : []);
-        saveKey("rp26_reviews", revs); saveKey("rp26_sessions", sess); saveKey("rp26_migrated_v2", true);
+        saveKey("rp26_reviews", revs); saveKey("rp26_sessions", sess); saveKey("rp26_migrated_v3", true);
       } else {
         setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []);
       }

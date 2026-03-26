@@ -31,7 +31,9 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         if (total > 0) activity[dates[day.id]] = { done, total, pct: Math.round((done / total) * 100) };
       }
     }
-    if (agendaWeek && agendaWeek._weekKey) processWeek(agendaWeek, agendaWeek._weekKey);
+    const weekDays = agendaWeek?.days || (Array.isArray(agendaWeek) ? agendaWeek : null);
+    const weekKey = agendaWeek?._weekKey;
+    if (weekDays && weekKey) processWeek(weekDays, weekKey);
     (agendaHistory || []).forEach((entry) => { if (entry.days && entry.savedAt) processWeek(entry.days, entry.savedAt); });
     return activity;
   }, [agendaWeek, agendaHistory]);

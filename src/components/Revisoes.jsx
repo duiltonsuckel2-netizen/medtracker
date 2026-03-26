@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, ResponsiveContainer, ReferenceLine, Tooltip } from "recharts";
 import { AREAS, INTERVALS, INT_LABELS, areaMap } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
@@ -18,7 +18,9 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
   const [editingLog, setEditingLog] = useState(null);
   const [evoArea, setEvoArea] = useState("all");
   const [evoSearch, setEvoSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [evoFocused, setEvoFocused] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setDebouncedSearch(evoSearch), 200); return () => clearTimeout(t); }, [evoSearch]);
   const setQ = (k, v) => setQForm((f) => ({ ...f, [k]: v }));
   const themeProgress = useMemo(() => {
     const byTheme = {};
@@ -183,7 +185,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
       <div style={{ ...card, background: C.surface, border: `1px solid ${C.blue}30` }}><div style={{ fontSize: 13, fontWeight: 600, color: C.blue, marginBottom: S.sm }}>Intervalos</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>{INTERVALS.map((iv, i) => <div key={i} style={{ background: C.card2, borderRadius: R.sm, padding: "5px 12px", fontSize: 11, color: C.text2, fontFamily: FM, fontWeight: 500 }}>{INT_LABELS[i]}</div>)}</div><div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>≥85% → avança · 75–84% → mantém · &lt;75% → volta um</div></div>
       </>}
       {subTab === "evolucao" && (() => {
-        const evoFiltered = themeProgress.filter((t) => (evoArea === "all" || t.area === evoArea) && (!evoSearch || t.theme.toLowerCase().includes(evoSearch.toLowerCase())));
+        const evoFiltered = themeProgress.filter((t) => (evoArea === "all" || t.area === evoArea) && (!debouncedSearch || t.theme.toLowerCase().includes(debouncedSearch.toLowerCase())));
         const evoSuggestions = evoSearch.length >= 1 && evoFocused ? [...new Set(themeProgress.map((t) => t.theme))].filter((th) => th.toLowerCase().includes(evoSearch.toLowerCase())).slice(0, 6) : [];
         const evoChip = (active, color) => ({ padding: "7px 16px", fontSize: 12, fontFamily: F, fontWeight: active ? 700 : 500, minHeight: H.sm, height: H.sm, borderRadius: R.pill, cursor: "pointer", background: active ? (color || C.card2) : "transparent", border: active ? `1px solid ${color ? color + "60" : C.border2}` : `1px solid ${C.border}`, color: active ? (color ? "#fff" : C.text) : C.text3, boxShadow: active ? SH.sm : "none", transition: "all 0.15s" });
         return <>

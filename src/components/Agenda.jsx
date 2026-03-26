@@ -27,7 +27,9 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   function unwrapSaved(saved) {
     if (!saved) return null;
     if (saved._days) return { days: saved._days, _weekKey: saved._weekKey, _semana: saved._semana };
-    if (Array.isArray(saved) && saved.length > 0) return { days: saved, _weekKey: undefined, _semana: undefined };
+    // Old format: plain array without metadata. _weekKey was lost by JSON.stringify,
+    // so assume current week to preserve existing checked items.
+    if (Array.isArray(saved) && saved.length > 0) return { days: saved, _weekKey: currentSatKey(), _semana: undefined };
     return null;
   }
   function wrapForSave(days, weekKey, semana) {

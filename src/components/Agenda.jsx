@@ -87,11 +87,16 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
   const week = state.days;
   const semIdx = state.semIdx;
 
-  function updateWeek(newDays) {
-    const wk = state.weekKey || currentSatKey();
-    const sn = state.semana;
-    saveWeek(newDays, wk, sn);
-    setState((prev) => ({ ...prev, days: newDays }));
+  // All mutations go through this to avoid stale closures
+  function updateDays(updater) {
+    setState((prev) => {
+      const newDays = updater(prev.days);
+      const wk = prev.weekKey || currentSatKey();
+      const sn = prev.semana;
+      // Save to localStorage SYNCHRONOUSLY inside updater
+      saveWeek(newDays, wk, sn);
+      return { ...prev, days: newDays };
+    });
   }
 
   // Midnight auto-rollover
@@ -105,11 +110,7 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
     let timer;
     function schedule() {
       timer = setTimeout(() => {
-        const current = weekRef.current;
-        if (current) {
-          const rolled = rolloverPending(current);
-          if (rolled !== current) updateWeek(rolled);
-        }
+        updateDays((days) => rolloverPending(days));
         schedule();
       }, msUntilMidnight());
     }
@@ -126,11 +127,11 @@ function Agenda({ reviews, revLogs, alertThemes, onAddSubtemaNote }) {
     setState({ days: w, semIdx: ni, weekKey: sk, semana: SEMANAS[ni]?.semana });
   }
 
-  function toggleDone(did, iid) { updateWeek(week.map((d) => d.id !== did ? d : { ...d, items: d.items.map((it) => it.id !== iid ? it : { ...it, done: !it.done }) })); }
+  function toggleDone(did, iid) { updateDays((days) => days.map((d) => d.id !== did ? d : { ...d, items: d.items.map((it) => it.id !== iid ? it : { ...it, done: !it.done }) })); }
   function startEdit(did, item) { setEditing({ did, iid: item.id }); setEditText(item.text); }
-  function commitEdit() { if (!editing) return; updateWeek(week.map((d) => d.id !== editing.did ? d : { ...d, items: d.items.map((it) => it.id !== editing.iid ? it : { ...it, text: editText }) })); setEditing(null); }
-  function deleteItem(did, iid) { updateWeek(week.map((d) => d.id !== did ? d : { ...d, items: d.items.filter((it) => it.id !== iid) })); }
-  function addItem(did) { if (!newItem.trim()) return; updateWeek(week.map((d) => d.id !== did ? d : { ...d, items: [...d.items, { id: uid(), text: newItem.trim(), done: false, fixed: false }] })); setNewItem(""); setAddingTo(null); }
+  function commitEdit() { if (!editing) return; updateDays((days) => days.map((d) => d.id !== editing.did ? d : { ...d, items: d.items.map((it) => it.id !== editing.iid ? it : { ...it, text: editText }) })); setEditing(null); }
+  function deleteItem(did, iid) { updateDays((days) => days.map((d) => d.id !== did ? d : { ...d, items: d.items.filter((it) => it.id !== iid) })); }
+  function addItem(did) { if (!newItem.trim()) return; updateDays((days) => days.map((d) => d.id !== did ? d : { ...d, items: [...d.items, { id: uid(), text: newItem.trim(), done: false, fixed: false }] })); setNewItem(""); setAddingTo(null); }
 
   function archiveAndReset(newIdx) {
     const tot = week.reduce((s, d) => s + d.items.length, 0); const don = week.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);

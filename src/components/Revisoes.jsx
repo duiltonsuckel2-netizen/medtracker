@@ -166,20 +166,64 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
           );
         })}
       </div>
-      <div>
-        <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Próximas revisões</div>
-        {upcoming.length === 0 ? <Empty msg="Nenhuma revisão futura." /> : upcoming.slice(0, 25).map((r) => { const a = areaMap[r.area]; const days = diffDays(r.nextDue, today()); return (
-          <div key={r.id} style={{ ...card, marginBottom: 6, padding: `${S.md}px ${S.lg}px`, borderRadius: R.lg }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", flex: 1 }}>
-                <span style={{ fontSize: 13 }}>{r.theme}</span><span style={tag(a?.color || "#6B7280")}>{a?.short}</span><span style={tag(C.card2)}>{INT_LABELS[r.intervalIndex]}</span>
-              </div>
-              <button onClick={() => { setSubtemaModal({ revId: r.id, theme: r.theme, area: r.area }); setSubtemaResult(null); setSubtemaStatus("idle"); setSubtemaImg(null); }} style={btn(C.card2, { padding: "4px 8px", fontSize: 10 })}>📊</button>
+      {(() => {
+        // Group upcoming reviews by timeframe
+        const groups = [];
+        const thisWeek = [], nextWeek = [], later = [];
+        upcoming.forEach((r) => {
+          const days = diffDays(r.nextDue, today());
+          if (days <= 7) thisWeek.push(r);
+          else if (days <= 14) nextWeek.push(r);
+          else later.push(r);
+        });
+        if (thisWeek.length) groups.push({ label: "Esta semana", items: thisWeek, accent: C.blue });
+        if (nextWeek.length) groups.push({ label: "Pr\u00f3xima semana", items: nextWeek, accent: C.purple });
+        if (later.length) groups.push({ label: "Mais adiante", items: later, accent: C.text3 });
+
+        if (upcoming.length === 0) return <Empty icon="\u{1f4c5}" msg="Nenhuma revis\u00e3o futura agendada." />;
+
+        return groups.map((g) => (
+          <div key={g.label}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <div style={{ width: 4, height: 16, borderRadius: 2, background: g.accent }} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: g.accent }}>{g.label}</span>
+              <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>({g.items.length})</span>
             </div>
-            <div style={{ fontSize: 11, color: C.text3, ...NUM, fontWeight: 400, marginTop: 3 }}>em <b style={{ color: C.text }}>{days}<span style={{ fontWeight: 400, opacity: 0.6 }}>d</span></b> ({fmtDate(r.nextDue)}) · último <span style={{ color: perfColor(r.lastPerf), fontWeight: 700 }}>{r.lastPerf}%</span></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+              {g.items.map((r) => {
+                const a = areaMap[r.area]; const days = diffDays(r.nextDue, today());
+                const aColor = a?.color || "#6B7280";
+                const urgency = days <= 2 ? 1 : days <= 5 ? 0.6 : 0.35;
+                return (
+                  <div key={r.id} style={{ ...card, padding: `${S.lg}px`, borderRadius: R.lg, borderLeft: `3px solid ${aColor}`, display: "flex", alignItems: "center", gap: S.lg }}>
+                    {/* Days countdown */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 44, padding: "6px 0" }}>
+                      <span style={{ fontSize: 22, fontWeight: 800, fontFamily: FN, color: days <= 3 ? C.yellow : C.text, lineHeight: 1 }}>{days}</span>
+                      <span style={{ fontSize: 10, color: C.text3, fontWeight: 500 }}>dias</span>
+                    </div>
+                    {/* Content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4, lineHeight: 1.3 }}>{r.theme}</div>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ ...tag(aColor), borderLeft: `2px solid ${aColor}` }}>{a?.short}</span>
+                        <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[r.intervalIndex]}</span>
+                        <span style={{ fontSize: 10, color: C.text3 }}>{fmtDate(r.nextDue)}</span>
+                      </div>
+                    </div>
+                    {/* Performance indicator */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
+                      <div style={{ width: 40, height: 40, borderRadius: 10, background: perfColor(r.lastPerf) + "18", border: `2px solid ${perfColor(r.lastPerf)}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(r.lastPerf), fontFamily: FN }}>{r.lastPerf}%</span>
+                      </div>
+                      <button onClick={() => { setSubtemaModal({ revId: r.id, theme: r.theme, area: r.area }); setSubtemaResult(null); setSubtemaStatus("idle"); setSubtemaImg(null); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.text3, padding: 2, opacity: 0.5 }} title="Subtemas">{"\ud83d\udcca"}</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        ); })}
-      </div>
+        ));
+      })()}
       <div style={{ ...card, background: C.surface, border: `1px solid ${C.blue}30` }}><div style={{ fontSize: 13, fontWeight: 600, color: C.blue, marginBottom: S.sm }}>Intervalos</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>{INTERVALS.map((iv, i) => <div key={i} style={{ background: C.card2, borderRadius: R.sm, padding: "5px 12px", fontSize: 11, color: C.text2, fontFamily: FM, fontWeight: 500 }}>{INT_LABELS[i]}</div>)}</div><div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>≥85% → avança · 75–84% → mantém · &lt;75% → volta um</div></div>
       </>}
       {subTab === "evolucao" && (() => {

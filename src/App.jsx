@@ -182,11 +182,27 @@ function App() {
         }
         // Fix any reviews with missing nextDue (caused by editReview bug)
         let fixedDue = false;
+        const td = today();
         loadedReviews = loadedReviews.map((rv) => {
-          if (!rv.nextDue) { fixedDue = true; return { ...rv, nextDue: addDays(rv.lastStudied || today(), INTERVALS[rv.intervalIndex || 0]) }; }
+          if (!rv.nextDue) { fixedDue = true; return { ...rv, nextDue: td }; }
           return rv;
         });
         if (fixedDue) saveKey("rp26_reviews", loadedReviews);
+        // Migration v8: fix reviews whose nextDue was incorrectly calculated by the
+        // previous fixedDue formula (lastStudied + interval → often a past date).
+        // These reviews should be due today, not weeks in the past.
+        if (!localStorage.getItem("rp26_mig_v8")) {
+          localStorage.setItem("rp26_mig_v8", "1");
+          let v8changed = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            if (!rv.lastStudied || !rv.nextDue || rv.nextDue >= td) return rv;
+            // Check if nextDue matches the old fixedDue formula
+            const oldCalc = addDays(rv.lastStudied, INTERVALS[rv.intervalIndex || 0]);
+            if (rv.nextDue === oldCalc) { v8changed = true; return { ...rv, nextDue: td }; }
+            return rv;
+          });
+          if (v8changed) saveKey("rp26_reviews", loadedReviews);
+        }
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
@@ -202,10 +218,10 @@ function App() {
       }
       // Migration v3: fix all intervalIndex by real gap, restore HAS correctly
       const migKey3 = "rp26_mig_v3_fix_intervals";
-      if (!localStorage.getItem(migKey3)) {
+      if (seeded && !localStorage.getItem(migKey3)) {
         localStorage.setItem(migKey3, "1");
-        let revs = Array.isArray(r) ? [...r] : [];
-        const td = today();
+        let revs = [...loadedReviews];
+        const td3 = today();
         const IVALS = [7, 14, 30, 60, 90, 120, 180];
         // 1) Recalculate intervalIndex from real gap (nextDue - lastStudied)
         revs = revs.map((rv) => {
@@ -222,14 +238,14 @@ function App() {
         const hasNewKey = `clinica__${hasNewTheme.toLowerCase().trim()}`;
         const oldIdx = revs.findIndex((rv) => rv.area === "clinica" && (rv.key.includes("metabólica") || rv.key.includes("metabolica") || rv.key.includes("dislipidemia") || rv.key.includes("has e")));
         if (oldIdx >= 0) {
-          revs[oldIdx] = { ...revs[oldIdx], theme: hasNewTheme, key: hasNewKey, nextDue: td };
+          revs[oldIdx] = { ...revs[oldIdx], theme: hasNewTheme, key: hasNewKey, nextDue: td3 };
         } else {
-          const loadedLogs = Array.isArray(rl) ? rl : [];
-          const hasLogs = loadedLogs.filter((l) => l.area === "clinica" && l.theme && (l.theme.toLowerCase().includes("has") || l.theme.toLowerCase().includes("hipertens")));
+          const migLogs = Array.isArray(rl) ? rl : [];
+          const hasLogs = migLogs.filter((l) => l.area === "clinica" && l.theme && (l.theme.toLowerCase().includes("has") || l.theme.toLowerCase().includes("hipertens")));
           const lastLog = hasLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
           revs.unshift({
             id: uid(), key: hasNewKey, area: "clinica", theme: hasNewTheme,
-            intervalIndex: 1, nextDue: td, lastPerf: lastLog?.pct || 78,
+            intervalIndex: 1, nextDue: td3, lastPerf: lastLog?.pct || 78,
             lastStudied: lastLog?.date || "2026-03-10",
             history: hasLogs.length > 0 ? hasLogs.map((l) => ({ date: l.date, pct: l.pct })) : [{ date: "2026-03-10", pct: 78 }]
           });
@@ -239,6 +255,7 @@ function App() {
           const k = rv.key.toLowerCase();
           return !(k.includes("dislipidemia") && !k.includes("has"));
         });
+        loadedReviews = revs;
         setReviews(revs); saveKey("rp26_reviews", revs);
       }
       setReady(true);

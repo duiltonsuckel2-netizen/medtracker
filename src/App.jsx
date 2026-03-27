@@ -183,11 +183,11 @@ function App() {
   const alertThemes = [];
   const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚" };
   const TABS = [
-    { id: "agenda", label: "Agenda" },
     { id: "dashboard", label: "Dashboard" },
     { id: "revisoes", label: `Revisões${dueR.length ? ` (${dueR.length})` : ""}` },
     { id: "provas", label: "Provas" },
     { id: "temas", label: "Temas" },
+    { id: "agenda", label: "Agenda" },
   ];
 
 

@@ -87,7 +87,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   function handleSubtopicReviewSave(entries) {
     if (!stReviewModal || !onSubtopicReview) return;
     entries.forEach((e) => {
-      onSubtopicReview(stReviewModal.area, stReviewModal.theme, e.name, Number(e.total), Number(e.acertos), e.confidence || null);
+      onSubtopicReview(stReviewModal.area, stReviewModal.theme, e.name, Number(e.pct));
     });
     setStReviewModal(null);
   }

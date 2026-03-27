@@ -105,20 +105,19 @@ function App() {
   function getSubtopics(area, topic) {
     return subtopics[`${area}__${topic}`] || [];
   }
-  function addSubtopicReview(area, parentTheme, subtema, total, acertos, confidence) {
-    const pct = perc(acertos, total);
+  function addSubtopicReview(area, parentTheme, subtema, pct) {
     const key = `${area}__${parentTheme.toLowerCase().trim()}::${subtema.toLowerCase().trim()}`;
     const ex = reviews.find((r) => r.key === key);
     const ni = nxtIdx(ex?.intervalIndex || 0, pct);
     const rev = {
       id: ex?.id || uid(), key, area, theme: subtema, parentTheme,
-      isSubtopic: true, confidence: confidence || null,
+      isSubtopic: true,
       intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]),
       lastPerf: pct, lastStudied: today(),
-      history: [...(ex?.history || []), { date: today(), pct, confidence: confidence || null }]
+      history: [...(ex?.history || []), { date: today(), pct }]
     };
     pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
-    pL([{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, total, acertos, pct, confidence: confidence || null, isSubtopic: true }, ...revLogs]);
+    pL([{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, pct, isSubtopic: true }, ...revLogs]);
   }
   function addSession(session) {
     const s = { ...session, id: uid(), createdAt: today() }; pS([s, ...sessions]);

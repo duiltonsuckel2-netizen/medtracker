@@ -64,6 +64,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     setSubtemaResult({ analise: "Análise automática indisponível neste ambiente. Identifique seus subtemas fracos manualmente pela plataforma de questões." });
   }
   function getSubtopicsForReview(r) {
+    // Prefer subtopicNames stored directly on the review card
+    if (r.subtopicNames && r.subtopicNames.length > 0) return r.subtopicNames;
     if (!subtopics) return [];
     // Normalize: remove "(Sem. XX)", roman numerals, dashes, extra spaces, lowercase
     const normalize = (s) => s.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();

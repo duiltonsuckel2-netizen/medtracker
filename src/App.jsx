@@ -189,6 +189,18 @@ function App() {
   function saveSubtopics(area, topic, items) {
     const key = `${area}__${topic}`;
     pSt({ ...subtopics, [key]: items });
+    // Persist subtopic names on matching review cards for reliable lookup
+    if (items.length > 0) {
+      const tWords = topic.toLowerCase().replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
+      const updated = reviews.map((r) => {
+        if (r.area !== area || r.isSubtopic) return r;
+        const rWords = r.theme.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
+        const shared = tWords.filter((tw) => rWords.some((rw) => rw.includes(tw) || tw.includes(rw)));
+        if (shared.length >= Math.ceil(tWords.length * 0.5)) return { ...r, subtopicNames: items };
+        return r;
+      });
+      if (updated.some((r, i) => r !== reviews[i])) pR(updated);
+    }
   }
   function getSubtopics(area, topic) {
     return subtopics[`${area}__${topic}`] || [];

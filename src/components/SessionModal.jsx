@@ -1,10 +1,19 @@
-import React, { useState, useMemo, useRef, useEffect } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import { AREAS, SEMANAS } from "../data.js";
 import { C, F, FM, R, S, H, SH, card, inp, btn, tag } from "../theme.js";
 import { today } from "../utils.js";
 import { Fld } from "./UI.jsx";
 
+function useEscapeKey(onClose) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+}
+
 function SessionModal({ onSave, onClose }) {
+  useEscapeKey(onClose);
   const [area, setArea] = useState("clinica");
   const [theme, setTheme] = useState("");
   const [total, setTotal] = useState("");
@@ -96,11 +105,10 @@ function SessionModal({ onSave, onClose }) {
             <Fld label="Acertos" error={touched.acertos && errors.acertos}><input type="number" min="0" value={acertos} onChange={(e) => { setAcertos(e.target.value); if (errors.acertos) setErrors((er) => ({ ...er, acertos: null })); }} onBlur={() => { touch("acertos"); validate("acertos"); }} style={inp({ borderColor: "#34D39944", ...errStyle("acertos") })} /></Fld>
           </div>
           <Fld label="Semana do cronograma (opcional)">
-            <div style={{ maxHeight: 120, overflowY: "auto", display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {SEMANAS.map((s, i) => (
-                <button key={i} onClick={() => setSemIdx(semIdx === i ? null : i)} style={{ padding: "4px 10px", borderRadius: R.pill, border: semIdx === i ? `1px solid ${C.purple}` : `1px solid ${C.border}`, background: semIdx === i ? C.purple + "20" : "transparent", cursor: "pointer", fontSize: 10, color: semIdx === i ? C.purple : C.text3, fontFamily: FM, transition: "all .15s" }}>{s.semana}</button>
-              ))}
-            </div>
+            <select value={semIdx ?? ""} onChange={(e) => setSemIdx(e.target.value === "" ? null : Number(e.target.value))} style={inp({ fontSize: 12 })}>
+              <option value="">Nenhuma</option>
+              {SEMANAS.map((s, i) => <option key={i} value={i}>{s.semana} — {s.aulas.map((a) => a.area).join(" + ")}</option>)}
+            </select>
           </Fld>
           <button onClick={submit} style={btn("#34D399", { width: "100%", marginTop: 4 })}>✓ Salvar sessão</button>
         </div>

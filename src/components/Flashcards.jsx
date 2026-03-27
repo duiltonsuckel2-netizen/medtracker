@@ -90,8 +90,8 @@ function Flashcards({ decks, onReview }) {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: S.md }}>
           <div>
-            <div style={{ fontSize: 18, fontWeight: 700 }}>Flashcards de Revisao</div>
-            <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>Baseados nos erros das suas provas em temas ja estudados</div>
+            <div style={{ fontSize: 18, fontWeight: 700 }}>Flashcards de Revisão</div>
+            <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>Baseados nos erros das suas provas em temas já estudados</div>
           </div>
           {totalDue > 0 && (
             <button onClick={() => startStudy(null)} style={btn(`linear-gradient(135deg, ${C.purple}, ${C.blue})`, { padding: "10px 20px", borderRadius: R.pill, fontWeight: 700, fontSize: 13, color: "#fff", border: "none" })}>
@@ -105,7 +105,7 @@ function Flashcards({ decks, onReview }) {
             <div style={{ fontSize: 32, marginBottom: 10 }}>{"🃏"}</div>
             <div style={{ fontSize: 14, color: C.text3, lineHeight: 1.6 }}>
               Nenhum flashcard gerado ainda.<br />
-              Cadastre provas com questoes classificadas para gerar flashcards automaticamente.
+              Cadastre provas com questões classificadas para gerar flashcards automaticamente.
             </div>
           </div>
         )}
@@ -369,7 +369,7 @@ function FlashcardWidget({ decks, onNavigate }) {
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <span style={{ fontSize: 18 }}>{"🃏"}</span>
-            <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Flashcards de Revisao</span>
+            <span style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Flashcards de Revisão</span>
           </div>
           <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>
             {totalDue > 0

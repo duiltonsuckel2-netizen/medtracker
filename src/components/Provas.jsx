@@ -18,6 +18,7 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
   const [pdfMsg, setPdfMsg] = useState("");
   const [sortMode, setSortMode] = useState("best");
   const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [expandedBlock, setExpandedBlock] = useState(0);
   const allLogs = useMemo(() => [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))], [revLogs, sessions]);
   const knownThemes = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set(allLogs.filter((l) => l.area === a.id).map((l) => l.theme))].sort(); }); return o; }, [allLogs]);
   const reset = () => { setStep(0); setExamMeta({ date: today(), name: "", total: 120 }); setQMap({}); setQDetails({}); setSearchQuery(""); setSearchResults([]); setPdfStatus("idle"); setPdfMsg(""); setAiAnalysis(null); };
@@ -106,10 +107,6 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
         </div>
         {pdfStatus !== "idle" && <div style={{ padding: "10px 14px", borderRadius: R.sm, background: pdfStatus === "error" ? C.red + "18" : pdfStatus === "done" ? C.green + "18" : C.blue + "18", border: `1px solid ${pdfStatus === "error" ? C.red : pdfStatus === "done" ? C.green : C.blue}44`, fontSize: 12, color: pdfStatus === "error" ? C.red : pdfStatus === "done" ? C.green : C.blue, fontFamily: FM }}>{isLoading && "⏳ "}{pdfMsg}</div>}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <label style={{ background: C.purple, border: "none", borderRadius: R.md, padding: "10px 18px", color: "#fff", cursor: isLoading ? "not-allowed" : "pointer", fontSize: 13, fontWeight: 500, fontFamily: F, opacity: isLoading ? 0.6 : 1, display: "inline-block" }}>
-            📎 Upload PDF
-            <input type="file" accept="application/pdf,.pdf" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUpload(f); e.target.value = ""; }} disabled={isLoading} />
-          </label>
           <button onClick={() => { if (!examMeta.name.trim()) return alert("Preencha o nome."); analyzeByName(); }} style={btn(C.blue, { padding: "10px 18px" })} disabled={isLoading}>🧠 Analisar pelo nome</button>
           <button onClick={() => { if (!examMeta.name.trim()) return alert("Preencha o nome."); if (!Number(examMeta.total)) return alert("Preencha o nº."); setPdfStatus("idle"); setPdfMsg(""); setStep(2); }} style={btn(C.card2)} disabled={isLoading}>Sem análise →</button>
         </div>
@@ -132,22 +129,40 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {CATS.map((cat) => (<div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", borderRadius: 999, background: cat.color + "18", border: `1px solid ${cat.color}33` }}><div style={{ width: 10, height: 10, borderRadius: "50%", background: cat.color, flexShrink: 0 }} /><span style={{ fontSize: 12, color: cat.color, fontWeight: 600 }}>{cat.label}</span><span style={{ fontSize: 12, color: cat.color, fontWeight: 700, fontFamily: FM }}>{Object.values(qMap).filter((v) => v === cat.id).length}</span></div>))}
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 3, maxHeight: 500, overflowY: "auto" }}>
-          {questions.map((n) => {
-            const cat = qMap[n] || null;
-            const aiQ = aiAnalysis?.find((q) => q.n === n);
-            const themeTxt = aiQ?.theme || qDetails[n]?.theme || "";
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {Array.from({ length: Math.ceil(total / 20) }, (_, bi) => {
+            const blockStart = bi * 20 + 1;
+            const blockEnd = Math.min((bi + 1) * 20, total);
+            const blockQs = questions.filter((n) => n >= blockStart && n <= blockEnd);
+            const blockDone = blockQs.filter((n) => qMap[n]).length;
+            const isOpen = expandedBlock === bi;
             return (
-              <div key={n} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: cat ? catColor(cat) + "0C" : C.surface, borderRadius: R.md, border: `1px solid ${cat ? catColor(cat) + "30" : C.border}`, transition: "background 0.1s" }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: cat ? catColor(cat) : C.text3, fontFamily: FM, minWidth: 28, textAlign: "center" }}>{n}</span>
-                <div style={{ display: "flex", gap: 5 }}>
-                  {CATS.map((c) => { const isActive = cat === c.id; return (
-                    <button key={c.id} onClick={() => setQMap((m) => { if (isActive) { const { [n]: _, ...rest } = m; return rest; } return { ...m, [n]: c.id }; })} title={c.label} style={{ width: 26, height: 26, borderRadius: "50%", border: `2px solid ${isActive ? c.color : c.color + "40"}`, background: isActive ? c.color : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0, transition: "all 0.1s" }}>
-                      {isActive && <span style={{ color: "#000", fontSize: 10, fontWeight: 800 }}>✓</span>}
-                    </button>
-                  ); })}
-                </div>
-                {themeTxt && <span style={{ fontSize: 10, color: C.text3, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{themeTxt}</span>}
+              <div key={bi} style={{ border: `1px solid ${C.border}`, borderRadius: R.md, overflow: "hidden" }}>
+                <button onClick={() => setExpandedBlock(isOpen ? -1 : bi)} style={{ width: "100%", padding: "10px 14px", background: isOpen ? C.card2 : C.surface, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, color: C.text, fontFamily: FM, fontSize: 12, fontWeight: 600 }}>
+                  <span>{isOpen ? "▼" : "▶"}</span>
+                  <span>Questões {blockStart}–{blockEnd}</span>
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: blockDone === blockQs.length && blockDone > 0 ? C.green : C.text3 }}>{blockDone}/{blockQs.length}</span>
+                </button>
+                {isOpen && <div style={{ display: "flex", flexDirection: "column", gap: 3, padding: "8px", maxHeight: 400, overflowY: "auto" }}>
+                  {blockQs.map((n) => {
+                    const cat = qMap[n] || null;
+                    const aiQ = aiAnalysis?.find((q) => q.n === n);
+                    const themeTxt = aiQ?.theme || qDetails[n]?.theme || "";
+                    return (
+                      <div key={n} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: cat ? catColor(cat) + "0C" : C.surface, borderRadius: R.md, border: `1px solid ${cat ? catColor(cat) + "30" : C.border}`, transition: "background 0.1s" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: cat ? catColor(cat) : C.text3, fontFamily: FM, minWidth: 28, textAlign: "center" }}>{n}</span>
+                        <div style={{ display: "flex", gap: 5 }}>
+                          {CATS.map((c) => { const isActive = cat === c.id; return (
+                            <button key={c.id} onClick={() => setQMap((m) => { if (isActive) { const { [n]: _, ...rest } = m; return rest; } return { ...m, [n]: c.id }; })} title={c.label} style={{ width: 26, height: 26, borderRadius: "50%", border: `2px solid ${isActive ? c.color : c.color + "40"}`, background: isActive ? c.color : "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, flexShrink: 0, transition: "all 0.1s" }}>
+                              {isActive && <span style={{ color: "#000", fontSize: 10, fontWeight: 800 }}>✓</span>}
+                            </button>
+                          ); })}
+                        </div>
+                        {themeTxt && <span style={{ fontSize: 10, color: C.text3, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{themeTxt}</span>}
+                      </div>
+                    );
+                  })}
+                </div>}
               </div>
             );
           })}
@@ -331,7 +346,7 @@ function ExamCard({ exam, allLogs, isOpen, onToggle, onDel, onUpdate, knownTheme
             {CATS.map((cat) => { const cnt = cats[cat.id]?.length || 0; if (!cnt) return null; return (<div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: R.pill, background: cat.color + "14", border: `1px solid ${cat.color}25` }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: cat.color, flexShrink: 0 }} /><span style={{ fontSize: 11, color: cat.color, fontWeight: 700, fontFamily: FN }}>{cnt}</span></div>); })}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}><span style={{ color: C.text3, fontSize: 14, transition: "transform .2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</span><button onClick={(e) => { e.stopPropagation(); onDel(exam.id); }} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.md, color: C.text3, cursor: "pointer", fontSize: 14, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button></div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}><span style={{ color: C.text3, fontSize: 14, transition: "transform .2s", transform: isOpen ? "rotate(180deg)" : "rotate(0)" }}>▼</span><button onClick={(e) => { e.stopPropagation(); if (confirm("Remover esta prova? Essa ação não pode ser desfeita.")) onDel(exam.id); }} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.md, color: C.text3, cursor: "pointer", fontSize: 14, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button></div>
       </div>
       {isOpen && <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 16 }}>
         {(() => { const allQ = new Map(); (cats.soube||[]).forEach((n)=>allQ.set(n,"soube")); (cats.chutou||[]).forEach((n)=>allQ.set(n,"chutou")); (cats.errou_viu||[]).forEach((n)=>allQ.set(n,"errou_viu")); (cats.errou_nao||[]).forEach((n)=>allQ.set(n,"errou_nao")); if(allQ.size===0)return null; const sorted=[...allQ.keys()].sort((a,b)=>a-b); return (<div><div style={{fontSize:11,fontWeight:600,color:C.text3,marginBottom:8,textTransform:"uppercase",letterSpacing:0.5}}>Gabarito</div><div style={{display:"flex",flexWrap:"wrap",gap:4}}>{sorted.map((n)=>{const catId=allQ.get(n);const col=catColor(catId);const d=exam.qDetails?.[n];return(<div key={n} title={d?.theme||""} style={{width:34,height:34,borderRadius:R.sm,background:col+"15",border:`2px solid ${col}35`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:1,transition:"transform 0.1s"}}><span style={{fontSize:9,fontWeight:700,color:col,fontFamily:FM,lineHeight:1}}>{n}</span><div style={{width:6,height:6,borderRadius:"50%",background:col}}/></div>);})}</div></div>);})()}

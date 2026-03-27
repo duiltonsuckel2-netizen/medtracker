@@ -5,7 +5,7 @@ export const today = () => new Date().toISOString().slice(0, 10);
 export const addDays = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
 export const diffDays = (a, b) => Math.round((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 86400000);
 export const perc = (ac, tot) => tot > 0 ? Math.round((ac / tot) * 100) : 0;
-export const uid = () => Math.random().toString(36).slice(2, 10);
+export const uid = () => typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
 export const fmtDate = (s) => s ? new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "";
 export const perfColor = (p) => p >= 85 ? "#22C55E" : p >= 60 ? "#EAB308" : "#EF4444";
 export const perfLabel = (p) => p >= 85 ? "Bom" : p >= 60 ? "Regular" : "Fraco";
@@ -54,7 +54,6 @@ export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   ];
 }
 
-export async function callClaude() { throw new Error("API indisponível neste ambiente. Use as funções locais."); }
 export function extractJSON(raw) { const i1 = raw.indexOf("{"); const i2 = raw.lastIndexOf("}"); if (i1 < 0 || i2 < 0) throw new Error("Nenhum JSON encontrado"); return JSON.parse(raw.slice(i1, i2 + 1)); }
 
 export function defaultAreaForQuestion(n, total) {
@@ -94,4 +93,3 @@ export function searchKnownPdf(query) {
 
 export function catColor(id) { return CATS.find((c) => c.id === id)?.color || C.border2; }
 
-export async function syncWithNotion() { throw new Error("Sincronização com Notion indisponível neste ambiente. Use a importação manual na aba Temas."); }

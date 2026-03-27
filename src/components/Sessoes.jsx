@@ -6,7 +6,7 @@ import { Empty } from "./UI.jsx";
 
 const PAGE_SIZE = 20;
 
-function Sessoes({ sessions }) {
+function Sessoes({ sessions, onDel }) {
   const [filterArea, setFilterArea] = useState("all");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const filtered = filterArea === "all" ? sessions : sessions.filter((s) => s.area === filterArea);
@@ -35,6 +35,7 @@ function Sessoes({ sessions }) {
                 <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(s.date)} · {s.total}q · {s.acertos} acertos</div>
               </div>
               <span style={{ ...tag(a?.color || "#6B7280"), borderLeft: `3px solid ${a?.color || "#6B7280"}` }}>{a?.short}</span>
+              {onDel && <button onClick={() => { if (confirm("Remover esta sessão?")) onDel(s.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 12, padding: "4px 6px", opacity: 0.4, transition: "opacity 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "0.8"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.4"}>✕</button>}
             </div>
           );
         })

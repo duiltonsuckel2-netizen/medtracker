@@ -252,7 +252,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
       {!forceTab && <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: S.md }}>
         {[
-          { label: "Dias estudados", value: diasEstudados, accent: C.blue, sub: "desde 02/02" },
+          { label: "Provas", value: exams.length, accent: C.blue },
           { label: "Revisões", value: totalRevisoes, accent: C.purple },
           { label: "Questões", value: totalQ.toLocaleString("pt-BR"), accent: C.teal },
           { label: "Flashcards", value: flashcardDecks.reduce((s, d) => s + d.cards.filter(c => !c.nextDue || c.nextDue <= today()).length, 0), accent: C.yellow, sub: "pendentes", onClick: onNavigateFlashcards },

@@ -56,11 +56,16 @@ function SessionModal({ onSave, onClose }) {
   // Auto-complete: collect theme names from semanas for current area
   const areaShort = AREAS.find((a2) => a2.id === area)?.short || "";
 
-  // Topics from selected week for the current area
+  // All aulas from selected week (both topics, any area)
+  const weekAulas = useMemo(() => {
+    if (semIdx == null) return [];
+    return SEMANAS[semIdx].aulas.map((a) => ({ topic: a.topic, area: a.area }));
+  }, [semIdx]);
+
+  // Topics filtered by area (for autocomplete fallback)
   const weekTopics = useMemo(() => {
-    if (semIdx == null || !areaShort) return [];
-    return SEMANAS[semIdx].aulas.filter((a) => a.area === areaShort).map((a) => a.topic);
-  }, [semIdx, areaShort]);
+    return weekAulas.filter((a) => a.area === areaShort).map((a) => a.topic);
+  }, [weekAulas, areaShort]);
 
   const semanaThemes = useMemo(() => {
     if (!areaShort) return [];
@@ -106,23 +111,24 @@ function SessionModal({ onSave, onClose }) {
               {SEMANAS.map((s, i) => <option key={i} value={i}>{s.semana} — {s.aulas.map((a) => a.area).join(" + ")}</option>)}
             </select>
           </Fld>
-          {/* When a week is selected, show that week's topics as quick-select chips */}
-          {semIdx != null && weekTopics.length > 0 && (
+          {/* When a week is selected, show both aulas as quick-select chips */}
+          {semIdx != null && weekAulas.length > 0 && (
             <div>
-              <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>Temas da {SEMANAS[semIdx].semana} em {areaShort}:</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {weekTopics.map((t, i) => {
-                  const sel = theme === t;
-                  const ac = AREAS.find((a2) => a2.id === area)?.color || C.accent;
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>Aulas da {SEMANAS[semIdx].semana}:</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {weekAulas.map((aula, i) => {
+                  const sel = theme === aula.topic;
+                  const aulaAreaObj = AREAS.find((a2) => a2.short === aula.area);
+                  const ac = aulaAreaObj?.color || C.accent;
                   return (
-                    <button key={i} onClick={() => { setTheme(t); if (errors.theme) setErrors((er) => ({ ...er, theme: null })); }} style={{ padding: "7px 12px", borderRadius: R.full || 20, border: sel ? `2px solid ${ac}` : `1px solid ${C.border}`, background: sel ? ac + "20" : C.surface, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, color: sel ? ac : C.text2, fontFamily: F, transition: "all .15s ease" }}>{t}</button>
+                    <button key={i} onClick={() => { setTheme(aula.topic); if (aulaAreaObj) setArea(aulaAreaObj.id); if (errors.theme) setErrors((er) => ({ ...er, theme: null })); }} style={{ padding: "10px 14px", borderRadius: R.md, border: sel ? `2px solid ${ac}` : `1px solid ${C.border}`, background: sel ? ac + "18" : C.surface, cursor: "pointer", fontSize: 13, fontWeight: sel ? 700 : 400, color: sel ? ac : C.text, fontFamily: F, transition: "all .15s ease", textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ ...tag(ac), fontSize: 10, padding: "3px 8px", flexShrink: 0 }}>{aula.area}</span>
+                      <span>{aula.topic}</span>
+                    </button>
                   );
                 })}
               </div>
             </div>
-          )}
-          {semIdx != null && weekTopics.length === 0 && areaShort && (
-            <div style={{ fontSize: 11, color: C.text3, padding: "6px 0" }}>Nenhuma aula de {areaShort} na {SEMANAS[semIdx].semana}. Troque a área ou digite o tema abaixo.</div>
           )}
           {/* Theme with auto-complete */}
           <div style={{ position: "relative" }}>

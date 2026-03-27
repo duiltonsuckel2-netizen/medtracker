@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { AREAS, INTERVALS, INT_LABELS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP } from "../data.js";
 import { C, F, FM, FN, R, S, SH, card, inp, btn, tag, NUM, TY, perfIcon, perfIconColor } from "../theme.js";
-import { perfColor, today, diffDays, fmtDate } from "../utils.js";
+import { perfColor, today, diffDays, fmtDate, addDays } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
 import { CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 
@@ -281,7 +281,7 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
                                   <div style={{ flex: 1 }} />
 
                                   {/* Interval */}
-                                  <select value={r.intervalIndex} onChange={(e) => onEditInterval(r.id, Number(e.target.value))} onClick={(e) => e.stopPropagation()}
+                                  <select value={r.intervalIndex} onChange={(e) => { const ni = Number(e.target.value); onEditInterval(r.id, ni, addDays(today(), INTERVALS[ni])); }} onClick={(e) => e.stopPropagation()}
                                     style={{ ...inp(), width: 65, padding: "2px 4px", fontSize: 11, background: C.card }}>
                                     {INTERVALS.map((_, i) => <option key={i} value={i}>{INT_LABELS[i]}</option>)}
                                   </select>

@@ -363,9 +363,9 @@ function App() {
   const TABS = [
     { id: "dashboard", label: "Dashboard" },
     { id: "revisoes", label: `Revisões${dueR.length ? ` (${dueR.length})` : ""}` },
+    { id: "agenda", label: "Agenda" },
     { id: "provas", label: "Provas" },
     { id: "temas", label: "Temas" },
-    { id: "agenda", label: "Agenda" },
   ];
 
 

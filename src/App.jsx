@@ -103,6 +103,24 @@ function App() {
           });
           saveKey("rp26_reviews", loadedReviews);
         }
+        // Migration v5: fix intervalIndex for Hemorragia Dig II and SUS (Notion says 1 mês = idx 2)
+        if (!localStorage.getItem("rp26_mig_v5")) {
+          localStorage.setItem("rp26_mig_v5", "1");
+          const fixes = {
+            "cirurgia__hemorragia digestiva ii — proctologia (sem. 08)": 2,
+            "preventiva__sus — evolução histórica e financiamento (sem. 09)": 2,
+          };
+          let changed = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            const fixIdx = fixes[rv.key];
+            if (fixIdx !== undefined && rv.intervalIndex !== fixIdx) {
+              changed = true;
+              return { ...rv, intervalIndex: fixIdx };
+            }
+            return rv;
+          });
+          if (changed) saveKey("rp26_reviews", loadedReviews);
+        }
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(Array.isArray(rl) ? rl : []); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {

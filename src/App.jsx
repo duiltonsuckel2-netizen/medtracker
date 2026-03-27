@@ -120,7 +120,7 @@ function App() {
       <div style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 20px)", background: `linear-gradient(160deg, rgba(129,140,248,0.12) 0%, rgba(196,181,253,0.10) 50%, transparent 100%)`, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
         <div style={{ display: "flex", alignItems: "center", padding: "12px 16px 10px", maxWidth: 1200, margin: "0 auto", gap: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginRight: 12 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 12px ${C.blue}30`, padding: 3 }}><svg viewBox="0 0 512 512" width="22" height="22" fill="none" stroke="#fff" strokeWidth="32" strokeLinejoin="round" strokeLinecap="round"><path d="M233 58L279 58L279 104L325 104L325 150L279 150L279 162L233 162L233 150L187 150L187 104L233 104Z"/><path d="M88 168L170 168L256 282L256 382Q256 410 230 410L118 410Q88 410 88 380Z"/><path d="M424 168L342 168L256 282L256 382Q256 410 282 410L394 410Q424 410 424 380Z"/></svg></div>
+            <img src={import.meta.env.BASE_URL + "logo.png"} alt="MedTracker" style={{ width: 30, height: 30, borderRadius: 8 }} />
             <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>MedTracker</span>
           </div>
           {/* Desktop tabs */}

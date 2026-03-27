@@ -7,7 +7,7 @@ import { today, diffDays, fmtDate, perc, perfColor } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
 import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 
-function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics }) {
+function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics, onUndoMark }) {
   const [subTab, setSubTab] = useState("proximas");
   const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id).map((r) => r.theme), ...revLogs.filter((r) => r.area === a.id).map((r) => r.theme)])].sort(); }); return o; }, [reviews, revLogs]);
   const emptyQ = { area: "clinica", theme: "", freeTheme: false, total: "", acertos: "" };
@@ -22,6 +22,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   const [evoArea, setEvoArea] = useState("all");
   const [evoSearch, setEvoSearch] = useState("");
   const [evoFocused, setEvoFocused] = useState(false);
+  const [logSort, setLogSort] = useState("newest");
   const setQ = (k, v) => setQForm((f) => ({ ...f, [k]: v }));
   const themeProgress = useMemo(() => {
     const byTheme = {};
@@ -39,10 +40,28 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         const avg = Math.round(sorted.reduce((s, x) => s + x.pct, 0) / sorted.length);
         return { ...t, sorted, first, last, trend, avg, n: sorted.length };
       })
-      .sort((a, b) => b.n - a.n);
+      .sort((a, b) => {
+        const semA = parseInt((a.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
+        const semB = parseInt((b.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
+        return semA !== semB ? semA - semB : a.theme.localeCompare(b.theme);
+      });
   }, [revLogs, sessions]);
   function submitQ() { const tot = Number(qForm.total), ac = Number(qForm.acertos); const th = qForm.freeTheme ? qForm.theme : (qForm.theme || ""); if (!th.trim()) return alert("Informe o tema."); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onQuick(qForm.area, th, tot, ac); setQForm(emptyQ); setShowQ(false); }
-  function submitMark() { const tot = Number(marking.total), ac = Number(marking.acertos); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onMark(marking.id, ac, tot); setMarking(null); }
+  function submitMark() {
+    const tot = Number(marking.total), ac = Number(marking.acertos);
+    if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total.");
+    // Collect subtopic scores to pass in one batch
+    const subtopicScores = [];
+    if (marking.subtemas) {
+      marking.subtemas.forEach((s) => {
+        if (s.pct !== "" && Number(s.pct) >= 0 && Number(s.pct) <= 100) {
+          subtopicScores.push({ name: s.name, pct: Number(s.pct) });
+        }
+      });
+    }
+    onMark(marking.id, ac, tot, subtopicScores.length > 0 ? subtopicScores : undefined);
+    setMarking(null);
+  }
   const qPct = Number(qForm.total) > 0 ? perc(Number(qForm.acertos), Number(qForm.total)) : null;
   const mPct = marking && Number(marking.total) > 0 ? perc(Number(marking.acertos), Number(marking.total)) : null;
   async function analyzeSubtemaImg(file) {
@@ -50,6 +69,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     setSubtemaResult({ analise: "Análise automática indisponível neste ambiente. Identifique seus subtemas fracos manualmente pela plataforma de questões." });
   }
   function getSubtopicsForReview(r) {
+    // Prefer subtopicNames stored directly on the review card
+    if (r.subtopicNames && r.subtopicNames.length > 0) return r.subtopicNames;
     if (!subtopics) return [];
     // Normalize: remove "(Sem. XX)", roman numerals, dashes, extra spaces, lowercase
     const normalize = (s) => s.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();
@@ -87,7 +108,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   function handleSubtopicReviewSave(entries) {
     if (!stReviewModal || !onSubtopicReview) return;
     entries.forEach((e) => {
-      onSubtopicReview(stReviewModal.area, stReviewModal.theme, e.name, Number(e.total), Number(e.acertos), e.confidence || null);
+      onSubtopicReview(stReviewModal.area, stReviewModal.theme, e.name, Number(e.pct));
     });
     setStReviewModal(null);
   }
@@ -197,19 +218,35 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                       ⚠️ Pior subtema anterior: <span style={{ color: "#EF4444", fontWeight: 600 }}>{r.subtemaNote.pior?.nome}</span> ({r.subtemaNote.pior?.pct}%)
                     </div>
                   )}
-                  {isM && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "flex-end", marginTop: 10 }}>
-                    <Fld label="Total"><input type="number" min="0" value={marking.total} onChange={(e) => setMarking((m) => ({ ...m, total: e.target.value }))} style={inp()} autoFocus /></Fld>
-                    <Fld label="✓ Acertos"><input type="number" min="0" value={marking.acertos} onChange={(e) => setMarking((m) => ({ ...m, acertos: e.target.value }))} style={inp({ borderColor: "#34D39944" })} /></Fld>
-                    {mPct !== null && <div style={{ textAlign: "center", paddingBottom: 2, fontSize: 16, fontWeight: 700, color: perfColor(mPct), ...NUM }}>{mPct}%</div>}
-                    <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}><button onClick={submitMark} style={btn("#34D399", { padding: "9px 12px" })}>✓</button><button onClick={() => setMarking(null)} style={btn(C.card2, { padding: "9px 10px" })}>✕</button></div>
+                  {isM && <div style={{ marginTop: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "flex-end" }}>
+                      <Fld label="Total"><input type="number" min="0" value={marking.total} onChange={(e) => setMarking((m) => ({ ...m, total: e.target.value }))} style={inp()} autoFocus /></Fld>
+                      <Fld label="✓ Acertos"><input type="number" min="0" value={marking.acertos} onChange={(e) => setMarking((m) => ({ ...m, acertos: e.target.value }))} style={inp({ borderColor: "#34D39944" })} /></Fld>
+                      {mPct !== null && <div style={{ textAlign: "center", paddingBottom: 2, fontSize: 16, fontWeight: 700, color: perfColor(mPct), ...NUM }}>{mPct}%</div>}
+                      <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}><button onClick={submitMark} style={btn("#34D399", { padding: "9px 12px" })}>✓</button><button onClick={() => setMarking(null)} style={btn(C.card2, { padding: "9px 10px" })}>✕</button></div>
+                    </div>
+                    {marking.subtemas && marking.subtemas.length > 0 && (
+                      <div style={{ marginTop: 10, padding: 10, background: C.surface, borderRadius: R.md, border: `1px solid ${C.purple}25` }}>
+                        <div style={{ fontSize: 11, color: C.purple, fontWeight: 600, marginBottom: 8, fontFamily: FM }}>Subtemas — % de acertos</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {marking.subtemas.map((s, si) => {
+                            const val = s.pct !== "" ? Number(s.pct) : null;
+                            const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
+                            return (
+                              <div key={si} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 12, flex: 1, color: C.text2 }}>{s.name}</span>
+                                <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setMarking((m) => ({ ...m, subtemas: m.subtemas.map((st, i) => i !== si ? st : { ...st, pct: e.target.value }) }))} placeholder="—" style={{ ...inp(), width: 52, padding: "4px 6px", fontSize: 14, textAlign: "center", fontFamily: "SF Mono, monospace", fontWeight: 700, color: pctColor }} />
+                                <span style={{ fontSize: 11, color: C.text3 }}>%</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {!isM && <button onClick={() => setMarking({ id: r.id, total: "", acertos: "" })} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
-                  {(() => { const st = getSubtopicsForReview(r); return st.length > 0
-                    ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st })} style={btn(C.purple + "20", { padding: "6px 10px", fontSize: 11, color: C.purple, border: `1px solid ${C.purple}35` })}>📋 Detalhar subtemas ({st.length})</button>
-                    : <button onClick={() => setStRegisterModal({ area: r.area, theme: r.theme })} style={btn(C.card2, { padding: "6px 10px", fontSize: 11 })}>📋 Adicionar subtemas</button>;
-                  })()}
+                  {!isM && <button onClick={() => { const st = getSubtopicsForReview(r); setMarking({ id: r.id, total: "", acertos: "", subtemas: st.length > 0 ? st.map((s) => ({ name: s, pct: "" })) : null }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
                 </div>
               </div>
             </div>
@@ -330,7 +367,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       </>;
       })()}
       {subTab === "passadas" && <>
-      {revLogs.length === 0 ? <Empty msg="Nenhuma revisão registrada ainda." /> : <div style={card}><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Histórico de revisões</div>{revLogs.slice(0, 50).map((l) => { const a = areaMap[l.area]; const isEd = editingLog?.id === l.id; return (
+      {revLogs.length === 0 ? <Empty msg="Nenhuma revisão registrada ainda." /> : <div style={card}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}><div style={{ fontSize: 14, fontWeight: 600 }}>Histórico de revisões</div><select value={logSort} onChange={(e) => setLogSort(e.target.value)} style={inp({ padding: "4px 8px", fontSize: 11, width: "auto" })}><option value="newest">Mais recente</option><option value="oldest">Mais antiga</option><option value="worst">Piores resultados</option><option value="best">Melhores resultados</option></select></div>{[...revLogs].sort((a, b) => logSort === "newest" ? (b.date || "").localeCompare(a.date || "") : logSort === "oldest" ? (a.date || "").localeCompare(b.date || "") : logSort === "worst" ? (a.pct ?? 100) - (b.pct ?? 100) : (b.pct ?? 0) - (a.pct ?? 0)).map((l) => { const a = areaMap[l.area]; const isEd = editingLog?.id === l.id; return (
         <div key={l.id} style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(l.pct), ...NUM, minWidth: 38 }}>{l.pct}%</span>
@@ -339,11 +376,13 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
             {l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>subtema</span>}
             {l.confidence && <span style={{ fontSize: 12 }} title={CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.label}>{CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.icon}</span>}
             {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
-            <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)} · {l.total}q</span>
-            <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "" }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
+            <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)}{l.total ? ` · ${l.total}q` : ""}</span>
+            {l.date === today() && !l.isSubtopic && onUndoMark && (() => { const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic); return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão e voltar pra hoje?")) onUndoMark(rev.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 10, padding: "2px 6px", fontFamily: FM, fontWeight: 600 }}>↩ Desfazer</button> : null; })()}
+            <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "", subtopicScores: l.subtopicScores ? l.subtopicScores.map((s) => ({ ...s })) : [] }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
             <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
           </div>
-          {l.subtemas && !isEd && <div style={{ marginTop: 4, marginLeft: 48, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
+          {l.subtopicScores && l.subtopicScores.length > 0 && !isEd && <div style={{ marginTop: 4, marginLeft: 48, display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.text3 }}>{l.subtopicScores.map((s, i) => <span key={i} style={{ background: C.surface, padding: "3px 8px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>{s.name}: <span style={{ fontWeight: 700, color: perfColor(s.pct), fontFamily: FN }}>{s.pct}%</span></span>)}</div>}
+          {l.subtemas && !l.subtopicScores && !isEd && <div style={{ marginTop: 4, marginLeft: 48, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
           {isEd && <div style={{ marginTop: 8, marginLeft: 48, display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
               <Fld label="Área"><select value={editingLog.area} onChange={(e) => setEditingLog((f) => ({ ...f, area: e.target.value }))} style={inp({ padding: "6px 8px", fontSize: 12 })}>{AREAS.map((a) => <option key={a.id} value={a.id}>{a.short}</option>)}</select></Fld>
@@ -351,9 +390,21 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
               <Fld label="Total"><input type="number" value={editingLog.total} onChange={(e) => setEditingLog((f) => ({ ...f, total: Number(e.target.value) }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
               <Fld label="Acertos"><input type="number" value={editingLog.acertos} onChange={(e) => setEditingLog((f) => ({ ...f, acertos: Number(e.target.value) }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
             </div>
-            <Fld label="Subtemas (anotações livres)"><input value={editingLog.subtemas} onChange={(e) => setEditingLog((f) => ({ ...f, subtemas: e.target.value }))} placeholder="Ex: Pior em farmacologia, bom em diagnóstico…" style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: C.purple, fontFamily: FM }}>Subtemas — % de acertos</span>
+                <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: [...(f.subtopicScores || []), { name: "", pct: "" }] }))} style={{ background: "none", border: `1px dashed ${C.purple}50`, borderRadius: R.sm, padding: "3px 10px", cursor: "pointer", fontSize: 11, color: C.purple, fontFamily: FM }}>+ Subtema</button>
+              </div>
+              {editingLog.subtopicScores && editingLog.subtopicScores.map((s, si) => (
+                <div key={si} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <input value={s.name} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, name: e.target.value }) }))} placeholder="Nome do subtema" style={inp({ padding: "5px 8px", fontSize: 12, flex: 1 })} />
+                  <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, pct: e.target.value === "" ? "" : Number(e.target.value) }) }))} placeholder="%" style={inp({ padding: "5px 8px", fontSize: 12, width: 52, textAlign: "center", fontFamily: FN, fontWeight: 700 })} />
+                  <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.filter((_, i) => i !== si) }))} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px" }}>✕</button>
+                </div>
+              ))}
+            </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { onEditLog(editingLog.id, editingLog); setEditingLog(null); }} style={btn("#34D399", { padding: "6px 14px", fontSize: 12 })}>✓ Salvar</button>
+              <button onClick={() => { const scores = (editingLog.subtopicScores || []).filter((s) => s.name.trim() && s.pct !== "" && s.pct >= 0); onEditLog(editingLog.id, { ...editingLog, subtopicScores: scores.length > 0 ? scores : undefined }); setEditingLog(null); }} style={btn("#34D399", { padding: "6px 14px", fontSize: 12 })}>✓ Salvar</button>
               <button onClick={() => setEditingLog(null)} style={btn(C.card2, { padding: "6px 14px", fontSize: 12 })}>Cancelar</button>
             </div>
           </div>}

@@ -88,7 +88,7 @@ function SubtopicModal({ area, topic, semana, existing, onSave, onClose }) {
 
 function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) {
   const [entries, setEntries] = useState(
-    subtopics.map((s) => ({ name: s, total: "", acertos: "", confidence: "" }))
+    subtopics.map((s) => ({ name: s, pct: "" }))
   );
   const areaObj = areaMap[area];
 
@@ -97,12 +97,12 @@ function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) 
   }
 
   function handleSave() {
-    const valid = entries.filter((e) => Number(e.total) > 0);
+    const valid = entries.filter((e) => e.pct !== "" && Number(e.pct) >= 0 && Number(e.pct) <= 100);
     if (valid.length === 0) return;
     onSave(valid);
   }
 
-  const filled = entries.filter((e) => Number(e.total) > 0).length;
+  const filled = entries.filter((e) => e.pct !== "" && Number(e.pct) >= 0 && Number(e.pct) <= 100).length;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -119,25 +119,19 @@ function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) 
         </div>
 
         <div style={{ background: C.surface, borderRadius: R.md, padding: 10, marginBottom: 14, border: `1px solid ${C.border}`, fontSize: 11, color: C.text3 }}>
-          Preencha apenas os subtemas que você revisou. Os não preenchidos serão ignorados.
+          Coloque o % de acertos de cada subtema. Deixe em branco os que não revisou.
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {entries.map((entry, i) => {
-            const pct = Number(entry.total) > 0 ? Math.round((Number(entry.acertos) / Number(entry.total)) * 100) : null;
-            const pctColor = pct !== null ? (pct >= 85 ? "#22C55E" : pct >= 60 ? "#EAB308" : "#EF4444") : C.text3;
+            const val = entry.pct !== "" ? Number(entry.pct) : null;
+            const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
             return (
-              <div key={i} style={{ background: C.card2, borderRadius: R.md, padding: 12, border: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{entry.name}</div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <input type="number" min="0" value={entry.total} onChange={(e) => setEntry(i, "total", e.target.value)} placeholder="Total" style={{ ...inp(), width: 70, padding: "6px 10px", fontSize: 16, textAlign: "center" }} />
-                  <input type="number" min="0" value={entry.acertos} onChange={(e) => setEntry(i, "acertos", e.target.value)} placeholder="Acertos" style={{ ...inp(), width: 70, padding: "6px 10px", fontSize: 16, textAlign: "center", borderColor: "#34D39944" }} />
-                  {pct !== null && <span style={{ fontSize: 14, fontWeight: 700, color: pctColor, fontFamily: "SF Mono, monospace", minWidth: 38 }}>{pct}%</span>}
-                  <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
-                    {CONFIDENCE_OPTS.map((c) => (
-                      <button key={c.id} onClick={() => setEntry(i, "confidence", entry.confidence === c.id ? "" : c.id)} title={c.label} style={{ width: 30, height: 30, borderRadius: R.sm, border: entry.confidence === c.id ? `2px solid ${c.color}` : `1px solid ${C.border}`, background: entry.confidence === c.id ? c.color + "18" : "transparent", cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", transition: "all .15s" }}>{c.icon}</button>
-                    ))}
-                  </div>
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.card2, borderRadius: R.md, border: `1px solid ${val !== null ? pctColor + "40" : C.border}`, transition: "border-color .15s" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{entry.name}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input type="number" min="0" max="100" value={entry.pct} onChange={(e) => setEntry(i, "pct", e.target.value)} placeholder="—" style={{ ...inp(), width: 56, padding: "6px 8px", fontSize: 16, textAlign: "center", fontFamily: "SF Mono, monospace", fontWeight: 700, color: pctColor }} />
+                  <span style={{ fontSize: 13, color: C.text3, fontWeight: 600 }}>%</span>
                 </div>
               </div>
             );

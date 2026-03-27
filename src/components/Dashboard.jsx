@@ -163,31 +163,41 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.xl }}>
       {!forceTab && <>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: S.md }}>
+      {/* Stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.md }}>
         {[
           { label: "Dias estudados", value: diasEstudados, accent: C.blue, sub: "desde 02/02" },
           { label: "Revisões", value: totalRevisoes, accent: C.purple },
           { label: "Questões", value: totalQ.toLocaleString("pt-BR"), accent: C.teal },
-          { label: "Provas", value: exams.length, accent: C.yellow },
         ].map((s) => (
-          <div key={s.label} style={{ background: C.card, border: `1px solid ${s.accent}25`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, boxShadow: SH.glow(s.accent) }}>
-            <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: S.sm }}>{s.label}</div>
-            <div style={{ fontSize: 32, fontWeight: 900, color: s.accent, fontFamily: FN, lineHeight: 1 }}>{s.value}</div>
-            {s.sub && <div style={{ fontSize: 10, color: C.text3, marginTop: S.xs, fontWeight: 400, opacity: 0.6 }}>{s.sub}</div>}
+          <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: R.lg, padding: `${S.lg}px ${S.xl}px` }}>
+            <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 24, fontWeight: 800, color: s.accent, fontFamily: FN, lineHeight: 1 }}>{s.value}</div>
+            {s.sub && <div style={{ fontSize: 10, color: C.text3, marginTop: 2, fontWeight: 400 }}>{s.sub}</div>}
           </div>
         ))}
-        <button onClick={onNewSession} style={{ background: `linear-gradient(135deg, ${C.blue}50, ${C.purple}60)`, border: `1px solid ${C.purple}40`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: S.xs, boxShadow: SH.glow(C.purple), transition: "all 0.15s ease" }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.blue); }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.purple); }}>
-          <div style={{ fontSize: 10, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Registrar</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.text, fontFamily: FN, lineHeight: 1 }}>+ Sessão</div>
+      </div>
+      {/* Action buttons */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: S.md }}>
+        <button onClick={onNewSession} style={{ background: C.card, border: `1px solid ${C.purple}40`, borderRadius: R.lg, padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s ease" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#fff", flexShrink: 0 }}>+</div>
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: F }}>Nova sessão</div>
+            <div style={{ fontSize: 11, color: C.text3, fontWeight: 400 }}>Registrar questões</div>
+          </div>
         </button>
-        <button onClick={onAlerts} style={{ background: `linear-gradient(135deg, ${C.red}45, ${C.purple}50)`, border: `1px solid ${C.red}35`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: S.xs, boxShadow: SH.glow(C.red), transition: "all 0.15s ease" }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.purple); }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.red); }}>
-          <div style={{ fontSize: 10, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Alertas</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.text, fontFamily: FN, lineHeight: 1 }}>{alerts.length > 0 ? `${alerts.length} temas` : "✓ OK"}</div>
+        <button onClick={onAlerts} style={{ background: C.card, border: `1px solid ${alerts.length > 0 ? C.yellow + "40" : C.border}`, borderRadius: R.lg, padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12, transition: "all 0.15s ease" }}>
+          <div style={{ width: 40, height: 40, borderRadius: 12, background: alerts.length > 0 ? C.yellow + "18" : C.surface, border: `1px solid ${alerts.length > 0 ? C.yellow + "30" : C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{alerts.length > 0 ? "⚠" : "✓"}</div>
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, fontFamily: F }}>Alertas</div>
+            <div style={{ fontSize: 11, color: alerts.length > 0 ? C.yellow : C.green, fontWeight: 500 }}>{alerts.length > 0 ? `${alerts.length} pontos de atenção` : "Tudo certo"}</div>
+          </div>
         </button>
       </div>
-      <div style={{ display: "flex", gap: 4, background: C.surface, borderRadius: R.pill, padding: 4, overflowX: "auto", scrollbarWidth: "none", border: `1px solid ${C.border}` }}>
+      {/* Sub-tabs */}
+      <div style={{ display: "flex", gap: 0, background: C.surface, borderRadius: R.md, padding: 3, border: `1px solid ${C.border}` }}>
         {DASH_TABS.map((t) => { const active = activeTab === t.id; return (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: "10px 16px", flex: 1, background: active ? C.purple + "20" : "transparent", border: active ? `1px solid ${C.purple}35` : "1px solid transparent", borderRadius: R.pill, cursor: "pointer", color: active ? C.purple : C.text3, fontSize: 13, fontFamily: F, fontWeight: active ? 700 : 500, whiteSpace: "nowrap", minHeight: H.sm, boxShadow: active ? SH.glow(C.purple) : "none", textAlign: "center", transition: "all 0.15s ease", opacity: active ? 1 : 0.55 }}>{t.label}</button>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: "9px 16px", flex: 1, background: active ? C.card : "transparent", border: "none", borderRadius: R.sm, cursor: "pointer", color: active ? C.text : C.text3, fontSize: 13, fontFamily: F, fontWeight: active ? 600 : 500, whiteSpace: "nowrap", textAlign: "center", transition: "all 0.15s ease", boxShadow: active ? SH.sm : "none" }}>{t.label}</button>
         ); })}
       </div>
       </>}

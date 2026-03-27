@@ -117,22 +117,23 @@ function App() {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, fontFamily: F, color: C.text }}>
       {/* HEADER */}
-      <div style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 20px)", background: `linear-gradient(160deg, rgba(129,140,248,0.12) 0%, rgba(196,181,253,0.10) 50%, transparent 100%)`, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
-        <div style={{ display: "flex", alignItems: "center", padding: "12px 16px 10px", maxWidth: 1200, margin: "0 auto", gap: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginRight: 12 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, boxShadow: `0 0 12px ${C.blue}30` }}>{"⚕"}</div>
-            <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>Med</span>
+      <div style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)", background: C.card, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
+        {/* Top row: logo + actions */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px 0", maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${C.blue}, ${C.purple})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, boxShadow: `0 0 12px ${C.blue}30` }}>{"⚕"}</div>
+            <span style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>MedTracker</span>
           </div>
-          {/* Desktop tabs */}
-          <div className="desktop-tabs" style={{ display: "flex", gap: 4, flex: 1, overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch", padding: "2px 0" }}>
-            {TABS.map((t) => { const active = tab === t.id; return (
-              <button key={t.id} onClick={() => switchTab(t.id)} style={{ padding: "7px 14px", background: active ? `linear-gradient(135deg, rgba(129,140,248,0.25), rgba(196,181,253,0.3))` : "transparent", border: active ? `1px solid rgba(196,181,253,0.35)` : "1px solid transparent", borderRadius: R.pill, cursor: "pointer", whiteSpace: "nowrap", color: active ? C.text : C.text3, fontSize: 13, fontFamily: F, fontWeight: active ? 700 : 500, transition: "all .25s cubic-bezier(.4,0,.2,1)", opacity: active ? 1 : 0.6, boxShadow: active ? `0 0 16px rgba(129,140,248,0.15)` : "none", flexShrink: 0, transform: active ? "scale(1)" : "scale(.97)" }}>{t.label}</button>
-            ); })}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {flash && (<span className="fade-in" style={{ fontSize: 11, color: C.green, fontFamily: FM, fontWeight: 600, background: C.green + "15", padding: "5px 12px", borderRadius: R.pill, border: `1px solid ${C.green}30` }}>{flash}</span>)}
+            <button onClick={toggleTheme} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 10, width: 34, height: 34, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s ease", color: C.text2 }}>{darkMode ? "☀" : "☽"}</button>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, marginLeft: 8 }}>
-            {flash && (<span className="fade-in" style={{ fontSize: 10, color: C.green, fontFamily: FM, fontWeight: 600, background: `rgba(34,197,94,0.1)`, padding: "4px 10px", borderRadius: R.pill, border: `1px solid rgba(34,197,94,0.2)` }}>{flash}</span>)}
-            <button onClick={toggleTheme} style={{ background: `linear-gradient(135deg, rgba(129,140,248,0.15), rgba(196,181,253,0.2))`, border: `1px solid rgba(196,181,253,0.25)`, borderRadius: R.pill, width: 32, height: 32, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.2s ease", flexShrink: 0, color: C.purple }}>{darkMode ? "☀" : "☽"}</button>
-          </div>
+        </div>
+        {/* Desktop tabs row */}
+        <div className="desktop-tabs" style={{ display: "flex", gap: 0, padding: "8px 16px 0", maxWidth: 1200, margin: "0 auto", overflowX: "auto", scrollbarWidth: "none" }}>
+          {TABS.map((t) => { const active = tab === t.id; return (
+            <button key={t.id} onClick={() => switchTab(t.id)} style={{ padding: "10px 18px", background: "transparent", border: "none", borderBottom: active ? `2px solid ${C.purple}` : "2px solid transparent", cursor: "pointer", whiteSpace: "nowrap", color: active ? C.text : C.text3, fontSize: 13, fontFamily: F, fontWeight: active ? 700 : 500, transition: "all .2s ease", flexShrink: 0 }}>{t.label}</button>
+          ); })}
         </div>
       </div>
       {showSessionModal && <SessionModal onSave={(s) => { addSession(s); setShowSessionModal(false); }} onClose={() => setShowSessionModal(false)} />}

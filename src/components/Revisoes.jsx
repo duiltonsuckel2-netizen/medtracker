@@ -22,6 +22,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   const [evoArea, setEvoArea] = useState("all");
   const [evoSearch, setEvoSearch] = useState("");
   const [evoFocused, setEvoFocused] = useState(false);
+  const [logSort, setLogSort] = useState("newest");
   const setQ = (k, v) => setQForm((f) => ({ ...f, [k]: v }));
   const themeProgress = useMemo(() => {
     const byTheme = {};
@@ -39,24 +40,26 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         const avg = Math.round(sorted.reduce((s, x) => s + x.pct, 0) / sorted.length);
         return { ...t, sorted, first, last, trend, avg, n: sorted.length };
       })
-      .sort((a, b) => b.n - a.n);
+      .sort((a, b) => {
+        const semA = parseInt((a.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
+        const semB = parseInt((b.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
+        return semA !== semB ? semA - semB : a.theme.localeCompare(b.theme);
+      });
   }, [revLogs, sessions]);
   function submitQ() { const tot = Number(qForm.total), ac = Number(qForm.acertos); const th = qForm.freeTheme ? qForm.theme : (qForm.theme || ""); if (!th.trim()) return alert("Informe o tema."); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onQuick(qForm.area, th, tot, ac); setQForm(emptyQ); setShowQ(false); }
   function submitMark() {
     const tot = Number(marking.total), ac = Number(marking.acertos);
     if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total.");
-    onMark(marking.id, ac, tot);
-    // Save subtopic scores if any were filled
-    if (marking.subtemas && onSubtopicReview) {
-      const rev = [...due, ...upcoming].find((r) => r.id === marking.id);
-      if (rev) {
-        marking.subtemas.forEach((s) => {
-          if (s.pct !== "" && Number(s.pct) >= 0 && Number(s.pct) <= 100) {
-            onSubtopicReview(rev.area, rev.theme, s.name, Number(s.pct));
-          }
-        });
-      }
+    // Collect subtopic scores to pass in one batch
+    const subtopicScores = [];
+    if (marking.subtemas) {
+      marking.subtemas.forEach((s) => {
+        if (s.pct !== "" && Number(s.pct) >= 0 && Number(s.pct) <= 100) {
+          subtopicScores.push({ name: s.name, pct: Number(s.pct) });
+        }
+      });
     }
+    onMark(marking.id, ac, tot, subtopicScores.length > 0 ? subtopicScores : undefined);
     setMarking(null);
   }
   const qPct = Number(qForm.total) > 0 ? perc(Number(qForm.acertos), Number(qForm.total)) : null;
@@ -66,6 +69,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     setSubtemaResult({ analise: "Análise automática indisponível neste ambiente. Identifique seus subtemas fracos manualmente pela plataforma de questões." });
   }
   function getSubtopicsForReview(r) {
+    // Prefer subtopicNames stored directly on the review card
+    if (r.subtopicNames && r.subtopicNames.length > 0) return r.subtopicNames;
     if (!subtopics) return [];
 
     // 1) Direct key lookup (most reliable)
@@ -362,7 +367,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       </>;
       })()}
       {subTab === "passadas" && <>
-      {revLogs.length === 0 ? <Empty msg="Nenhuma revisão registrada ainda." /> : <div style={card}><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Histórico de revisões</div>{revLogs.slice(0, 50).map((l) => { const a = areaMap[l.area]; const isEd = editingLog?.id === l.id; return (
+      {revLogs.length === 0 ? <Empty msg="Nenhuma revisão registrada ainda." /> : <div style={card}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}><div style={{ fontSize: 14, fontWeight: 600 }}>Histórico de revisões</div><select value={logSort} onChange={(e) => setLogSort(e.target.value)} style={inp({ padding: "4px 8px", fontSize: 11, width: "auto" })}><option value="newest">Mais recente</option><option value="oldest">Mais antiga</option><option value="worst">Piores resultados</option><option value="best">Melhores resultados</option></select></div>{[...revLogs].sort((a, b) => logSort === "newest" ? (b.date || "").localeCompare(a.date || "") : logSort === "oldest" ? (a.date || "").localeCompare(b.date || "") : logSort === "worst" ? (a.pct ?? 100) - (b.pct ?? 100) : (b.pct ?? 0) - (a.pct ?? 0)).map((l) => { const a = areaMap[l.area]; const isEd = editingLog?.id === l.id; return (
         <div key={l.id} style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(l.pct), ...NUM, minWidth: 38 }}>{l.pct}%</span>
@@ -374,11 +379,12 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
               {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
               <span style={{ fontSize: 11, color: C.text3, fontFamily: FM, whiteSpace: "nowrap" }}>{fmtDate(l.date)}{l.total ? ` · ${l.total}q` : ""}</span>
               {l.date === today() && !l.isSubtopic && onUndoMark && (() => { const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic); return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão e voltar pra hoje?")) onUndoMark(rev.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 10, padding: "2px 6px", fontFamily: FM, fontWeight: 600 }}>↩ Desfazer</button> : null; })()}
-              <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "" }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
+              <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "", subtopicScores: l.subtopicScores ? l.subtopicScores.map((s) => ({ ...s })) : [] }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
               <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
             </div>
           </div>
-          {l.subtemas && !isEd && <div style={{ marginTop: 4, marginLeft: 0, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
+          {l.subtopicScores && l.subtopicScores.length > 0 && !isEd && <div style={{ marginTop: 4, marginLeft: 0, display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11, color: C.text3 }}>{l.subtopicScores.map((s, i) => <span key={i} style={{ background: C.surface, padding: "3px 8px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>{s.name}: <span style={{ fontWeight: 700, color: perfColor(s.pct), fontFamily: FN }}>{s.pct}%</span></span>)}</div>}
+          {l.subtemas && !l.subtopicScores && !isEd && <div style={{ marginTop: 4, marginLeft: 0, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
           {isEd && <div style={{ marginTop: 8, marginLeft: 0, display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <Fld label="Área"><select value={editingLog.area} onChange={(e) => setEditingLog((f) => ({ ...f, area: e.target.value }))} style={inp({ padding: "6px 8px", fontSize: 12 })}>{AREAS.map((a) => <option key={a.id} value={a.id}>{a.short}</option>)}</select></Fld>
@@ -386,9 +392,21 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
               <Fld label="Total"><input type="number" value={editingLog.total} onChange={(e) => setEditingLog((f) => ({ ...f, total: Number(e.target.value) }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
               <Fld label="Acertos"><input type="number" value={editingLog.acertos} onChange={(e) => setEditingLog((f) => ({ ...f, acertos: Number(e.target.value) }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
             </div>
-            <Fld label="Subtemas (anotações livres)"><input value={editingLog.subtemas} onChange={(e) => setEditingLog((f) => ({ ...f, subtemas: e.target.value }))} placeholder="Ex: Pior em farmacologia, bom em diagnóstico…" style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: C.purple, fontFamily: FM }}>Subtemas — % de acertos</span>
+                <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: [...(f.subtopicScores || []), { name: "", pct: "" }] }))} style={{ background: "none", border: `1px dashed ${C.purple}50`, borderRadius: R.sm, padding: "3px 10px", cursor: "pointer", fontSize: 11, color: C.purple, fontFamily: FM }}>+ Subtema</button>
+              </div>
+              {editingLog.subtopicScores && editingLog.subtopicScores.map((s, si) => (
+                <div key={si} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <input value={s.name} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, name: e.target.value }) }))} placeholder="Nome do subtema" style={inp({ padding: "5px 8px", fontSize: 12, flex: 1 })} />
+                  <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, pct: e.target.value === "" ? "" : Number(e.target.value) }) }))} placeholder="%" style={inp({ padding: "5px 8px", fontSize: 12, width: 52, textAlign: "center", fontFamily: FN, fontWeight: 700 })} />
+                  <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.filter((_, i) => i !== si) }))} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px" }}>✕</button>
+                </div>
+              ))}
+            </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { onEditLog(editingLog.id, editingLog); setEditingLog(null); }} style={btn("#34D399", { padding: "6px 14px", fontSize: 12 })}>✓ Salvar</button>
+              <button onClick={() => { const scores = (editingLog.subtopicScores || []).filter((s) => s.name.trim() && s.pct !== "" && s.pct >= 0); onEditLog(editingLog.id, { ...editingLog, subtopicScores: scores.length > 0 ? scores : undefined }); setEditingLog(null); }} style={btn("#34D399", { padding: "6px 14px", fontSize: 12 })}>✓ Salvar</button>
               <button onClick={() => setEditingLog(null)} style={btn(C.card2, { padding: "6px 14px", fontSize: 12 })}>Cancelar</button>
             </div>
           </div>}

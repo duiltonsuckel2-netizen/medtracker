@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam } from "./data.js";
+import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam, LOG_NAME_MAP } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
@@ -76,29 +76,109 @@ function App() {
         let loadedReviews = Array.isArray(r) ? r : [];
         const loadedExams = Array.isArray(e) ? e : [];
         const loadedFc = Array.isArray(fc) ? fc : [];
-        // Migration v3: fix HAS review + remove 1d interval + clean Dislipidemia
-        if (!localStorage.getItem("rp26_mig_v3")) {
-          localStorage.setItem("rp26_mig_v3", "1");
+        // Migration v4: fix HAS card + remove 1d interval (based on real Notion data)
+        if (!localStorage.getItem("rp26_mig_v4")) {
+          localStorage.setItem("rp26_mig_v4", "1");
+          // Canonical card identity
+          const hasTheme = "Sd. Metabólica I — HAS e Dislipidemia (Sem. 08)";
+          const hasKey = `clinica__${hasTheme.toLowerCase().trim()}`;
+          // Match any HAS variant (main cards only, preserve subtopics)
+          const isHasMainCard = (rv) => !rv.isSubtopic && rv.area === "clinica" && (
+            rv.key.includes("metabólica") || rv.key.includes("metabolica") ||
+            rv.key.includes("dislipidemia") || rv.key.includes("has e") ||
+            rv.key.includes("has —") || rv.key.includes("hipertensão arterial")
+          );
           // 1) Shift all intervalIndex down by 1 (removed old 1d interval)
           loadedReviews = loadedReviews.map((rv) => ({ ...rv, intervalIndex: Math.max(0, rv.intervalIndex - 1) }));
-          // 2) Remove ALL old HAS/Metabólica/Dislipidemia cards
-          loadedReviews = loadedReviews.filter((rv) => {
-            if (rv.area !== "clinica") return true;
-            const k = rv.key.toLowerCase();
-            return !(k.includes("metabólica") || k.includes("metabolica") || k.includes("dislipidemia") || k.includes("has e") || k.includes("has —") || k.includes("hipertensão arterial"));
-          });
-          // 3) Create fresh HAS card from real Notion data
-          const hasTheme = "HAS — Hipertensão Arterial (Sem. 08)";
-          const hasKey = `clinica__${hasTheme.toLowerCase().trim()}`;
+          // 2) Remove all HAS variants (may exist with different keys)
+          loadedReviews = loadedReviews.filter((rv) => !isHasMainCard(rv));
+          // 3) Add single canonical card — state from Notion:
+          //    Mar 10: 78%, Mar 17: 83% → gap 14d → idx 1, nextDue Mar 24
+          //    Today is Mar 27 so 3 days overdue → shows as "pendente"
           loadedReviews.unshift({
             id: uid(), key: hasKey, area: "clinica", theme: hasTheme,
-            intervalIndex: 0, nextDue: "2026-03-24", lastPerf: 83,
+            intervalIndex: 1, nextDue: "2026-03-24", lastPerf: 83,
             lastStudied: "2026-03-17",
             history: [{ date: "2026-03-10", pct: 78 }, { date: "2026-03-17", pct: 83 }]
           });
           saveKey("rp26_reviews", loadedReviews);
         }
-        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(Array.isArray(rl) ? rl : []); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
+        // Migration v5: fix intervalIndex for Hemorragia Dig II and SUS (Notion says 1 mês = idx 2)
+        if (!localStorage.getItem("rp26_mig_v5")) {
+          localStorage.setItem("rp26_mig_v5", "1");
+          const fixes = {
+            "cirurgia__hemorragia digestiva ii — proctologia (sem. 08)": 2,
+            "preventiva__sus — evolução histórica e financiamento (sem. 09)": 2,
+          };
+          let changed = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            const fixIdx = fixes[rv.key];
+            if (fixIdx !== undefined && rv.intervalIndex !== fixIdx) {
+              changed = true;
+              return { ...rv, intervalIndex: fixIdx };
+            }
+            return rv;
+          });
+          if (changed) saveKey("rp26_reviews", loadedReviews);
+        }
+        // Migration v6: rename abbreviated log themes → official names + fix "Sd. Disfágica (Sem. 02)" review
+        let loadedLogs = Array.isArray(rl) ? rl : [];
+        if (!localStorage.getItem("rp26_mig_v6")) {
+          localStorage.setItem("rp26_mig_v6", "1");
+          // 1) Rename revLogs themes
+          let logsChanged = false;
+          loadedLogs = loadedLogs.map((l) => {
+            const mapped = LOG_NAME_MAP[l.theme];
+            if (mapped) { logsChanged = true; return { ...l, theme: mapped }; }
+            return l;
+          });
+          if (logsChanged) saveKey("rp26_revlogs", loadedLogs);
+          // 2) Fix review card "Sd. Disfágica (Sem. 02)" → "Hipertensão Porta (Sem. 02)"
+          const oldKey = "cirurgia__sd. disfágica (sem. 02)";
+          const newTheme = "Hipertensão Porta (Sem. 02)";
+          const newKey = `cirurgia__${newTheme.toLowerCase().trim()}`;
+          let revChanged = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            if (rv.key === oldKey) { revChanged = true; return { ...rv, theme: newTheme, key: newKey }; }
+            return rv;
+          });
+          if (revChanged) saveKey("rp26_reviews", loadedReviews);
+        }
+        // Migration v7: normalize all review card + log theme names to include semester
+        if (!localStorage.getItem("rp26_mig_v7")) {
+          localStorage.setItem("rp26_mig_v7", "1");
+          let rcChanged = false, rlChanged = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            if (rv.isSubtopic) return rv;
+            const mapped = LOG_NAME_MAP[rv.theme];
+            if (mapped && mapped !== rv.theme) {
+              rcChanged = true;
+              const newKey = `${rv.area}__${mapped.toLowerCase().trim()}`;
+              return { ...rv, theme: mapped, key: newKey };
+            }
+            return rv;
+          });
+          // Deduplicate: if renaming created a duplicate key, merge histories
+          const seen = new Map();
+          const deduped = [];
+          for (const rv of loadedReviews) {
+            if (seen.has(rv.key)) {
+              const existing = seen.get(rv.key);
+              existing.history = [...(existing.history || []), ...(rv.history || [])];
+              if (rv.lastStudied > existing.lastStudied) { existing.lastStudied = rv.lastStudied; existing.lastPerf = rv.lastPerf; existing.intervalIndex = rv.intervalIndex; existing.nextDue = rv.nextDue; }
+              rcChanged = true;
+            } else { seen.set(rv.key, rv); deduped.push(rv); }
+          }
+          if (rcChanged) { loadedReviews = deduped; saveKey("rp26_reviews", loadedReviews); }
+          loadedLogs = loadedLogs.map((l) => {
+            if (l.isSubtopic) return l;
+            const mapped = LOG_NAME_MAP[l.theme];
+            if (mapped && mapped !== l.theme) { rlChanged = true; return { ...l, theme: mapped }; }
+            return l;
+          });
+          if (rlChanged) saveKey("rp26_revlogs", loadedLogs);
+        }
+        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
           const needsUpgrade = loadedFc.length > 0 && loadedFc.some(d => !d._v || d._v < 2);
@@ -157,79 +237,124 @@ function App() {
   }, []);
   const undoTimerRef = React.useRef(null);
   const notify = (msg) => { setFlash(msg); setTimeout(() => setFlash(""), 2500); };
-  const pS = (v) => { setSessions(v); saveKey("rp26_sessions", v); };
-  const pR = (v) => { setReviews(v); saveKey("rp26_reviews", v); };
-  const pL = (v) => { setRevLogs(v); saveKey("rp26_revlogs", v); };
-  const pE = (v) => { setExams(v); saveKey("rp26_exams", v); };
-  const pSt = (v) => { setSubtopics(v); saveKey("rp26_subtopics", v); };
-  const pFc = (v) => { setFlashcardDecks(v); saveKey("rp26_flashcards", v); };
+  const pS = (v) => { if (typeof v === "function") { setSessions((prev) => { const next = v(prev); saveKey("rp26_sessions", next); return next; }); } else { setSessions(v); saveKey("rp26_sessions", v); } };
+  const pR = (v) => { if (typeof v === "function") { setReviews((prev) => { const next = v(prev); saveKey("rp26_reviews", next); return next; }); } else { setReviews(v); saveKey("rp26_reviews", v); } };
+  const pL = (v) => { if (typeof v === "function") { setRevLogs((prev) => { const next = v(prev); saveKey("rp26_revlogs", next); return next; }); } else { setRevLogs(v); saveKey("rp26_revlogs", v); } };
+  const pE = (v) => { if (typeof v === "function") { setExams((prev) => { const next = v(prev); saveKey("rp26_exams", next); return next; }); } else { setExams(v); saveKey("rp26_exams", v); } };
+  const pSt = (v) => { if (typeof v === "function") { setSubtopics((prev) => { const next = v(prev); saveKey("rp26_subtopics", next); return next; }); } else { setSubtopics(v); saveKey("rp26_subtopics", v); } };
+  const pFc = (v) => { if (typeof v === "function") { setFlashcardDecks((prev) => { const next = v(prev); saveKey("rp26_flashcards", next); return next; }); } else { setFlashcardDecks(v); saveKey("rp26_flashcards", v); } };
   function saveSubtopics(area, topic, items) {
     const key = `${area}__${topic}`;
-    pSt({ ...subtopics, [key]: items });
+    pSt((prev) => ({ ...prev, [key]: items }));
+    // Persist subtopic names on matching review cards for reliable lookup
+    if (items.length > 0) {
+      const tWords = topic.toLowerCase().replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
+      pR((prevReviews) => {
+        const updated = prevReviews.map((r) => {
+          if (r.area !== area || r.isSubtopic) return r;
+          const rWords = r.theme.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
+          const shared = tWords.filter((tw) => rWords.some((rw) => rw.includes(tw) || tw.includes(rw)));
+          if (shared.length >= Math.ceil(tWords.length * 0.5)) return { ...r, subtopicNames: items };
+          return r;
+        });
+        return updated.some((r, i) => r !== prevReviews[i]) ? updated : prevReviews;
+      });
+    }
   }
   function getSubtopics(area, topic) {
     return subtopics[`${area}__${topic}`] || [];
   }
   function addSubtopicReview(area, parentTheme, subtema, pct) {
     const key = `${area}__${parentTheme.toLowerCase().trim()}::${subtema.toLowerCase().trim()}`;
-    const ex = reviews.find((r) => r.key === key);
-    const ni = nxtIdx(ex?.intervalIndex || 0, pct);
-    const rev = {
-      id: ex?.id || uid(), key, area, theme: subtema, parentTheme,
-      isSubtopic: true,
-      intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]),
-      lastPerf: pct, lastStudied: today(),
-      history: [...(ex?.history || []), { date: today(), pct }]
-    };
-    pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
-    pL([{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, pct, isSubtopic: true }, ...revLogs]);
+    pR((prevReviews) => {
+      const ex = prevReviews.find((r) => r.key === key);
+      const ni = nxtIdx(ex?.intervalIndex || 0, pct);
+      const rev = {
+        id: ex?.id || uid(), key, area, theme: subtema, parentTheme,
+        isSubtopic: true,
+        intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]),
+        lastPerf: pct, lastStudied: today(),
+        history: [...(ex?.history || []), { date: today(), pct }]
+      };
+      return ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
+    });
+    pL((prevLogs) => [{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, pct, isSubtopic: true }, ...prevLogs]);
   }
   function addSession(session) {
-    const s = { ...session, id: uid(), createdAt: today() }; pS([s, ...sessions]);
+    const s = { ...session, id: uid(), createdAt: today() }; pS((prev) => [s, ...prev]);
     const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
-    const ex = reviews.find((r) => r.key === key); const pct = perc(session.acertos, session.total); const ni = nxtIdx(0, pct);
-    const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
-    pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
+    const pct = perc(session.acertos, session.total); const ni = nxtIdx(0, pct);
+    pR((prevReviews) => {
+      const ex = prevReviews.find((r) => r.key === key);
+      const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
+      return ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
+    });
     notify("✓ Sessão registrada — 1ª revisão em " + INTERVALS[ni] + "d");
   }
   function addRevLog(areaId, theme, total, acertos) {
-    const pct = perc(acertos, total); pL([{ id: uid(), date: today(), area: areaId, theme, total, acertos, pct }, ...revLogs]);
-    const key = `${areaId}__${theme.toLowerCase().trim()}`; const ex = reviews.find((r) => r.key === key);
-    if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); pR(reviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r)); }
-    else { pR([{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...reviews]); }
+    const pct = perc(acertos, total);
+    pL((prevLogs) => [{ id: uid(), date: today(), area: areaId, theme, total, acertos, pct }, ...prevLogs]);
+    const key = `${areaId}__${theme.toLowerCase().trim()}`;
+    pR((prevReviews) => {
+      const ex = prevReviews.find((r) => r.key === key);
+      if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); return prevReviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r); }
+      return [{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...prevReviews];
+    });
     notify("✓ Revisão registrada");
   }
-  function markReview(revId, acertos, total) {
+  function markReview(revId, acertos, total, subtopicScores) {
     const pct = perc(acertos, total); const rev = reviews.find((r) => r.id === revId); if (!rev) return;
     const ni = nxtIdx(rev.intervalIndex, pct);
     const entry = { date: today(), pct, _prev: { intervalIndex: rev.intervalIndex, nextDue: rev.nextDue, lastPerf: rev.lastPerf, lastStudied: rev.lastStudied } };
-    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] }));
-    pL([{ id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct }, ...revLogs]);
+    // Update main card + subtopic cards in one batch
+    pR((prevReviews) => {
+      let newReviews = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
+      if (subtopicScores && subtopicScores.length > 0) {
+        subtopicScores.forEach((s) => {
+          const sKey = `${rev.area}__${rev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
+          const ex = newReviews.find((r) => r.key === sKey);
+          const sni = nxtIdx(ex?.intervalIndex || 0, s.pct);
+          const sRev = {
+            id: ex?.id || uid(), key: sKey, area: rev.area, theme: s.name, parentTheme: rev.theme,
+            isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
+            lastPerf: s.pct, lastStudied: today(),
+            history: [...(ex?.history || []), { date: today(), pct: s.pct }]
+          };
+          newReviews = ex ? newReviews.map((r) => r.key === sKey ? sRev : r) : [sRev, ...newReviews];
+        });
+      }
+      return newReviews;
+    });
+    // Single log entry with inline subtopic scores
+    const logEntry = { id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct };
+    if (subtopicScores && subtopicScores.length > 0) logEntry.subtopicScores = subtopicScores;
+    pL((prevLogs) => [logEntry, ...prevLogs]);
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
   function undoMarkReview(revId) {
-    const rev = reviews.find((r) => r.id === revId); if (!rev) return;
-    const hist = rev.history || [];
-    if (hist.length === 0) return;
-    const last = hist[hist.length - 1];
-    const prev = last._prev;
-    if (prev) {
-      pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: hist.slice(0, -1) }));
-    } else {
-      // Sem _prev (entry antigo), mantém intervalIndex atual e coloca como vencida hoje
+    pR((prevReviews) => {
+      const rev = prevReviews.find((r) => r.id === revId); if (!rev) return prevReviews;
+      const hist = rev.history || [];
+      if (hist.length === 0) return prevReviews;
+      const last = hist[hist.length - 1];
+      const prev = last._prev;
+      if (prev) {
+        return prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: hist.slice(0, -1) });
+      }
       const prevEntry = hist.length >= 2 ? hist[hist.length - 2] : null;
-      pR(reviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: hist.slice(0, -1) }));
-    }
-    const revTheme = rev.theme;
-    const logIdx = revLogs.findIndex((l) => l.theme === revTheme && l.date === today());
-    if (logIdx >= 0) pL(revLogs.filter((_, i) => i !== logIdx));
+      return prevReviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: hist.slice(0, -1) });
+    });
+    pL((prevLogs) => {
+      const logIdx = prevLogs.findIndex((l) => l.date === today());
+      return logIdx >= 0 ? prevLogs.filter((_, i) => i !== logIdx) : prevLogs;
+    });
     notify("↩ Revisão desfeita — voltou para hoje");
   }
-  function editReview(revId, ni, nd) { pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd })); notify("✓ Corrigido"); }
+  function editReview(revId, ni, nd) { pR((prev) => prev.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd })); notify("✓ Corrigido"); }
   function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; pE(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); pFc(merged); }, 100); }
-  function delSession(id) { pS(sessions.filter((s) => s.id !== id)); }
-  function delExam(id) { pE(exams.filter((e) => e.id !== id)); }
-  function updateExam(id, updates) { pE(exams.map((e) => e.id !== id ? e : { ...e, ...updates })); notify("✓ Prova atualizada"); regenerateFlashcards(); }
+  function delSession(id) { pS((prev) => prev.filter((s) => s.id !== id)); }
+  function delExam(id) { pE((prev) => prev.filter((e) => e.id !== id)); }
+  function updateExam(id, updates) { pE((prev) => prev.map((e) => e.id !== id ? e : { ...e, ...updates })); notify("✓ Prova atualizada"); regenerateFlashcards(); }
   function regenerateFlashcards() {
     setTimeout(() => {
       const newDecks = generateFlashcardDecks(exams, reviews, sessions);
@@ -241,11 +366,11 @@ function App() {
     const updated = reviewCard(flashcardDecks, deckId, cardId, qualityKey);
     pFc(updated);
   }
-  function editRevLog(logId, updates) { pL(revLogs.map((l) => l.id !== logId ? l : { ...l, ...updates, pct: updates.acertos != null && updates.total != null ? perc(updates.acertos, updates.total) : l.pct })); notify("✓ Revisão atualizada"); }
+  function editRevLog(logId, updates) { pL((prev) => prev.map((l) => l.id !== logId ? l : { ...l, ...updates, pct: updates.acertos != null && updates.total != null ? perc(updates.acertos, updates.total) : l.pct })); notify("✓ Revisão atualizada"); }
   function delRevLog(logId) {
     const deleted = revLogs.find((l) => l.id === logId);
     if (!deleted) return;
-    pL(revLogs.filter((l) => l.id !== logId));
+    pL((prev) => prev.filter((l) => l.id !== logId));
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     setUndoAction({ type: "revlog", item: deleted });
     undoTimerRef.current = setTimeout(() => { setUndoAction(null); undoTimerRef.current = null; }, 6000);
@@ -285,9 +410,9 @@ function App() {
   const TABS = [
     { id: "dashboard", label: "Dashboard" },
     { id: "revisoes", label: `Revisões${dueR.length ? ` (${dueR.length})` : ""}` },
+    { id: "agenda", label: "Agenda" },
     { id: "provas", label: "Provas" },
     { id: "temas", label: "Temas" },
-    { id: "agenda", label: "Agenda" },
   ];
 
 

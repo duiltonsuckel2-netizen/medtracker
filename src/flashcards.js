@@ -135,14 +135,15 @@ function generateCardsFromSummary(theme, area, summary) {
   // Cards 2-5: From topicos (most tested in residency)
   topicos.slice(0, 4).forEach((tp, i) => {
     // Extract the key concept from parentheses or after ":"
-    const parenMatch = tp.match(/\(([^)]+)\)/);
+    const topicText = tp.t || String(tp);
+    const parenMatch = topicText.match(/\(([^)]+)\)/);
     const hint = parenMatch ? parenMatch[1] : "";
 
     // Create question-answer pairs based on the topic
-    const front = `${tp.replace(/\([^)]*\)/, "").trim()}`;
+    const front = `${topicText.replace(/\([^)]*\)/, "").trim()}`;
     const back = hint
-      ? `${tp}\n\nPonto-chave: ${hint}`
-      : tp;
+      ? `${topicText}\n\nPonto-chave: ${hint}`
+      : topicText;
 
     cards.push({ front: `Explique: ${front}`, back });
   });

@@ -369,168 +369,127 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       {subTab === "passadas" && (() => {
         if (revLogs.length === 0) return <Empty msg="Nenhuma revisão registrada ainda." />;
         const sorted = [...revLogs].sort((a, b) => logSort === "newest" ? (b.date || "").localeCompare(a.date || "") : logSort === "oldest" ? (a.date || "").localeCompare(b.date || "") : logSort === "worst" ? (a.pct ?? 100) - (b.pct ?? 100) : (b.pct ?? 0) - (a.pct ?? 0));
-        const isDateSort = logSort === "newest" || logSort === "oldest";
-        const groups = [];
-        if (isDateSort) {
-          let curDate = null;
-          sorted.forEach((l) => {
-            if (l.date !== curDate) { curDate = l.date; groups.push({ date: l.date, items: [] }); }
-            groups[groups.length - 1].items.push(l);
-          });
-        } else {
-          groups.push({ date: null, items: sorted });
-        }
         const avgPct = revLogs.length > 0 ? Math.round(revLogs.reduce((s, l) => s + (l.pct || 0), 0) / revLogs.length) : 0;
         const todayLogs = revLogs.filter((l) => l.date === today()).length;
         const SORT_OPTS = [{ id: "newest", label: "Recentes" }, { id: "oldest", label: "Antigas" }, { id: "best", label: "Melhores" }, { id: "worst", label: "Piores" }];
 
         return <>
-        {/* Sort + Stats bar */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <div style={{ display: "flex", gap: 2, background: C.card, borderRadius: R.pill, padding: 3, border: `1px solid ${C.border}`, flexShrink: 0 }}>
-              {SORT_OPTS.map((o) => (
-                <button key={o.id} onClick={() => setLogSort(o.id)} style={{ padding: "6px 12px", fontSize: 11, fontFamily: F, fontWeight: logSort === o.id ? 600 : 400, borderRadius: R.pill, cursor: "pointer", background: logSort === o.id ? C.purple + "20" : "transparent", border: logSort === o.id ? `1px solid ${C.purple}35` : "1px solid transparent", color: logSort === o.id ? C.purple : C.text3, transition: "all 0.15s", whiteSpace: "nowrap", lineHeight: 1.2 }}>{o.label}</button>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 10, fontSize: 11, color: C.text3, fontFamily: FM, flexShrink: 0 }}>
-              <span>{revLogs.length} rev</span>
-              <span style={{ color: perfColor(avgPct), fontWeight: 600 }}>~{avgPct}%</span>
-              {todayLogs > 0 && <span style={{ color: C.green }}>+{todayLogs} hoje</span>}
-            </div>
+        {/* Sort + Stats */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ display: "flex", gap: 2, background: C.card, borderRadius: R.pill, padding: 3, border: `1px solid ${C.border}`, flexShrink: 0 }}>
+            {SORT_OPTS.map((o) => (
+              <button key={o.id} onClick={() => setLogSort(o.id)} style={{ padding: "6px 12px", fontSize: 11, fontFamily: F, fontWeight: logSort === o.id ? 600 : 400, borderRadius: R.pill, cursor: "pointer", background: logSort === o.id ? C.purple + "20" : "transparent", border: logSort === o.id ? `1px solid ${C.purple}35` : "1px solid transparent", color: logSort === o.id ? C.purple : C.text3, transition: "all 0.15s", whiteSpace: "nowrap", lineHeight: 1.2 }}>{o.label}</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10, fontSize: 11, color: C.text3, fontFamily: FM, flexShrink: 0 }}>
+            <span>{revLogs.length} rev</span>
+            <span style={{ color: perfColor(avgPct), fontWeight: 600 }}>~{avgPct}%</span>
+            {todayLogs > 0 && <span style={{ color: C.green }}>+{todayLogs} hoje</span>}
           </div>
         </div>
 
-        {/* Date groups */}
-        {groups.map((g, gi) => (
-          <div key={gi} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {g.date && (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: gi > 0 ? 12 : 4, marginBottom: 2 }}>
-                <div style={{ height: 1, flex: 1, background: C.border }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: g.date === today() ? C.green : C.text3, fontFamily: FM, whiteSpace: "nowrap" }}>
-                  {g.date === today() ? "Hoje" : fmtDate(g.date)}
-                </span>
-                <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{g.items.length}×</span>
-                <div style={{ height: 1, flex: 1, background: C.border }} />
-              </div>
-            )}
+        {/* Flat list */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {sorted.map((l) => {
+          const a = areaMap[l.area];
+          const aColor = a?.color || "#6B7280";
+          const isEd = editingLog?.id === l.id;
+          const stLookup = !l.subtopicScores && !isEd ? getSubtopicsForReview({ area: l.area, theme: l.theme }) : [];
+          const hasExtra = (l.subtopicScores?.length > 0) || stLookup.length > 0 || (l.subtemas && !l.subtopicScores);
 
-            {g.items.map((l) => {
-              const a = areaMap[l.area];
-              const aColor = a?.color || "#6B7280";
-              const isEd = editingLog?.id === l.id;
-              const stLookup = !l.subtopicScores && !isEd ? getSubtopicsForReview({ area: l.area, theme: l.theme }) : [];
-
-              return (
-                <div key={l.id} className="fade-in" style={{
-                  background: C.card, borderRadius: R.lg, overflow: "hidden",
-                  border: `1px solid ${C.border}`, borderLeft: `3px solid ${aColor}`,
-                  boxShadow: SH.sm,
-                }}>
-                  <div style={{ padding: "10px 12px 8px", display: "flex", flexDirection: "column", gap: 6 }}>
-                    {/* Row 1: Theme + Performance */}
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          <span style={{ ...tag(aColor), padding: "2px 8px", fontSize: 10 }}>{a?.short}</span>
-                          {l.isSubtopic && <span style={{ fontSize: 9, color: C.purple, fontFamily: FM, background: C.purple + "12", padding: "1px 6px", borderRadius: R.pill }}>sub</span>}
-                          {l.confidence && <span style={{ fontSize: 12 }} title={CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.label}>{CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.icon}</span>}
-                        </div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.35, wordBreak: "break-word" }}>{l.theme || "—"}</div>
-                      </div>
-                      <div style={{
-                        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                        background: perfColor(l.pct) + "10", borderRadius: R.md,
-                        padding: "8px 14px", minWidth: 56, flexShrink: 0,
-                        border: `1px solid ${perfColor(l.pct)}20`,
-                      }}>
-                        <span style={{ fontSize: 18, fontWeight: 800, color: perfColor(l.pct), ...NUM, lineHeight: 1 }}>{l.pct}%</span>
-                        {l.total > 0 && <span style={{ fontSize: 9, color: C.text3, fontFamily: FM, marginTop: 3 }}>{l.acertos}/{l.total}</span>}
-                      </div>
-                    </div>
-
-                    {/* Performance bar */}
-                    <div style={{ height: 3, borderRadius: R.pill, background: C.border, overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${l.pct}%`, background: perfColor(l.pct), borderRadius: R.pill, transition: "width 0.3s" }} />
-                    </div>
-
-                    {/* Row 2: Meta + Actions */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
-                      {!isDateSort && <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)}</span>}
-                      {l.subtopicScores?.length > 0 && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+{l.subtopicScores.length} sub</span>}
-                      {l.subtemas && !l.subtopicScores && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+notas</span>}
-                      <div style={{ flex: 1 }} />
-                      {l.date === today() && !l.isSubtopic && onUndoMark && (() => {
-                        const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic);
-                        return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão?")) onUndoMark(rev.id); }} style={{ background: C.yellow + "14", border: `1px solid ${C.yellow}30`, borderRadius: R.sm, cursor: "pointer", color: C.yellow, fontSize: 10, padding: "4px 10px", fontFamily: FM, fontWeight: 600, lineHeight: 1.2 }}>↩ Desfazer</button> : null;
-                      })()}
-                      <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "", subtopicScores: l.subtopicScores ? l.subtopicScores.map((s) => ({ ...s })) : [] }); } }}
-                        style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.sm, cursor: "pointer", color: C.text3, fontSize: 11, padding: "5px 10px", display: "inline-flex", alignItems: "center", gap: 4, lineHeight: 1.2 }}>
-                        {isEd ? "▲ Fechar" : "✏ Editar"}
-                      </button>
-                      <button onClick={() => onDelLog(l.id)}
-                        style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.sm, cursor: "pointer", color: C.border2, fontSize: 11, padding: "5px 8px", lineHeight: 1.2 }}>✕</button>
-                    </div>
+          return (
+            <div key={l.id} className="fade-in" style={{
+              background: C.card, borderRadius: R.md, overflow: "hidden",
+              border: `1px solid ${C.border}`, borderLeft: `3px solid ${aColor}`,
+            }}>
+              {/* Compact main row */}
+              <div style={{ padding: "8px 10px", display: "flex", alignItems: "center", gap: 8 }}>
+                {/* % */}
+                <span style={{ fontSize: 14, fontWeight: 800, color: perfColor(l.pct), ...NUM, minWidth: 38, textAlign: "right", flexShrink: 0 }}>{l.pct}%</span>
+                {/* Area tag */}
+                <span style={{ ...tag(aColor), padding: "2px 7px", fontSize: 9, flexShrink: 0 }}>{a?.short}</span>
+                {/* Theme + meta */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l.theme || "—"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
+                    <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{l.date === today() ? "Hoje" : fmtDate(l.date)}</span>
+                    {l.total > 0 && <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{l.acertos}/{l.total}</span>}
+                    {l.isSubtopic && <span style={{ fontSize: 9, color: C.purple, fontFamily: FM, background: C.purple + "12", padding: "0px 5px", borderRadius: R.pill }}>sub</span>}
+                    {l.confidence && <span style={{ fontSize: 11 }} title={CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.label}>{CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.icon}</span>}
                   </div>
-
-                  {/* Subtopic scores (from log) */}
-                  {l.subtopicScores?.length > 0 && !isEd && (
-                    <div style={{ padding: "8px 12px", background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {l.subtopicScores.map((s, i) => (
-                        <span key={i} style={{ fontSize: 11, background: C.card, padding: "3px 10px", borderRadius: R.pill, border: `1px solid ${C.border}`, lineHeight: 1.4 }}>
-                          {s.name} <span style={{ fontWeight: 700, color: perfColor(s.pct), fontFamily: FN }}>{s.pct}%</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Structured subtopics (looked up) */}
-                  {stLookup.length > 0 && (
-                    <div style={{ padding: "8px 12px", background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                      {stLookup.map((s, i) => (
-                        <span key={i} style={{ fontSize: 10, background: C.purple + "10", padding: "3px 8px", borderRadius: R.pill, border: `1px solid ${C.purple}20`, color: C.text2, lineHeight: 1.4 }}>{s}</span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Free-text subtemas */}
-                  {l.subtemas && !l.subtopicScores && !isEd && (
-                    <div style={{ padding: "8px 12px", background: C.surface, borderTop: `1px solid ${C.border}`, fontSize: 11, color: C.text3, lineHeight: 1.4 }}>📋 {l.subtemas}</div>
-                  )}
-
-                  {/* Edit form */}
-                  {isEd && (
-                    <div style={{ padding: 12, background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 10 }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                        <Fld label="Área"><select value={editingLog.area} onChange={(e) => setEditingLog((f) => ({ ...f, area: e.target.value }))} style={inp({ padding: "8px 10px", fontSize: 12 })}>{AREAS.map((a) => <option key={a.id} value={a.id}>{a.short}</option>)}</select></Fld>
-                        <Fld label="Tema"><input value={editingLog.theme} onChange={(e) => setEditingLog((f) => ({ ...f, theme: e.target.value }))} style={inp({ padding: "8px 10px", fontSize: 12 })} /></Fld>
-                        <Fld label="Total"><input type="number" value={editingLog.total} onChange={(e) => setEditingLog((f) => ({ ...f, total: Number(e.target.value) }))} style={inp({ padding: "8px 10px", fontSize: 12 })} /></Fld>
-                        <Fld label="Acertos"><input type="number" value={editingLog.acertos} onChange={(e) => setEditingLog((f) => ({ ...f, acertos: Number(e.target.value) }))} style={inp({ padding: "8px 10px", fontSize: 12 })} /></Fld>
-                      </div>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: C.purple, fontFamily: FM }}>Subtemas</span>
-                          <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: [...(f.subtopicScores || []), { name: "", pct: "" }] }))} style={{ background: C.purple + "14", border: `1px solid ${C.purple}30`, borderRadius: R.sm, padding: "5px 12px", cursor: "pointer", fontSize: 11, color: C.purple, fontFamily: FM, lineHeight: 1.2 }}>+ Subtema</button>
-                        </div>
-                        {editingLog.subtopicScores?.map((s, si) => (
-                          <div key={si} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                            <input value={s.name} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, name: e.target.value }) }))} placeholder="Nome" style={inp({ padding: "6px 10px", fontSize: 12, flex: 1 })} />
-                            <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, pct: e.target.value === "" ? "" : Number(e.target.value) }) }))} placeholder="%" style={inp({ padding: "6px 10px", fontSize: 12, width: 56, textAlign: "center", fontFamily: FN, fontWeight: 700 })} />
-                            <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.filter((_, i) => i !== si) }))} style={{ background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 11, padding: "5px 8px", lineHeight: 1.2 }}>✕</button>
-                          </div>
-                        ))}
-                      </div>
-                      <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-                        <button onClick={() => { const scores = (editingLog.subtopicScores || []).filter((s) => s.name.trim() && s.pct !== "" && s.pct >= 0); onEditLog(editingLog.id, { ...editingLog, subtopicScores: scores.length > 0 ? scores : undefined }); setEditingLog(null); }} style={btn("#34D399", { padding: "9px 18px", fontSize: 12, fontWeight: 600 })}>Salvar</button>
-                        <button onClick={() => setEditingLog(null)} style={btn(C.card2, { padding: "9px 18px", fontSize: 12 })}>Cancelar</button>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              );
-            })}
-          </div>
-        ))}
+                {/* Actions */}
+                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                  {l.date === today() && !l.isSubtopic && onUndoMark && (() => {
+                    const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic);
+                    return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão?")) onUndoMark(rev.id); }} style={{ background: C.yellow + "14", border: `1px solid ${C.yellow}30`, borderRadius: R.sm, cursor: "pointer", color: C.yellow, fontSize: 10, padding: "3px 8px", fontFamily: FM, fontWeight: 600, lineHeight: 1.2 }}>↩</button> : null;
+                  })()}
+                  <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "", subtopicScores: l.subtopicScores ? l.subtopicScores.map((s) => ({ ...s })) : [] }); } }}
+                    style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: R.sm, cursor: "pointer", color: C.text3, fontSize: 11, padding: "3px 7px", lineHeight: 1.2 }}>
+                    {isEd ? "▲" : "✏"}
+                  </button>
+                  <button onClick={() => onDelLog(l.id)}
+                    style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: R.sm, cursor: "pointer", color: C.border2, fontSize: 11, padding: "3px 6px", lineHeight: 1.2 }}>✕</button>
+                </div>
+              </div>
+
+              {/* Subtopic scores (from log) */}
+              {l.subtopicScores?.length > 0 && !isEd && (
+                <div style={{ padding: "6px 10px 6px 52px", background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {l.subtopicScores.map((s, i) => (
+                    <span key={i} style={{ fontSize: 10, background: C.card, padding: "2px 8px", borderRadius: R.pill, border: `1px solid ${C.border}`, lineHeight: 1.4 }}>
+                      {s.name} <span style={{ fontWeight: 700, color: perfColor(s.pct), fontFamily: FN }}>{s.pct}%</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Structured subtopics (looked up) */}
+              {stLookup.length > 0 && (
+                <div style={{ padding: "6px 10px 6px 52px", background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {stLookup.map((s, i) => (
+                    <span key={i} style={{ fontSize: 10, background: C.purple + "10", padding: "2px 7px", borderRadius: R.pill, border: `1px solid ${C.purple}20`, color: C.text2, lineHeight: 1.4 }}>{s}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* Free-text subtemas */}
+              {l.subtemas && !l.subtopicScores && !isEd && (
+                <div style={{ padding: "6px 10px 6px 52px", background: C.surface, borderTop: `1px solid ${C.border}`, fontSize: 10, color: C.text3, lineHeight: 1.4 }}>📋 {l.subtemas}</div>
+              )}
+
+              {/* Edit form */}
+              {isEd && (
+                <div style={{ padding: 12, background: C.surface, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                    <Fld label="Área"><select value={editingLog.area} onChange={(e) => setEditingLog((f) => ({ ...f, area: e.target.value }))} style={inp({ padding: "8px 10px", fontSize: 12 })}>{AREAS.map((a) => <option key={a.id} value={a.id}>{a.short}</option>)}</select></Fld>
+                    <Fld label="Tema"><input value={editingLog.theme} onChange={(e) => setEditingLog((f) => ({ ...f, theme: e.target.value }))} style={inp({ padding: "8px 10px", fontSize: 12 })} /></Fld>
+                    <Fld label="Total"><input type="number" value={editingLog.total} onChange={(e) => setEditingLog((f) => ({ ...f, total: Number(e.target.value) }))} style={inp({ padding: "8px 10px", fontSize: 12 })} /></Fld>
+                    <Fld label="Acertos"><input type="number" value={editingLog.acertos} onChange={(e) => setEditingLog((f) => ({ ...f, acertos: Number(e.target.value) }))} style={inp({ padding: "8px 10px", fontSize: 12 })} /></Fld>
+                  </div>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: C.purple, fontFamily: FM }}>Subtemas</span>
+                      <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: [...(f.subtopicScores || []), { name: "", pct: "" }] }))} style={{ background: C.purple + "14", border: `1px solid ${C.purple}30`, borderRadius: R.sm, padding: "5px 12px", cursor: "pointer", fontSize: 11, color: C.purple, fontFamily: FM, lineHeight: 1.2 }}>+ Subtema</button>
+                    </div>
+                    {editingLog.subtopicScores?.map((s, si) => (
+                      <div key={si} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                        <input value={s.name} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, name: e.target.value }) }))} placeholder="Nome" style={inp({ padding: "6px 10px", fontSize: 12, flex: 1 })} />
+                        <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, pct: e.target.value === "" ? "" : Number(e.target.value) }) }))} placeholder="%" style={inp({ padding: "6px 10px", fontSize: 12, width: 56, textAlign: "center", fontFamily: FN, fontWeight: 700 })} />
+                        <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.filter((_, i) => i !== si) }))} style={{ background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 11, padding: "5px 8px", lineHeight: 1.2 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
+                    <button onClick={() => { const scores = (editingLog.subtopicScores || []).filter((s) => s.name.trim() && s.pct !== "" && s.pct >= 0); onEditLog(editingLog.id, { ...editingLog, subtopicScores: scores.length > 0 ? scores : undefined }); setEditingLog(null); }} style={btn("#34D399", { padding: "9px 18px", fontSize: 12, fontWeight: 600 })}>Salvar</button>
+                    <button onClick={() => setEditingLog(null)} style={btn(C.card2, { padding: "9px 18px", fontSize: 12 })}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+        </div>
       </>;
       })()}
     </div>

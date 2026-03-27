@@ -72,9 +72,13 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     // Prefer subtopicNames stored directly on the review card
     if (r.subtopicNames && r.subtopicNames.length > 0) return r.subtopicNames;
     if (!subtopics) return [];
-    // Normalize: remove "(Sem. XX)", roman numerals, dashes, extra spaces, lowercase
+
+    // 1) Direct key lookup (most reliable)
+    const directKey = `${r.area}__${r.theme}`;
+    if (subtopics[directKey] && subtopics[directKey].length > 0) return subtopics[directKey];
+
+    // 2) Fuzzy matching fallback
     const normalize = (s) => s.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();
-    // Extract significant words (3+ chars, skip stop words)
     const stopWords = new Set(["sem", "das", "dos", "del", "und", "the", "and", "para", "com", "por"]);
     const keywords = (s) => normalize(s).split(/\s+/).filter((w) => w.length >= 3 && !stopWords.has(w));
 
@@ -90,19 +94,15 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       const kTopic = key.slice(kArea.length + 2);
       const kNorm = normalize(kTopic);
 
-      // Exact normalized match
       if (rTheme === kNorm) return items;
-      // Substring match (either direction)
       if (rTheme.includes(kNorm) || kNorm.includes(rTheme)) return items;
 
-      // Keyword overlap scoring
       const kWords = keywords(kTopic);
       if (kWords.length === 0) continue;
       const shared = kWords.filter((w) => rWords.some((rw) => rw.includes(w) || w.includes(rw)));
       const score = shared.length / Math.max(kWords.length, 1);
       if (score > bestScore) { bestScore = score; bestMatch = items; }
     }
-    // Require at least 50% keyword overlap
     return bestScore >= 0.5 ? bestMatch : [];
   }
   function handleSubtopicReviewSave(entries) {
@@ -369,22 +369,24 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       {subTab === "passadas" && <>
       {revLogs.length === 0 ? <Empty msg="Nenhuma revisão registrada ainda." /> : <div style={card}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}><div style={{ fontSize: 14, fontWeight: 600 }}>Histórico de revisões</div><select value={logSort} onChange={(e) => setLogSort(e.target.value)} style={inp({ padding: "4px 8px", fontSize: 11, width: "auto" })}><option value="newest">Mais recente</option><option value="oldest">Mais antiga</option><option value="worst">Piores resultados</option><option value="best">Melhores resultados</option></select></div>{[...revLogs].sort((a, b) => logSort === "newest" ? (b.date || "").localeCompare(a.date || "") : logSort === "oldest" ? (a.date || "").localeCompare(b.date || "") : logSort === "worst" ? (a.pct ?? 100) - (b.pct ?? 100) : (b.pct ?? 0) - (a.pct ?? 0)).map((l) => { const a = areaMap[l.area]; const isEd = editingLog?.id === l.id; return (
         <div key={l.id} style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(l.pct), ...NUM, minWidth: 38 }}>{l.pct}%</span>
             <span style={tag(a?.color || "#6B7280")}>{a?.short}</span>
-            <span style={{ fontSize: 12, color: C.text2, flex: 1 }}>{l.theme || "—"}</span>
-            {l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>subtema</span>}
-            {l.confidence && <span style={{ fontSize: 12 }} title={CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.label}>{CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.icon}</span>}
-            {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
-            <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)}{l.total ? ` · ${l.total}q` : ""}</span>
-            {l.date === today() && !l.isSubtopic && onUndoMark && (() => { const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic); return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão e voltar pra hoje?")) onUndoMark(rev.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 10, padding: "2px 6px", fontFamily: FM, fontWeight: 600 }}>↩ Desfazer</button> : null; })()}
-            <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "", subtopicScores: l.subtopicScores ? l.subtopicScores.map((s) => ({ ...s })) : [] }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
-            <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
+            <span style={{ fontSize: 12, color: C.text2, flex: "1 1 120px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{l.theme || "—"}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>subtema</span>}
+              {l.confidence && <span style={{ fontSize: 12 }} title={CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.label}>{CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.icon}</span>}
+              {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
+              <span style={{ fontSize: 11, color: C.text3, fontFamily: FM, whiteSpace: "nowrap" }}>{fmtDate(l.date)}{l.total ? ` · ${l.total}q` : ""}</span>
+              {l.date === today() && !l.isSubtopic && onUndoMark && (() => { const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic); return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão e voltar pra hoje?")) onUndoMark(rev.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 10, padding: "2px 6px", fontFamily: FM, fontWeight: 600 }}>↩ Desfazer</button> : null; })()}
+              <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "", subtopicScores: l.subtopicScores ? l.subtopicScores.map((s) => ({ ...s })) : [] }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
+              <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
+            </div>
           </div>
-          {l.subtopicScores && l.subtopicScores.length > 0 && !isEd && <div style={{ marginTop: 4, marginLeft: 48, display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.text3 }}>{l.subtopicScores.map((s, i) => <span key={i} style={{ background: C.surface, padding: "3px 8px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>{s.name}: <span style={{ fontWeight: 700, color: perfColor(s.pct), fontFamily: FN }}>{s.pct}%</span></span>)}</div>}
-          {l.subtemas && !l.subtopicScores && !isEd && <div style={{ marginTop: 4, marginLeft: 48, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
-          {isEd && <div style={{ marginTop: 8, marginLeft: 48, display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+          {l.subtopicScores && l.subtopicScores.length > 0 && !isEd && <div style={{ marginTop: 4, marginLeft: 0, display: "flex", gap: 8, flexWrap: "wrap", fontSize: 11, color: C.text3 }}>{l.subtopicScores.map((s, i) => <span key={i} style={{ background: C.surface, padding: "3px 8px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>{s.name}: <span style={{ fontWeight: 700, color: perfColor(s.pct), fontFamily: FN }}>{s.pct}%</span></span>)}</div>}
+          {l.subtemas && !l.subtopicScores && !isEd && <div style={{ marginTop: 4, marginLeft: 0, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
+          {isEd && <div style={{ marginTop: 8, marginLeft: 0, display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <Fld label="Área"><select value={editingLog.area} onChange={(e) => setEditingLog((f) => ({ ...f, area: e.target.value }))} style={inp({ padding: "6px 8px", fontSize: 12 })}>{AREAS.map((a) => <option key={a.id} value={a.id}>{a.short}</option>)}</select></Fld>
               <Fld label="Tema"><input value={editingLog.theme} onChange={(e) => setEditingLog((f) => ({ ...f, theme: e.target.value }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
               <Fld label="Total"><input type="number" value={editingLog.total} onChange={(e) => setEditingLog((f) => ({ ...f, total: Number(e.target.value) }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>

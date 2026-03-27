@@ -40,7 +40,11 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         const avg = Math.round(sorted.reduce((s, x) => s + x.pct, 0) / sorted.length);
         return { ...t, sorted, first, last, trend, avg, n: sorted.length };
       })
-      .sort((a, b) => b.n - a.n);
+      .sort((a, b) => {
+        const semA = parseInt((a.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
+        const semB = parseInt((b.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
+        return semA !== semB ? semA - semB : a.theme.localeCompare(b.theme);
+      });
   }, [revLogs, sessions]);
   function submitQ() { const tot = Number(qForm.total), ac = Number(qForm.acertos); const th = qForm.freeTheme ? qForm.theme : (qForm.theme || ""); if (!th.trim()) return alert("Informe o tema."); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onQuick(qForm.area, th, tot, ac); setQForm(emptyQ); setShowQ(false); }
   function submitMark() {

@@ -141,6 +141,23 @@ function App() {
     pL([{ id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct }, ...revLogs]);
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
+  function undoMarkReview(revId) {
+    const rev = reviews.find((r) => r.id === revId); if (!rev) return;
+    const hist = rev.history || [];
+    if (hist.length <= 1) {
+      // Only one entry — reset to due today with no perf
+      pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: 0, nextDue: today(), lastPerf: null, lastStudied: null, history: [] }));
+    } else {
+      const prev = hist[hist.length - 2];
+      const ni = nxtIdx(rev.intervalIndex > 0 ? rev.intervalIndex - 1 : 0, prev.pct);
+      pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex ?? ni, nextDue: today(), lastPerf: prev.pct, lastStudied: prev.date, history: hist.slice(0, -1) }));
+    }
+    // Remove the most recent log for this theme
+    const revTheme = rev.theme;
+    const logIdx = revLogs.findIndex((l) => l.theme === revTheme && l.date === today());
+    if (logIdx >= 0) pL(revLogs.filter((_, i) => i !== logIdx));
+    notify("↩ Revisão desfeita — voltou para hoje");
+  }
   function editReview(revId, ni, nd) { pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd })); notify("✓ Corrigido"); }
   function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; pE(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); pFc(merged); }, 100); }
   function delSession(id) { pS(sessions.filter((s) => s.id !== id)); }
@@ -229,7 +246,7 @@ function App() {
           {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
           {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
           {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
-          {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} />}
+          {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} onUndoMark={undoMarkReview} />}
           {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
           {tab === "temas" && <Temas reviews={reviews} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} />}
           {tab === "flashcards" && <Flashcards decks={flashcardDecks} onReview={handleFlashcardReview} />}

@@ -144,6 +144,40 @@ function App() {
           });
           if (revChanged) saveKey("rp26_reviews", loadedReviews);
         }
+        // Migration v7: normalize all review card + log theme names to include semester
+        if (!localStorage.getItem("rp26_mig_v7")) {
+          localStorage.setItem("rp26_mig_v7", "1");
+          let rcChanged = false, rlChanged = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            if (rv.isSubtopic) return rv;
+            const mapped = LOG_NAME_MAP[rv.theme];
+            if (mapped && mapped !== rv.theme) {
+              rcChanged = true;
+              const newKey = `${rv.area}__${mapped.toLowerCase().trim()}`;
+              return { ...rv, theme: mapped, key: newKey };
+            }
+            return rv;
+          });
+          // Deduplicate: if renaming created a duplicate key, merge histories
+          const seen = new Map();
+          const deduped = [];
+          for (const rv of loadedReviews) {
+            if (seen.has(rv.key)) {
+              const existing = seen.get(rv.key);
+              existing.history = [...(existing.history || []), ...(rv.history || [])];
+              if (rv.lastStudied > existing.lastStudied) { existing.lastStudied = rv.lastStudied; existing.lastPerf = rv.lastPerf; existing.intervalIndex = rv.intervalIndex; existing.nextDue = rv.nextDue; }
+              rcChanged = true;
+            } else { seen.set(rv.key, rv); deduped.push(rv); }
+          }
+          if (rcChanged) { loadedReviews = deduped; saveKey("rp26_reviews", loadedReviews); }
+          loadedLogs = loadedLogs.map((l) => {
+            if (l.isSubtopic) return l;
+            const mapped = LOG_NAME_MAP[l.theme];
+            if (mapped && mapped !== l.theme) { rlChanged = true; return { ...l, theme: mapped }; }
+            return l;
+          });
+          if (rlChanged) saveKey("rp26_revlogs", loadedLogs);
+        }
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {

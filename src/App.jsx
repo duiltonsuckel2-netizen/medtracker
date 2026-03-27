@@ -89,6 +89,33 @@ function App() {
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
       }
+      // One-time migration: restore deleted Hipertensão (HAS) review card
+      const migKey = "rp26_mig_restore_has";
+      if (!localStorage.getItem(migKey)) {
+        localStorage.setItem(migKey, "1");
+        const loadedReviews = Array.isArray(r) ? r : [];
+        const loadedLogs = Array.isArray(rl) ? rl : [];
+        const hasTheme = "Sd. Metabólica I — HAS e Dislipidemia (Sem. 08)";
+        const hasKey = `clinica__${hasTheme.toLowerCase().trim()}`;
+        const hasExists = loadedReviews.some((rv) => rv.key === hasKey);
+        if (!hasExists) {
+          // Reconstruct from SEED_LOGS history for HAS
+          const hasLogs = loadedLogs.filter((l) => l.area === "clinica" && l.theme && l.theme.toLowerCase().includes("has"));
+          const lastLog = hasLogs.length > 0 ? hasLogs.sort((a, b) => b.date.localeCompare(a.date))[0] : null;
+          const lastPct = lastLog ? lastLog.pct : 78;
+          const history = hasLogs.map((l) => ({ date: l.date, pct: l.pct }));
+          if (history.length === 0) history.push({ date: "2026-03-10", pct: 78 });
+          const td = new Date().toISOString().slice(0, 10);
+          const newRev = {
+            id: uid(), key: hasKey, area: "clinica", theme: hasTheme,
+            intervalIndex: 1, nextDue: td, lastPerf: lastPct,
+            lastStudied: lastLog ? lastLog.date : "2026-03-10",
+            history
+          };
+          const updatedRevs = [newRev, ...loadedReviews];
+          setReviews(updatedRevs); saveKey("rp26_reviews", updatedRevs);
+        }
+      }
       setReady(true);
     });
   }, []);

@@ -76,23 +76,28 @@ function App() {
         let loadedReviews = Array.isArray(r) ? r : [];
         const loadedExams = Array.isArray(e) ? e : [];
         const loadedFc = Array.isArray(fc) ? fc : [];
-        // Migration v3: fix HAS review + remove 1d interval + clean Dislipidemia
-        if (!localStorage.getItem("rp26_mig_v3")) {
-          localStorage.setItem("rp26_mig_v3", "1");
+        // Migration v4: fix HAS card + remove 1d interval (based on real Notion data)
+        if (!localStorage.getItem("rp26_mig_v4")) {
+          localStorage.setItem("rp26_mig_v4", "1");
+          // Canonical card identity
+          const hasTheme = "Sd. Metabólica I — HAS e Dislipidemia (Sem. 08)";
+          const hasKey = `clinica__${hasTheme.toLowerCase().trim()}`;
+          // Match any HAS variant (main cards only, preserve subtopics)
+          const isHasMainCard = (rv) => !rv.isSubtopic && rv.area === "clinica" && (
+            rv.key.includes("metabólica") || rv.key.includes("metabolica") ||
+            rv.key.includes("dislipidemia") || rv.key.includes("has e") ||
+            rv.key.includes("has —") || rv.key.includes("hipertensão arterial")
+          );
           // 1) Shift all intervalIndex down by 1 (removed old 1d interval)
           loadedReviews = loadedReviews.map((rv) => ({ ...rv, intervalIndex: Math.max(0, rv.intervalIndex - 1) }));
-          // 2) Remove ALL old HAS/Metabólica/Dislipidemia cards
-          loadedReviews = loadedReviews.filter((rv) => {
-            if (rv.area !== "clinica") return true;
-            const k = rv.key.toLowerCase();
-            return !(k.includes("metabólica") || k.includes("metabolica") || k.includes("dislipidemia") || k.includes("has e") || k.includes("has —") || k.includes("hipertensão arterial"));
-          });
-          // 3) Create fresh HAS card from real Notion data
-          const hasTheme = "HAS — Hipertensão Arterial (Sem. 08)";
-          const hasKey = `clinica__${hasTheme.toLowerCase().trim()}`;
+          // 2) Remove all HAS variants (may exist with different keys)
+          loadedReviews = loadedReviews.filter((rv) => !isHasMainCard(rv));
+          // 3) Add single canonical card — state from Notion:
+          //    Mar 10: 78%, Mar 17: 83% → gap 14d → idx 1, nextDue Mar 24
+          //    Today is Mar 27 so 3 days overdue → shows as "pendente"
           loadedReviews.unshift({
             id: uid(), key: hasKey, area: "clinica", theme: hasTheme,
-            intervalIndex: 0, nextDue: "2026-03-24", lastPerf: 83,
+            intervalIndex: 1, nextDue: "2026-03-24", lastPerf: 83,
             lastStudied: "2026-03-17",
             history: [{ date: "2026-03-10", pct: 78 }, { date: "2026-03-17", pct: 83 }]
           });

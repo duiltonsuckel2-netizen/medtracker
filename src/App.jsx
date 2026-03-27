@@ -119,8 +119,8 @@ function App() {
       {/* HEADER */}
       <div style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 20px)", background: `linear-gradient(160deg, rgba(129,140,248,0.12) 0%, rgba(196,181,253,0.10) 50%, transparent 100%)`, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
         <div style={{ display: "flex", alignItems: "center", padding: "12px 16px 10px", maxWidth: 1200, margin: "0 auto", gap: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginRight: 12 }}>
-            <img src={import.meta.env.BASE_URL + "logo.png"} alt="MedTracker" style={{ width: 72, height: 72, borderRadius: 14 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0, marginRight: 12 }}>
+            <img src={import.meta.env.BASE_URL + "logo.png"} alt="MedTracker" style={{ width: 96, height: 96, borderRadius: 16, marginTop: -4, marginBottom: -4 }} />
             <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: -0.5, color: C.text }}>MedTracker</span>
           </div>
           {/* Desktop tabs */}

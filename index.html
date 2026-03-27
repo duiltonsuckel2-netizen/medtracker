@@ -76,7 +76,20 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/medtracker/sw.js').catch(() => {});
+          navigator.serviceWorker.register('/medtracker/sw.js').then((reg) => {
+            // Check for updates every 30s
+            setInterval(() => reg.update(), 30000);
+            reg.addEventListener('updatefound', () => {
+              const newSW = reg.installing;
+              if (!newSW) return;
+              newSW.addEventListener('statechange', () => {
+                if (newSW.state === 'activated') {
+                  // New version available — reload to get fresh content
+                  window.location.reload();
+                }
+              });
+            });
+          }).catch(() => {});
         });
       }
     </script>

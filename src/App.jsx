@@ -111,6 +111,47 @@ function App() {
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
       }
+      // Migration v3: fix all intervalIndex by real gap, restore HAS correctly
+      const migKey3 = "rp26_mig_v3_fix_intervals";
+      if (!localStorage.getItem(migKey3)) {
+        localStorage.setItem(migKey3, "1");
+        let revs = Array.isArray(r) ? [...r] : [];
+        const td = today();
+        const IVALS = [7, 14, 30, 60, 90, 120, 180];
+        // 1) Recalculate intervalIndex from real gap (nextDue - lastStudied)
+        revs = revs.map((rv) => {
+          if (!rv.lastStudied || !rv.nextDue) return rv;
+          const gap = Math.round((new Date(rv.nextDue) - new Date(rv.lastStudied)) / 86400000);
+          let bestIdx = 0;
+          for (let i = 0; i < IVALS.length; i++) {
+            if (Math.abs(gap - IVALS[i]) <= Math.abs(gap - IVALS[bestIdx])) bestIdx = i;
+          }
+          return { ...rv, intervalIndex: bestIdx };
+        });
+        // 2) Fix HAS card (old theme had "Dislipidemia" or "Metabólica")
+        const hasNewTheme = "HAS — Hipertensão Arterial (Sem. 08)";
+        const hasNewKey = `clinica__${hasNewTheme.toLowerCase().trim()}`;
+        const oldIdx = revs.findIndex((rv) => rv.area === "clinica" && (rv.key.includes("metabólica") || rv.key.includes("metabolica") || rv.key.includes("dislipidemia") || rv.key.includes("has e")));
+        if (oldIdx >= 0) {
+          revs[oldIdx] = { ...revs[oldIdx], theme: hasNewTheme, key: hasNewKey, nextDue: td };
+        } else {
+          const loadedLogs = Array.isArray(rl) ? rl : [];
+          const hasLogs = loadedLogs.filter((l) => l.area === "clinica" && l.theme && (l.theme.toLowerCase().includes("has") || l.theme.toLowerCase().includes("hipertens")));
+          const lastLog = hasLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
+          revs.unshift({
+            id: uid(), key: hasNewKey, area: "clinica", theme: hasNewTheme,
+            intervalIndex: 1, nextDue: td, lastPerf: lastLog?.pct || 78,
+            lastStudied: lastLog?.date || "2026-03-10",
+            history: hasLogs.length > 0 ? hasLogs.map((l) => ({ date: l.date, pct: l.pct })) : [{ date: "2026-03-10", pct: 78 }]
+          });
+        }
+        // 3) Remove any standalone Dislipidemia card
+        revs = revs.filter((rv) => {
+          const k = rv.key.toLowerCase();
+          return !(k.includes("dislipidemia") && !k.includes("has"));
+        });
+        setReviews(revs); saveKey("rp26_reviews", revs);
+      }
       setReady(true);
     });
   }, []);
@@ -161,22 +202,24 @@ function App() {
   function markReview(revId, acertos, total) {
     const pct = perc(acertos, total); const rev = reviews.find((r) => r.id === revId); if (!rev) return;
     const ni = nxtIdx(rev.intervalIndex, pct);
-    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] }));
+    const entry = { date: today(), pct, _prev: { intervalIndex: rev.intervalIndex, nextDue: rev.nextDue, lastPerf: rev.lastPerf, lastStudied: rev.lastStudied } };
+    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] }));
     pL([{ id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct }, ...revLogs]);
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
   function undoMarkReview(revId) {
     const rev = reviews.find((r) => r.id === revId); if (!rev) return;
     const hist = rev.history || [];
-    if (hist.length <= 1) {
-      // Only one entry — reset to due today with no perf
-      pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: 0, nextDue: today(), lastPerf: null, lastStudied: null, history: [] }));
+    if (hist.length === 0) return;
+    const last = hist[hist.length - 1];
+    const prev = last._prev;
+    if (prev) {
+      pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: hist.slice(0, -1) }));
     } else {
-      const prev = hist[hist.length - 2];
-      const ni = nxtIdx(rev.intervalIndex > 0 ? rev.intervalIndex - 1 : 0, prev.pct);
-      pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex ?? ni, nextDue: today(), lastPerf: prev.pct, lastStudied: prev.date, history: hist.slice(0, -1) }));
+      // Sem _prev (entry antigo), mantém intervalIndex atual e coloca como vencida hoje
+      const prevEntry = hist.length >= 2 ? hist[hist.length - 2] : null;
+      pR(reviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: hist.slice(0, -1) }));
     }
-    // Remove the most recent log for this theme
     const revTheme = rev.theme;
     const logIdx = revLogs.findIndex((l) => l.theme === revTheme && l.date === today());
     if (logIdx >= 0) pL(revLogs.filter((_, i) => i !== logIdx));

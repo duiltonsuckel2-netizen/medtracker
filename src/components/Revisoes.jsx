@@ -42,7 +42,23 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       .sort((a, b) => b.n - a.n);
   }, [revLogs, sessions]);
   function submitQ() { const tot = Number(qForm.total), ac = Number(qForm.acertos); const th = qForm.freeTheme ? qForm.theme : (qForm.theme || ""); if (!th.trim()) return alert("Informe o tema."); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onQuick(qForm.area, th, tot, ac); setQForm(emptyQ); setShowQ(false); }
-  function submitMark() { const tot = Number(marking.total), ac = Number(marking.acertos); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onMark(marking.id, ac, tot); setMarking(null); }
+  function submitMark() {
+    const tot = Number(marking.total), ac = Number(marking.acertos);
+    if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total.");
+    onMark(marking.id, ac, tot);
+    // Save subtopic scores if any were filled
+    if (marking.subtemas && onSubtopicReview) {
+      const rev = [...due, ...upcoming].find((r) => r.id === marking.id);
+      if (rev) {
+        marking.subtemas.forEach((s) => {
+          if (s.pct !== "" && Number(s.pct) >= 0 && Number(s.pct) <= 100) {
+            onSubtopicReview(rev.area, rev.theme, s.name, Number(s.pct));
+          }
+        });
+      }
+    }
+    setMarking(null);
+  }
   const qPct = Number(qForm.total) > 0 ? perc(Number(qForm.acertos), Number(qForm.total)) : null;
   const mPct = marking && Number(marking.total) > 0 ? perc(Number(marking.acertos), Number(marking.total)) : null;
   async function analyzeSubtemaImg(file) {
@@ -197,19 +213,35 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                       ⚠️ Pior subtema anterior: <span style={{ color: "#EF4444", fontWeight: 600 }}>{r.subtemaNote.pior?.nome}</span> ({r.subtemaNote.pior?.pct}%)
                     </div>
                   )}
-                  {isM && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "flex-end", marginTop: 10 }}>
-                    <Fld label="Total"><input type="number" min="0" value={marking.total} onChange={(e) => setMarking((m) => ({ ...m, total: e.target.value }))} style={inp()} autoFocus /></Fld>
-                    <Fld label="✓ Acertos"><input type="number" min="0" value={marking.acertos} onChange={(e) => setMarking((m) => ({ ...m, acertos: e.target.value }))} style={inp({ borderColor: "#34D39944" })} /></Fld>
-                    {mPct !== null && <div style={{ textAlign: "center", paddingBottom: 2, fontSize: 16, fontWeight: 700, color: perfColor(mPct), ...NUM }}>{mPct}%</div>}
-                    <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}><button onClick={submitMark} style={btn("#34D399", { padding: "9px 12px" })}>✓</button><button onClick={() => setMarking(null)} style={btn(C.card2, { padding: "9px 10px" })}>✕</button></div>
+                  {isM && <div style={{ marginTop: 10 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "flex-end" }}>
+                      <Fld label="Total"><input type="number" min="0" value={marking.total} onChange={(e) => setMarking((m) => ({ ...m, total: e.target.value }))} style={inp()} autoFocus /></Fld>
+                      <Fld label="✓ Acertos"><input type="number" min="0" value={marking.acertos} onChange={(e) => setMarking((m) => ({ ...m, acertos: e.target.value }))} style={inp({ borderColor: "#34D39944" })} /></Fld>
+                      {mPct !== null && <div style={{ textAlign: "center", paddingBottom: 2, fontSize: 16, fontWeight: 700, color: perfColor(mPct), ...NUM }}>{mPct}%</div>}
+                      <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}><button onClick={submitMark} style={btn("#34D399", { padding: "9px 12px" })}>✓</button><button onClick={() => setMarking(null)} style={btn(C.card2, { padding: "9px 10px" })}>✕</button></div>
+                    </div>
+                    {marking.subtemas && marking.subtemas.length > 0 && (
+                      <div style={{ marginTop: 10, padding: 10, background: C.surface, borderRadius: R.md, border: `1px solid ${C.purple}25` }}>
+                        <div style={{ fontSize: 11, color: C.purple, fontWeight: 600, marginBottom: 8, fontFamily: FM }}>Subtemas — % de acertos</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {marking.subtemas.map((s, si) => {
+                            const val = s.pct !== "" ? Number(s.pct) : null;
+                            const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
+                            return (
+                              <div key={si} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                <span style={{ fontSize: 12, flex: 1, color: C.text2 }}>{s.name}</span>
+                                <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setMarking((m) => ({ ...m, subtemas: m.subtemas.map((st, i) => i !== si ? st : { ...st, pct: e.target.value }) }))} placeholder="—" style={{ ...inp(), width: 52, padding: "4px 6px", fontSize: 14, textAlign: "center", fontFamily: "SF Mono, monospace", fontWeight: 700, color: pctColor }} />
+                                <span style={{ fontSize: 11, color: C.text3 }}>%</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {!isM && <button onClick={() => setMarking({ id: r.id, total: "", acertos: "" })} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
-                  {(() => { const st = getSubtopicsForReview(r); return st.length > 0
-                    ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st })} style={btn(C.purple + "20", { padding: "6px 10px", fontSize: 11, color: C.purple, border: `1px solid ${C.purple}35` })}>📋 Detalhar subtemas ({st.length})</button>
-                    : <button onClick={() => setStRegisterModal({ area: r.area, theme: r.theme })} style={btn(C.card2, { padding: "6px 10px", fontSize: 11 })}>📋 Adicionar subtemas</button>;
-                  })()}
+                  {!isM && <button onClick={() => { const st = getSubtopicsForReview(r); setMarking({ id: r.id, total: "", acertos: "", subtemas: st.length > 0 ? st.map((s) => ({ name: s, pct: "" })) : null }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
                 </div>
               </div>
             </div>

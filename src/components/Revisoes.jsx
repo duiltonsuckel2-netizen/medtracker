@@ -5,9 +5,9 @@ import { AREAS, INTERVALS, INT_LABELS, areaMap } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, diffDays, fmtDate, perc, perfColor } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
-import { SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
+import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 
-function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview }) {
+function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics }) {
   const [subTab, setSubTab] = useState("proximas");
   const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id).map((r) => r.theme), ...revLogs.filter((r) => r.area === a.id).map((r) => r.theme)])].sort(); }); return o; }, [reviews, revLogs]);
   const emptyQ = { area: "clinica", theme: "", freeTheme: false, total: "", acertos: "" };
@@ -18,6 +18,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   const [subtemaResult, setSubtemaResult] = useState(null);
   const [editingLog, setEditingLog] = useState(null);
   const [stReviewModal, setStReviewModal] = useState(null);
+  const [stRegisterModal, setStRegisterModal] = useState(null);
   const [evoArea, setEvoArea] = useState("all");
   const [evoSearch, setEvoSearch] = useState("");
   const [evoFocused, setEvoFocused] = useState(false);
@@ -135,6 +136,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         </div>
       )}
       {stReviewModal && <SubtopicReviewModal area={stReviewModal.area} parentTheme={stReviewModal.theme} subtopics={stReviewModal.items} onSave={handleSubtopicReviewSave} onClose={() => setStReviewModal(null)} />}
+      {stRegisterModal && <SubtopicModal area={stRegisterModal.area} topic={stRegisterModal.theme} existing={getSubtopicsForReview({ area: stRegisterModal.area, theme: stRegisterModal.theme })} onSave={(items) => { if (onSaveSubtopics) onSaveSubtopics(stRegisterModal.area, stRegisterModal.theme, items); setStRegisterModal(null); }} onClose={() => setStRegisterModal(null)} />}
       {subTab === "proximas" && <>
       <div style={{ ...card }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showQ ? 16 : 0 }}>
@@ -182,8 +184,10 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {!isM && <button onClick={() => setMarking({ id: r.id, total: "", acertos: "" })} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
-                  {(() => { const st = getSubtopicsForReview(r); return st.length > 0 ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st })} style={btn(C.purple + "20", { padding: "6px 10px", fontSize: 11, color: C.purple, border: `1px solid ${C.purple}35` })}>📋 Detalhar subtemas</button> : null; })()}
-                  <button onClick={() => { setSubtemaModal({ revId: r.id, theme: r.theme, area: r.area }); setSubtemaResult(null); setSubtemaStatus("idle"); setSubtemaImg(null); }} style={btn(C.card2, { padding: "6px 10px", fontSize: 11 })}>📊 Subtemas</button>
+                  {(() => { const st = getSubtopicsForReview(r); return st.length > 0
+                    ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st })} style={btn(C.purple + "20", { padding: "6px 10px", fontSize: 11, color: C.purple, border: `1px solid ${C.purple}35` })}>📋 Detalhar subtemas ({st.length})</button>
+                    : <button onClick={() => setStRegisterModal({ area: r.area, theme: r.theme })} style={btn(C.card2, { padding: "6px 10px", fontSize: 11 })}>📋 Adicionar subtemas</button>;
+                  })()}
                 </div>
               </div>
             </div>
@@ -239,8 +243,10 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: perfColor(r.lastPerf) + "18", border: `2px solid ${perfColor(r.lastPerf)}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(r.lastPerf), fontFamily: FN }}>{r.lastPerf}%</span>
                       </div>
-                      {(() => { const st = getSubtopicsForReview(r); return st.length > 0 ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st })} style={{ background: C.purple + "14", border: `1px solid ${C.purple}30`, borderRadius: R.md, cursor: "pointer", fontSize: 10, color: C.purple, height: 32, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 600, fontFamily: FM, gap: 3 }} title="Detalhar subtemas">📋 {st.length}</button> : null; })()}
-                      <button onClick={() => { setSubtemaModal({ revId: r.id, theme: r.theme, area: r.area }); setSubtemaResult(null); setSubtemaStatus("idle"); setSubtemaImg(null); }} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.md, cursor: "pointer", fontSize: 14, color: C.text3, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }} title="Subtemas">📊</button>
+                      {(() => { const st = getSubtopicsForReview(r); return st.length > 0
+                        ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st })} style={{ background: C.purple + "14", border: `1px solid ${C.purple}30`, borderRadius: R.md, cursor: "pointer", fontSize: 10, color: C.purple, height: 32, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 600, fontFamily: FM, gap: 3 }} title="Detalhar subtemas">📋 {st.length}</button>
+                        : <button onClick={() => setStRegisterModal({ area: r.area, theme: r.theme })} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.md, cursor: "pointer", fontSize: 10, color: C.text3, height: 32, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FM, gap: 3 }} title="Adicionar subtemas">📋 sub</button>;
+                      })()}
                     </div>
                   </div>
                 );

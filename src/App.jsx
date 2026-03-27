@@ -79,7 +79,7 @@ function App() {
       } else {
         const loadedSessions = Array.isArray(s) ? s : [];
         let loadedReviews = Array.isArray(r) ? r : [];
-        const loadedExams = Array.isArray(e) ? e : [];
+        let loadedExams = Array.isArray(e) ? e : [];
         const loadedFc = Array.isArray(fc) ? fc : [];
         // Migration v4: fix HAS card + remove 1d interval (based on real Notion data)
         if (!localStorage.getItem("rp26_mig_v4")) {
@@ -209,10 +209,10 @@ function App() {
         // Restore seed exam if all exams were deleted
         if (loadedExams.length === 0) {
           const restoredExam = buildUnicamp2024Exam();
-          loadedExams.push(restoredExam);
+          loadedExams = [restoredExam];
           saveKey("rp26_exams", loadedExams);
         }
-        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
+        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
           const needsUpgrade = loadedFc.length > 0 && loadedFc.some(d => !d._v || d._v < 2);

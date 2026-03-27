@@ -212,7 +212,24 @@ function App() {
           loadedExams = [restoredExam];
           saveKey("rp26_exams", loadedExams);
         }
-        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
+        // Recover subtopics from review cards if rp26_subtopics was lost/empty
+        let loadedSt = st && typeof st === "object" && !Array.isArray(st) ? st : {};
+        if (Object.keys(loadedSt).length === 0) {
+          const recovered = {};
+          loadedReviews.forEach((rv) => {
+            if (rv.subtopicNames && rv.subtopicNames.length > 0 && !rv.isSubtopic) {
+              const k = `${rv.area}__${rv.theme}`;
+              if (!recovered[k] || rv.subtopicNames.length > recovered[k].length) {
+                recovered[k] = rv.subtopicNames;
+              }
+            }
+          });
+          if (Object.keys(recovered).length > 0) {
+            loadedSt = recovered;
+            saveKey("rp26_subtopics", recovered);
+          }
+        }
+        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(loadedSt);
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
           const needsUpgrade = loadedFc.length > 0 && loadedFc.some(d => !d._v || d._v < 2);

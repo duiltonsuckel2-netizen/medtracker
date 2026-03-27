@@ -341,7 +341,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
             {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
             <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)} · {l.total}q</span>
             <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "" }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
-            <button onClick={() => { if (confirm("Remover esta revisão?")) onDelLog(l.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
+            <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
           </div>
           {l.subtemas && !isEd && <div style={{ marginTop: 4, marginLeft: 48, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
           {isEd && <div style={{ marginTop: 8, marginLeft: 48, display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>

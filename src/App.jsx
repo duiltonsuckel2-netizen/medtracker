@@ -28,6 +28,7 @@ function App() {
   const [ready, setReady] = useState(false);
   const [subtopicModal, setSubtopicModal] = useState(null);
   const [flash, setFlash] = useState("");
+  const [undoAction, setUndoAction] = useState(null);
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [tabKey, setTabKey] = useState(0);
 
@@ -91,6 +92,7 @@ function App() {
       setReady(true);
     });
   }, []);
+  const undoTimerRef = React.useRef(null);
   const notify = (msg) => { setFlash(msg); setTimeout(() => setFlash(""), 2500); };
   const pS = (v) => { setSessions(v); saveKey("rp26_sessions", v); };
   const pR = (v) => { setReviews(v); saveKey("rp26_reviews", v); };
@@ -159,7 +161,23 @@ function App() {
     pFc(updated);
   }
   function editRevLog(logId, updates) { pL(revLogs.map((l) => l.id !== logId ? l : { ...l, ...updates, pct: updates.acertos != null && updates.total != null ? perc(updates.acertos, updates.total) : l.pct })); notify("✓ Revisão atualizada"); }
-  function delRevLog(logId) { pL(revLogs.filter((l) => l.id !== logId)); notify("✓ Revisão removida"); }
+  function delRevLog(logId) {
+    const deleted = revLogs.find((l) => l.id === logId);
+    if (!deleted) return;
+    pL(revLogs.filter((l) => l.id !== logId));
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    setUndoAction({ type: "revlog", item: deleted });
+    undoTimerRef.current = setTimeout(() => { setUndoAction(null); undoTimerRef.current = null; }, 6000);
+  }
+  function handleUndo() {
+    if (!undoAction) return;
+    if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null; }
+    if (undoAction.type === "revlog") {
+      setRevLogs((prev) => { const updated = [undoAction.item, ...prev]; saveKey("rp26_revlogs", updated); return updated; });
+    }
+    setUndoAction(null);
+    notify("✓ Revisão restaurada");
+  }
   function handleNotionSync(newRevs) {
     const existing = [...reviews];
     newRevs.forEach((nr) => {
@@ -253,6 +271,14 @@ function App() {
           })}
         </div>
       </nav>
+      {/* Undo toast */}
+      {undoAction && (
+        <div className="fade-in" style={{ position: "fixed", bottom: 80, left: "50%", transform: "translateX(-50%)", zIndex: 200, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.lg, boxShadow: SH.lg, padding: "12px 20px", display: "flex", alignItems: "center", gap: 12, minWidth: 260 }}>
+          <span style={{ fontSize: 13, color: C.text, fontFamily: F }}>Revisão removida</span>
+          <button onClick={handleUndo} style={{ background: C.blue, color: "#fff", border: "none", borderRadius: R.pill, padding: "6px 16px", fontSize: 12, fontWeight: 700, fontFamily: F, cursor: "pointer" }}>Desfazer</button>
+          <button onClick={() => { if (undoTimerRef.current) { clearTimeout(undoTimerRef.current); undoTimerRef.current = null; } setUndoAction(null); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 14, padding: "2px 4px" }}>✕</button>
+        </div>
+      )}
     </div>
   );
 }

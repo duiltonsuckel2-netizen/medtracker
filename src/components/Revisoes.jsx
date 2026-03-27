@@ -7,7 +7,7 @@ import { today, diffDays, fmtDate, perc, perfColor } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
 import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 
-function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics }) {
+function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics, onUndoMark }) {
   const [subTab, setSubTab] = useState("proximas");
   const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id).map((r) => r.theme), ...revLogs.filter((r) => r.area === a.id).map((r) => r.theme)])].sort(); }); return o; }, [reviews, revLogs]);
   const emptyQ = { area: "clinica", theme: "", freeTheme: false, total: "", acertos: "" };
@@ -371,7 +371,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
             {l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>subtema</span>}
             {l.confidence && <span style={{ fontSize: 12 }} title={CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.label}>{CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.icon}</span>}
             {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
-            <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)} · {l.total}q</span>
+            <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)}{l.total ? ` · ${l.total}q` : ""}</span>
+            {l.date === today() && !l.isSubtopic && onUndoMark && (() => { const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic); return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão e voltar pra hoje?")) onUndoMark(rev.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 10, padding: "2px 6px", fontFamily: FM, fontWeight: 600 }}>↩ Desfazer</button> : null; })()}
             <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "" }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
             <button onClick={() => { if (confirm("Remover esta revisão?")) onDelLog(l.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
           </div>

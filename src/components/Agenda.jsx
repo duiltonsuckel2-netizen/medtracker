@@ -78,6 +78,25 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
     // (custom properties on Arrays are silently dropped by JSON.stringify)
     saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: SEMANAS[semIdx]?.semana, days });
   }
+  function findAulaForItem(item) {
+    // Match agenda item to a SEMANAS aula by id or text
+    const sem = SEMANAS[semIdx];
+    if (!sem) return null;
+    if (item.id === "sa1" && sem.aulas[0]) return sem.aulas[0];
+    if (item.id === "sa2" && sem.aulas[1]) return sem.aulas[1];
+    // Fallback: match by text
+    return sem.aulas.find((a) => (item.text || "").includes(a.topic)) || null;
+  }
+  function isAulaItem(item) {
+    return item && (item.isAula || item.id === "sa1" || item.id === "sa2" || /Aula[:\s]/.test(item.text || ""));
+  }
+  function openSubtopicsFor(item) {
+    const aula = findAulaForItem(item);
+    if (aula && onAulaChecked) {
+      const areaId = AREA_SHORT_MAP[aula.area];
+      onAulaChecked(areaId || aula.area, aula.topic, SEMANAS[semIdx]?.semana);
+    }
+  }
   function toggleDone(did, iid) {
     const day = week.find((d) => d.id === did);
     const item = day?.items.find((it) => it.id === iid);
@@ -86,23 +105,9 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
     setJustToggled(iid);
     setTimeout(() => setJustToggled(null), 350);
     // If checking an aula item, trigger subtopic modal
-    const isAulaItem = item && (item.isAula || /Aula[:\s]/.test(item.text || ""));
-    if (wasUnchecked && isAulaItem && onAulaChecked) {
-      const sem = SEMANAS[semIdx];
-      if (sem) {
-        // Try to match by item id first (sa1 = first aula, sa2 = second)
-        let aula = null;
-        if (item.id === "sa1") aula = sem.aulas[0];
-        else if (item.id === "sa2") aula = sem.aulas[1];
-        // Fallback: match by text content
-        if (!aula) {
-          aula = sem.aulas.find((a) => (item.text || "").includes(a.topic));
-        }
-        if (aula) {
-          const areaId = AREA_SHORT_MAP[aula.area];
-          onAulaChecked(areaId || aula.area, aula.topic, sem.semana);
-        }
-      }
+    if (wasUnchecked && isAulaItem(item)) {
+      console.log("[MedTracker] Aula checked:", { id: item.id, text: item.text, semIdx });
+      openSubtopicsFor(item);
     }
   }
   function startEdit(did, item) { setEditing({ did, iid: item.id }); setEditText(item.text); }
@@ -240,27 +245,17 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
                         {isEd ? <input autoFocus value={editText} onChange={(e) => setEditText(e.target.value)} onBlur={commitEdit} onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(null); }} style={{ ...inp(), flex: 1, padding: "4px 8px", fontSize: 13, background: "none", border: "none", borderBottom: `1px solid ${C.border2}`, borderRadius: 0 }} />
                           : <span style={{ flex: 1, fontSize: 13, lineHeight: 1.4, color: item.done ? C.text3 : C.text, textDecoration: item.done ? "line-through" : "none", opacity: item.done ? 0.5 : 1, transition: "opacity .2s, color .2s" }}>{item.text}</span>}
                         {!isEd && (() => {
-                          // Detect aula items by id (sa1/sa2) or text pattern
-                          const isAula = item.isAula || item.id === "sa1" || item.id === "sa2" || /Aula[:\s]/.test(item.text || "");
+                          const aula = isAulaItem(item) ? findAulaForItem(item) : null;
                           let stCount = 0;
-                          let matchedAula = null;
-                          if (isAula && subtopics) {
-                            const sem = SEMANAS[semIdx];
-                            if (sem) {
-                              if (item.id === "sa1") matchedAula = sem.aulas[0];
-                              else if (item.id === "sa2") matchedAula = sem.aulas[1];
-                              else matchedAula = sem.aulas.find((a) => (item.text || "").includes(a.topic));
-                              if (matchedAula) {
-                                const areaId = AREA_SHORT_MAP[matchedAula.area];
-                                const key = `${areaId || matchedAula.area}__${matchedAula.topic}`;
-                                stCount = (subtopics[key] || []).length;
-                              }
-                            }
+                          if (aula && subtopics) {
+                            const areaId = AREA_SHORT_MAP[aula.area];
+                            const key = `${areaId || aula.area}__${aula.topic}`;
+                            stCount = (subtopics[key] || []).length;
                           }
                           return (
                             <div style={{ display: "flex", gap: 2, flexShrink: 0, alignItems: "center" }}>
                               {stCount > 0 && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM, padding: "2px 7px", background: C.purple + "14", borderRadius: R.pill, border: `1px solid ${C.purple}25`, fontWeight: 600 }}>{stCount} sub</span>}
-                              {isAula && item.done && matchedAula && <button onClick={(e) => { e.stopPropagation(); if (onAulaChecked) { const areaId = AREA_SHORT_MAP[matchedAula.area]; onAulaChecked(areaId || matchedAula.area, matchedAula.topic, SEMANAS[semIdx]?.semana); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.purple, fontSize: 12, padding: "4px 6px", borderRadius: R.sm, display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, opacity: 0.5, transition: "opacity 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"} title="Editar subtemas">{"📋"}</button>}
+                              {aula && <button onClick={(e) => { e.stopPropagation(); openSubtopicsFor(item); }} style={{ background: C.purple + "14", border: `1px solid ${C.purple}25`, cursor: "pointer", color: C.purple, fontSize: 10, padding: "3px 8px", borderRadius: R.pill, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 600, fontFamily: FM, gap: 3, transition: "opacity 0.15s", opacity: 0.7 }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.7"} title="Gerenciar subtemas">{"📋"} subtemas</button>}
                               <button onClick={() => startEdit(day.id, item)} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 13, padding: "4px 6px", borderRadius: R.sm, display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, opacity: 0.4, transition: "opacity 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "0.8"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.4"}>{"✏"}</button>
                               {!item.fixed && <button onClick={() => deleteItem(day.id, item.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 13, padding: "4px 6px", borderRadius: R.sm, display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, opacity: 0.4, transition: "opacity 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "0.8"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.4"}>{"✕"}</button>}
                             </div>

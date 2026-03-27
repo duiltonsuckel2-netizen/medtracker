@@ -203,26 +203,28 @@ function App() {
   }, []);
   const undoTimerRef = React.useRef(null);
   const notify = (msg) => { setFlash(msg); setTimeout(() => setFlash(""), 2500); };
-  const pS = (v) => { setSessions(v); saveKey("rp26_sessions", v); };
-  const pR = (v) => { setReviews(v); saveKey("rp26_reviews", v); };
-  const pL = (v) => { setRevLogs(v); saveKey("rp26_revlogs", v); };
-  const pE = (v) => { setExams(v); saveKey("rp26_exams", v); };
-  const pSt = (v) => { setSubtopics(v); saveKey("rp26_subtopics", v); };
-  const pFc = (v) => { setFlashcardDecks(v); saveKey("rp26_flashcards", v); };
+  const pS = (v) => { if (typeof v === "function") { setSessions((prev) => { const next = v(prev); saveKey("rp26_sessions", next); return next; }); } else { setSessions(v); saveKey("rp26_sessions", v); } };
+  const pR = (v) => { if (typeof v === "function") { setReviews((prev) => { const next = v(prev); saveKey("rp26_reviews", next); return next; }); } else { setReviews(v); saveKey("rp26_reviews", v); } };
+  const pL = (v) => { if (typeof v === "function") { setRevLogs((prev) => { const next = v(prev); saveKey("rp26_revlogs", next); return next; }); } else { setRevLogs(v); saveKey("rp26_revlogs", v); } };
+  const pE = (v) => { if (typeof v === "function") { setExams((prev) => { const next = v(prev); saveKey("rp26_exams", next); return next; }); } else { setExams(v); saveKey("rp26_exams", v); } };
+  const pSt = (v) => { if (typeof v === "function") { setSubtopics((prev) => { const next = v(prev); saveKey("rp26_subtopics", next); return next; }); } else { setSubtopics(v); saveKey("rp26_subtopics", v); } };
+  const pFc = (v) => { if (typeof v === "function") { setFlashcardDecks((prev) => { const next = v(prev); saveKey("rp26_flashcards", next); return next; }); } else { setFlashcardDecks(v); saveKey("rp26_flashcards", v); } };
   function saveSubtopics(area, topic, items) {
     const key = `${area}__${topic}`;
-    pSt({ ...subtopics, [key]: items });
+    pSt((prev) => ({ ...prev, [key]: items }));
     // Persist subtopic names on matching review cards for reliable lookup
     if (items.length > 0) {
       const tWords = topic.toLowerCase().replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
-      const updated = reviews.map((r) => {
-        if (r.area !== area || r.isSubtopic) return r;
-        const rWords = r.theme.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
-        const shared = tWords.filter((tw) => rWords.some((rw) => rw.includes(tw) || tw.includes(rw)));
-        if (shared.length >= Math.ceil(tWords.length * 0.5)) return { ...r, subtopicNames: items };
-        return r;
+      pR((prevReviews) => {
+        const updated = prevReviews.map((r) => {
+          if (r.area !== area || r.isSubtopic) return r;
+          const rWords = r.theme.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
+          const shared = tWords.filter((tw) => rWords.some((rw) => rw.includes(tw) || tw.includes(rw)));
+          if (shared.length >= Math.ceil(tWords.length * 0.5)) return { ...r, subtopicNames: items };
+          return r;
+        });
+        return updated.some((r, i) => r !== prevReviews[i]) ? updated : prevReviews;
       });
-      if (updated.some((r, i) => r !== reviews[i])) pR(updated);
     }
   }
   function getSubtopics(area, topic) {
@@ -230,31 +232,40 @@ function App() {
   }
   function addSubtopicReview(area, parentTheme, subtema, pct) {
     const key = `${area}__${parentTheme.toLowerCase().trim()}::${subtema.toLowerCase().trim()}`;
-    const ex = reviews.find((r) => r.key === key);
-    const ni = nxtIdx(ex?.intervalIndex || 0, pct);
-    const rev = {
-      id: ex?.id || uid(), key, area, theme: subtema, parentTheme,
-      isSubtopic: true,
-      intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]),
-      lastPerf: pct, lastStudied: today(),
-      history: [...(ex?.history || []), { date: today(), pct }]
-    };
-    pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
-    pL([{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, pct, isSubtopic: true }, ...revLogs]);
+    pR((prevReviews) => {
+      const ex = prevReviews.find((r) => r.key === key);
+      const ni = nxtIdx(ex?.intervalIndex || 0, pct);
+      const rev = {
+        id: ex?.id || uid(), key, area, theme: subtema, parentTheme,
+        isSubtopic: true,
+        intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]),
+        lastPerf: pct, lastStudied: today(),
+        history: [...(ex?.history || []), { date: today(), pct }]
+      };
+      return ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
+    });
+    pL((prevLogs) => [{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, pct, isSubtopic: true }, ...prevLogs]);
   }
   function addSession(session) {
-    const s = { ...session, id: uid(), createdAt: today() }; pS([s, ...sessions]);
+    const s = { ...session, id: uid(), createdAt: today() }; pS((prev) => [s, ...prev]);
     const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
-    const ex = reviews.find((r) => r.key === key); const pct = perc(session.acertos, session.total); const ni = nxtIdx(0, pct);
-    const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
-    pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
+    const pct = perc(session.acertos, session.total); const ni = nxtIdx(0, pct);
+    pR((prevReviews) => {
+      const ex = prevReviews.find((r) => r.key === key);
+      const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
+      return ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
+    });
     notify("✓ Sessão registrada — 1ª revisão em " + INTERVALS[ni] + "d");
   }
   function addRevLog(areaId, theme, total, acertos) {
-    const pct = perc(acertos, total); pL([{ id: uid(), date: today(), area: areaId, theme, total, acertos, pct }, ...revLogs]);
-    const key = `${areaId}__${theme.toLowerCase().trim()}`; const ex = reviews.find((r) => r.key === key);
-    if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); pR(reviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r)); }
-    else { pR([{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...reviews]); }
+    const pct = perc(acertos, total);
+    pL((prevLogs) => [{ id: uid(), date: today(), area: areaId, theme, total, acertos, pct }, ...prevLogs]);
+    const key = `${areaId}__${theme.toLowerCase().trim()}`;
+    pR((prevReviews) => {
+      const ex = prevReviews.find((r) => r.key === key);
+      if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); return prevReviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r); }
+      return [{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...prevReviews];
+    });
     notify("✓ Revisão registrada");
   }
   function markReview(revId, acertos, total, subtopicScores) {
@@ -262,52 +273,54 @@ function App() {
     const ni = nxtIdx(rev.intervalIndex, pct);
     const entry = { date: today(), pct, _prev: { intervalIndex: rev.intervalIndex, nextDue: rev.nextDue, lastPerf: rev.lastPerf, lastStudied: rev.lastStudied } };
     // Update main card + subtopic cards in one batch
-    let newReviews = reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
-    // Update subtopic cards if scores provided
-    if (subtopicScores && subtopicScores.length > 0) {
-      subtopicScores.forEach((s) => {
-        const sKey = `${rev.area}__${rev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
-        const ex = newReviews.find((r) => r.key === sKey);
-        const sni = nxtIdx(ex?.intervalIndex || 0, s.pct);
-        const sRev = {
-          id: ex?.id || uid(), key: sKey, area: rev.area, theme: s.name, parentTheme: rev.theme,
-          isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
-          lastPerf: s.pct, lastStudied: today(),
-          history: [...(ex?.history || []), { date: today(), pct: s.pct }]
-        };
-        newReviews = ex ? newReviews.map((r) => r.key === sKey ? sRev : r) : [sRev, ...newReviews];
-      });
-    }
-    pR(newReviews);
+    pR((prevReviews) => {
+      let newReviews = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
+      if (subtopicScores && subtopicScores.length > 0) {
+        subtopicScores.forEach((s) => {
+          const sKey = `${rev.area}__${rev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
+          const ex = newReviews.find((r) => r.key === sKey);
+          const sni = nxtIdx(ex?.intervalIndex || 0, s.pct);
+          const sRev = {
+            id: ex?.id || uid(), key: sKey, area: rev.area, theme: s.name, parentTheme: rev.theme,
+            isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
+            lastPerf: s.pct, lastStudied: today(),
+            history: [...(ex?.history || []), { date: today(), pct: s.pct }]
+          };
+          newReviews = ex ? newReviews.map((r) => r.key === sKey ? sRev : r) : [sRev, ...newReviews];
+        });
+      }
+      return newReviews;
+    });
     // Single log entry with inline subtopic scores
     const logEntry = { id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct };
     if (subtopicScores && subtopicScores.length > 0) logEntry.subtopicScores = subtopicScores;
-    pL([logEntry, ...revLogs]);
+    pL((prevLogs) => [logEntry, ...prevLogs]);
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
   function undoMarkReview(revId) {
-    const rev = reviews.find((r) => r.id === revId); if (!rev) return;
-    const hist = rev.history || [];
-    if (hist.length === 0) return;
-    const last = hist[hist.length - 1];
-    const prev = last._prev;
-    if (prev) {
-      pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: hist.slice(0, -1) }));
-    } else {
-      // Sem _prev (entry antigo), mantém intervalIndex atual e coloca como vencida hoje
+    pR((prevReviews) => {
+      const rev = prevReviews.find((r) => r.id === revId); if (!rev) return prevReviews;
+      const hist = rev.history || [];
+      if (hist.length === 0) return prevReviews;
+      const last = hist[hist.length - 1];
+      const prev = last._prev;
+      if (prev) {
+        return prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: hist.slice(0, -1) });
+      }
       const prevEntry = hist.length >= 2 ? hist[hist.length - 2] : null;
-      pR(reviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: hist.slice(0, -1) }));
-    }
-    const revTheme = rev.theme;
-    const logIdx = revLogs.findIndex((l) => l.theme === revTheme && l.date === today());
-    if (logIdx >= 0) pL(revLogs.filter((_, i) => i !== logIdx));
+      return prevReviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: hist.slice(0, -1) });
+    });
+    pL((prevLogs) => {
+      const logIdx = prevLogs.findIndex((l) => l.date === today());
+      return logIdx >= 0 ? prevLogs.filter((_, i) => i !== logIdx) : prevLogs;
+    });
     notify("↩ Revisão desfeita — voltou para hoje");
   }
-  function editReview(revId, ni, nd) { pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd })); notify("✓ Corrigido"); }
+  function editReview(revId, ni, nd) { pR((prev) => prev.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd })); notify("✓ Corrigido"); }
   function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; pE(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); pFc(merged); }, 100); }
-  function delSession(id) { pS(sessions.filter((s) => s.id !== id)); }
-  function delExam(id) { pE(exams.filter((e) => e.id !== id)); }
-  function updateExam(id, updates) { pE(exams.map((e) => e.id !== id ? e : { ...e, ...updates })); notify("✓ Prova atualizada"); regenerateFlashcards(); }
+  function delSession(id) { pS((prev) => prev.filter((s) => s.id !== id)); }
+  function delExam(id) { pE((prev) => prev.filter((e) => e.id !== id)); }
+  function updateExam(id, updates) { pE((prev) => prev.map((e) => e.id !== id ? e : { ...e, ...updates })); notify("✓ Prova atualizada"); regenerateFlashcards(); }
   function regenerateFlashcards() {
     setTimeout(() => {
       const newDecks = generateFlashcardDecks(exams, reviews, sessions);
@@ -319,11 +332,11 @@ function App() {
     const updated = reviewCard(flashcardDecks, deckId, cardId, qualityKey);
     pFc(updated);
   }
-  function editRevLog(logId, updates) { pL(revLogs.map((l) => l.id !== logId ? l : { ...l, ...updates, pct: updates.acertos != null && updates.total != null ? perc(updates.acertos, updates.total) : l.pct })); notify("✓ Revisão atualizada"); }
+  function editRevLog(logId, updates) { pL((prev) => prev.map((l) => l.id !== logId ? l : { ...l, ...updates, pct: updates.acertos != null && updates.total != null ? perc(updates.acertos, updates.total) : l.pct })); notify("✓ Revisão atualizada"); }
   function delRevLog(logId) {
     const deleted = revLogs.find((l) => l.id === logId);
     if (!deleted) return;
-    pL(revLogs.filter((l) => l.id !== logId));
+    pL((prev) => prev.filter((l) => l.id !== logId));
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
     setUndoAction({ type: "revlog", item: deleted });
     undoTimerRef.current = setTimeout(() => { setUndoAction(null); undoTimerRef.current = null; }, 6000);

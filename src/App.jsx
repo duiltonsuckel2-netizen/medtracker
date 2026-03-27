@@ -11,6 +11,7 @@ import { Sessoes } from "./components/Sessoes.jsx";
 import { Revisoes } from "./components/Revisoes.jsx";
 import { Temas } from "./components/Temas.jsx";
 import { Provas } from "./components/Provas.jsx";
+import { SubtopicModal, SubtopicReviewModal } from "./components/SubtopicModal.jsx";
 import { SkeletonCard } from "./components/UI.jsx";
 
 function App() {
@@ -20,7 +21,9 @@ function App() {
   const [reviews, setReviews] = useState([]);
   const [revLogs, setRevLogs] = useState([]);
   const [exams, setExams] = useState([]);
+  const [subtopics, setSubtopics] = useState({});
   const [ready, setReady] = useState(false);
+  const [subtopicModal, setSubtopicModal] = useState(null);
   const [flash, setFlash] = useState("");
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [tabKey, setTabKey] = useState(0);
@@ -29,7 +32,7 @@ function App() {
 
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -55,14 +58,14 @@ function App() {
   }
 
   useEffect(() => {
-    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_seeded12", false)]).then(([s, r, rl, e, seeded]) => {
+    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_subtopics", {}), loadKey("rp26_seeded12", false)]).then(([s, r, rl, e, st, seeded]) => {
       if (!seeded) {
         const revs = SEED_REVIEWS.map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}`, history: [{ date: r.lastStudied, pct: r.lastPerf }] }));
         const logs = SEED_LOGS.map((l) => ({ ...l, id: uid() }));
         const se = buildUnicamp2024Exam();
-        setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]);
-        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true);
-      } else { setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []); }
+        setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]); setSubtopics({});
+        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_subtopics", {}); saveKey("rp26_seeded12", true);
+      } else { setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {}); }
       setReady(true);
     });
   }, []);
@@ -71,6 +74,29 @@ function App() {
   const pR = (v) => { setReviews(v); saveKey("rp26_reviews", v); };
   const pL = (v) => { setRevLogs(v); saveKey("rp26_revlogs", v); };
   const pE = (v) => { setExams(v); saveKey("rp26_exams", v); };
+  const pSt = (v) => { setSubtopics(v); saveKey("rp26_subtopics", v); };
+  function saveSubtopics(area, topic, items) {
+    const key = `${area}__${topic}`;
+    pSt({ ...subtopics, [key]: items });
+  }
+  function getSubtopics(area, topic) {
+    return subtopics[`${area}__${topic}`] || [];
+  }
+  function addSubtopicReview(area, parentTheme, subtema, total, acertos, confidence) {
+    const pct = perc(acertos, total);
+    const key = `${area}__${parentTheme.toLowerCase().trim()}::${subtema.toLowerCase().trim()}`;
+    const ex = reviews.find((r) => r.key === key);
+    const ni = nxtIdx(ex?.intervalIndex || 0, pct);
+    const rev = {
+      id: ex?.id || uid(), key, area, theme: subtema, parentTheme,
+      isSubtopic: true, confidence: confidence || null,
+      intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]),
+      lastPerf: pct, lastStudied: today(),
+      history: [...(ex?.history || []), { date: today(), pct, confidence: confidence || null }]
+    };
+    pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
+    pL([{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, total, acertos, pct, confidence: confidence || null, isSubtopic: true }, ...revLogs]);
+  }
   function addSession(session) {
     const s = { ...session, id: uid(), createdAt: today() }; pS([s, ...sessions]);
     const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
@@ -161,16 +187,17 @@ function App() {
         </div>
       </div>
       {showSessionModal && <SessionModal onSave={(s) => { addSession(s); setShowSessionModal(false); }} onClose={() => setShowSessionModal(false)} />}
+      {subtopicModal && <SubtopicModal area={subtopicModal.area} topic={subtopicModal.topic} semana={subtopicModal.semana} existing={getSubtopics(subtopicModal.area, subtopicModal.topic)} onSave={(items) => { saveSubtopics(subtopicModal.area, subtopicModal.topic, items); setSubtopicModal(null); notify(items.length > 0 ? `✓ ${items.length} subtema${items.length > 1 ? "s" : ""} salvo${items.length > 1 ? "s" : ""}` : "✓ Aula marcada"); }} onClose={() => setSubtopicModal(null)} />}
       {/* CONTENT */}
       <div style={{ padding: `${S.xl}px`, maxWidth: 1200, margin: "0 auto", paddingBottom: 100 }}>
         <div key={tabKey} className="fade-in">
-          <div style={{ display: tab === "agenda" ? "block" : "none" }}><Agenda reviews={reviews} revLogs={revLogs} alertThemes={alertThemes} onAddSubtemaNote={() => {}} /></div>
+          <div style={{ display: tab === "agenda" ? "block" : "none" }}><Agenda reviews={reviews} revLogs={revLogs} alertThemes={alertThemes} subtopics={subtopics} onAulaChecked={(area, topic, semana) => setSubtopicModal({ area, topic, semana })} /></div>
           {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} />}
           {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" />}
           {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
-          {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} />}
+          {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} />}
           {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
-          {tab === "temas" && <Temas reviews={reviews} onEditInterval={editReview} />}
+          {tab === "temas" && <Temas reviews={reviews} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} />}
         </div>
       </div>
       {/* BOTTOM NAV — mobile only */}

@@ -75,7 +75,11 @@ function App() {
         const loadedReviews = Array.isArray(r) ? r : [];
         const loadedExams = Array.isArray(e) ? e : [];
         const loadedFc = Array.isArray(fc) ? fc : [];
-        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(Array.isArray(rl) ? rl : []); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
+        // Reset HAS review to due today (as if not yet reviewed)
+        const hasKey = "clinica__sd. metabólica i — has e dislipidemia (sem. 08)";
+        const fixedReviews = loadedReviews.map((r) => r.key === hasKey ? { ...r, intervalIndex: 0, nextDue: "2026-03-27", lastPerf: null, lastStudied: null, history: [] } : r);
+        setSessions(loadedSessions); setReviews(fixedReviews); setRevLogs(Array.isArray(rl) ? rl : []); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
+        saveKey("rp26_reviews", fixedReviews);
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
           const needsUpgrade = loadedFc.length > 0 && loadedFc.some(d => !d._v || d._v < 2);

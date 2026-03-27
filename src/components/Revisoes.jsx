@@ -22,6 +22,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   const [evoArea, setEvoArea] = useState("all");
   const [evoSearch, setEvoSearch] = useState("");
   const [evoFocused, setEvoFocused] = useState(false);
+  const [logSort, setLogSort] = useState("newest");
   const setQ = (k, v) => setQForm((f) => ({ ...f, [k]: v }));
   const themeProgress = useMemo(() => {
     const byTheme = {};
@@ -362,7 +363,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       </>;
       })()}
       {subTab === "passadas" && <>
-      {revLogs.length === 0 ? <Empty msg="Nenhuma revisão registrada ainda." /> : <div style={card}><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Histórico de revisões</div>{revLogs.slice(0, 50).map((l) => { const a = areaMap[l.area]; const isEd = editingLog?.id === l.id; return (
+      {revLogs.length === 0 ? <Empty msg="Nenhuma revisão registrada ainda." /> : <div style={card}><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}><div style={{ fontSize: 14, fontWeight: 600 }}>Histórico de revisões</div><select value={logSort} onChange={(e) => setLogSort(e.target.value)} style={inp({ padding: "4px 8px", fontSize: 11, width: "auto" })}><option value="newest">Mais recente</option><option value="oldest">Mais antiga</option><option value="worst">Piores resultados</option><option value="best">Melhores resultados</option></select></div>{[...revLogs].sort((a, b) => logSort === "newest" ? (b.date || "").localeCompare(a.date || "") : logSort === "oldest" ? (a.date || "").localeCompare(b.date || "") : logSort === "worst" ? (a.pct ?? 100) - (b.pct ?? 100) : (b.pct ?? 0) - (a.pct ?? 0)).slice(0, 50).map((l) => { const a = areaMap[l.area]; const isEd = editingLog?.id === l.id; return (
         <div key={l.id} style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(l.pct), ...NUM, minWidth: 38 }}>{l.pct}%</span>

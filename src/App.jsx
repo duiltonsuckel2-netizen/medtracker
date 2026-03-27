@@ -222,12 +222,32 @@ function App() {
     else { pR([{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...reviews]); }
     notify("✓ Revisão registrada");
   }
-  function markReview(revId, acertos, total) {
+  function markReview(revId, acertos, total, subtopicScores) {
     const pct = perc(acertos, total); const rev = reviews.find((r) => r.id === revId); if (!rev) return;
     const ni = nxtIdx(rev.intervalIndex, pct);
     const entry = { date: today(), pct, _prev: { intervalIndex: rev.intervalIndex, nextDue: rev.nextDue, lastPerf: rev.lastPerf, lastStudied: rev.lastStudied } };
-    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] }));
-    pL([{ id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct }, ...revLogs]);
+    // Update main card + subtopic cards in one batch
+    let newReviews = reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
+    // Update subtopic cards if scores provided
+    if (subtopicScores && subtopicScores.length > 0) {
+      subtopicScores.forEach((s) => {
+        const sKey = `${rev.area}__${rev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
+        const ex = newReviews.find((r) => r.key === sKey);
+        const sni = nxtIdx(ex?.intervalIndex || 0, s.pct);
+        const sRev = {
+          id: ex?.id || uid(), key: sKey, area: rev.area, theme: s.name, parentTheme: rev.theme,
+          isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
+          lastPerf: s.pct, lastStudied: today(),
+          history: [...(ex?.history || []), { date: today(), pct: s.pct }]
+        };
+        newReviews = ex ? newReviews.map((r) => r.key === sKey ? sRev : r) : [sRev, ...newReviews];
+      });
+    }
+    pR(newReviews);
+    // Single log entry with inline subtopic scores
+    const logEntry = { id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct };
+    if (subtopicScores && subtopicScores.length > 0) logEntry.subtopicScores = subtopicScores;
+    pL([logEntry, ...revLogs]);
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
   function undoMarkReview(revId) {

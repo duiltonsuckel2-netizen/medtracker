@@ -45,18 +45,16 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   function submitMark() {
     const tot = Number(marking.total), ac = Number(marking.acertos);
     if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total.");
-    onMark(marking.id, ac, tot);
-    // Save subtopic scores if any were filled
-    if (marking.subtemas && onSubtopicReview) {
-      const rev = [...due, ...upcoming].find((r) => r.id === marking.id);
-      if (rev) {
-        marking.subtemas.forEach((s) => {
-          if (s.pct !== "" && Number(s.pct) >= 0 && Number(s.pct) <= 100) {
-            onSubtopicReview(rev.area, rev.theme, s.name, Number(s.pct));
-          }
-        });
-      }
+    // Collect subtopic scores to pass in one batch
+    const subtopicScores = [];
+    if (marking.subtemas) {
+      marking.subtemas.forEach((s) => {
+        if (s.pct !== "" && Number(s.pct) >= 0 && Number(s.pct) <= 100) {
+          subtopicScores.push({ name: s.name, pct: Number(s.pct) });
+        }
+      });
     }
+    onMark(marking.id, ac, tot, subtopicScores.length > 0 ? subtopicScores : undefined);
     setMarking(null);
   }
   const qPct = Number(qForm.total) > 0 ? perc(Number(qForm.acertos), Number(qForm.total)) : null;
@@ -376,7 +374,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
             <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "" }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
             <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
           </div>
-          {l.subtemas && !isEd && <div style={{ marginTop: 4, marginLeft: 48, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
+          {l.subtopicScores && l.subtopicScores.length > 0 && !isEd && <div style={{ marginTop: 4, marginLeft: 48, display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.text3 }}>{l.subtopicScores.map((s, i) => <span key={i} style={{ background: C.surface, padding: "3px 8px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>{s.name}: <span style={{ fontWeight: 700, color: perfColor(s.pct), fontFamily: FN }}>{s.pct}%</span></span>)}</div>}
+          {l.subtemas && !l.subtopicScores && !isEd && <div style={{ marginTop: 4, marginLeft: 48, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
           {isEd && <div style={{ marginTop: 8, marginLeft: 48, display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
               <Fld label="Área"><select value={editingLog.area} onChange={(e) => setEditingLog((f) => ({ ...f, area: e.target.value }))} style={inp({ padding: "6px 8px", fontSize: 12 })}>{AREAS.map((a) => <option key={a.id} value={a.id}>{a.short}</option>)}</select></Fld>

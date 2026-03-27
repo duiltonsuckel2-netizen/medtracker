@@ -206,13 +206,13 @@ function App() {
           });
           if (v8changed) saveKey("rp26_reviews", loadedReviews);
         }
-        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Restore seed exam if all exams were deleted
         if (loadedExams.length === 0) {
           const restoredExam = buildUnicamp2024Exam();
           loadedExams.push(restoredExam);
           saveKey("rp26_exams", loadedExams);
         }
+        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
           const needsUpgrade = loadedFc.length > 0 && loadedFc.some(d => !d._v || d._v < 2);

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'medtracker-v7';
+const CACHE_NAME = 'medtracker-v8';
 
 self.addEventListener('install', (event) => {
   // Take over immediately, don't wait for old SW to die

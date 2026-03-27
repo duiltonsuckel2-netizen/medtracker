@@ -67,9 +67,13 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   }
   function getSubtopicsForReview(r) {
     if (!subtopics) return [];
-    // Normalize: remove "(Sem. XX)", roman numerals, dashes, extra spaces, lowercase
+
+    // 1) Direct key lookup (most reliable)
+    const directKey = `${r.area}__${r.theme}`;
+    if (subtopics[directKey] && subtopics[directKey].length > 0) return subtopics[directKey];
+
+    // 2) Fuzzy matching fallback
     const normalize = (s) => s.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();
-    // Extract significant words (3+ chars, skip stop words)
     const stopWords = new Set(["sem", "das", "dos", "del", "und", "the", "and", "para", "com", "por"]);
     const keywords = (s) => normalize(s).split(/\s+/).filter((w) => w.length >= 3 && !stopWords.has(w));
 
@@ -85,19 +89,15 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       const kTopic = key.slice(kArea.length + 2);
       const kNorm = normalize(kTopic);
 
-      // Exact normalized match
       if (rTheme === kNorm) return items;
-      // Substring match (either direction)
       if (rTheme.includes(kNorm) || kNorm.includes(rTheme)) return items;
 
-      // Keyword overlap scoring
       const kWords = keywords(kTopic);
       if (kWords.length === 0) continue;
       const shared = kWords.filter((w) => rWords.some((rw) => rw.includes(w) || w.includes(rw)));
       const score = shared.length / Math.max(kWords.length, 1);
       if (score > bestScore) { bestScore = score; bestMatch = items; }
     }
-    // Require at least 50% keyword overlap
     return bestScore >= 0.5 ? bestMatch : [];
   }
   function handleSubtopicReviewSave(entries) {

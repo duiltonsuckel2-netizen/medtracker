@@ -42,15 +42,29 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
   }
 
   function getSubtopicsForTheme(r) {
-    if (!subtopics) return [];
+    if (!subtopics) return { key: null, items: [] };
+    const normalize = (s) => s.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();
+    const stopWords = new Set(["sem", "das", "dos", "del", "und", "the", "and", "para", "com", "por"]);
+    const keywords = (s) => normalize(s).split(/\s+/).filter((w) => w.length >= 3 && !stopWords.has(w));
+    const rTheme = normalize(r.theme);
+    const rWords = keywords(r.theme);
+    let bestMatch = null;
+    let bestKey = null;
+    let bestScore = 0;
     for (const [key, items] of Object.entries(subtopics)) {
       if (!items || items.length === 0) continue;
       const [kArea] = key.split("__");
       if (kArea !== r.area) continue;
       const kTopic = key.slice(kArea.length + 2);
-      if (r.theme.toLowerCase().includes(kTopic.toLowerCase()) || kTopic.toLowerCase().includes(r.theme.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/i, "").trim())) return { key, items };
+      const kNorm = normalize(kTopic);
+      if (rTheme === kNorm || rTheme.includes(kNorm) || kNorm.includes(rTheme)) return { key, items };
+      const kWords = keywords(kTopic);
+      if (kWords.length === 0) continue;
+      const shared = kWords.filter((w) => rWords.some((rw) => rw.includes(w) || w.includes(rw)));
+      const score = shared.length / Math.max(kWords.length, 1);
+      if (score > bestScore) { bestScore = score; bestMatch = items; bestKey = key; }
     }
-    return { key: null, items: [] };
+    return bestScore >= 0.5 ? { key: bestKey, items: bestMatch } : { key: null, items: [] };
   }
 
   function getSubReviewsForTheme(r) {

@@ -364,21 +364,23 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       {subTab === "passadas" && <>
       {revLogs.length === 0 ? <Empty msg="Nenhuma revisão registrada ainda." /> : <div style={card}><div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12 }}>Histórico de revisões</div>{revLogs.slice(0, 50).map((l) => { const a = areaMap[l.area]; const isEd = editingLog?.id === l.id; return (
         <div key={l.id} style={{ padding: "8px 0", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(l.pct), ...NUM, minWidth: 38 }}>{l.pct}%</span>
             <span style={tag(a?.color || "#6B7280")}>{a?.short}</span>
-            <span style={{ fontSize: 12, color: C.text2, flex: 1 }}>{l.theme || "—"}</span>
-            {l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>subtema</span>}
-            {l.confidence && <span style={{ fontSize: 12 }} title={CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.label}>{CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.icon}</span>}
-            {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
-            <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)}{l.total ? ` · ${l.total}q` : ""}</span>
-            {l.date === today() && !l.isSubtopic && onUndoMark && (() => { const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic); return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão e voltar pra hoje?")) onUndoMark(rev.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 10, padding: "2px 6px", fontFamily: FM, fontWeight: 600 }}>↩ Desfazer</button> : null; })()}
-            <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "" }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
-            <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
+            <span style={{ fontSize: 12, color: C.text2, flex: "1 1 120px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{l.theme || "—"}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              {l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>subtema</span>}
+              {l.confidence && <span style={{ fontSize: 12 }} title={CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.label}>{CONFIDENCE_OPTS.find((c) => c.id === l.confidence)?.icon}</span>}
+              {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
+              <span style={{ fontSize: 11, color: C.text3, fontFamily: FM, whiteSpace: "nowrap" }}>{fmtDate(l.date)}{l.total ? ` · ${l.total}q` : ""}</span>
+              {l.date === today() && !l.isSubtopic && onUndoMark && (() => { const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic); return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão e voltar pra hoje?")) onUndoMark(rev.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 10, padding: "2px 6px", fontFamily: FM, fontWeight: 600 }}>↩ Desfazer</button> : null; })()}
+              <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "" }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
+              <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
+            </div>
           </div>
-          {l.subtemas && !isEd && <div style={{ marginTop: 4, marginLeft: 48, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
-          {isEd && <div style={{ marginTop: 8, marginLeft: 48, display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8 }}>
+          {l.subtemas && !isEd && <div style={{ marginTop: 4, marginLeft: 0, fontSize: 11, color: C.text3, background: C.surface, padding: "4px 10px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>📋 {l.subtemas}</div>}
+          {isEd && <div style={{ marginTop: 8, marginLeft: 0, display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border2}` }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <Fld label="Área"><select value={editingLog.area} onChange={(e) => setEditingLog((f) => ({ ...f, area: e.target.value }))} style={inp({ padding: "6px 8px", fontSize: 12 })}>{AREAS.map((a) => <option key={a.id} value={a.id}>{a.short}</option>)}</select></Fld>
               <Fld label="Tema"><input value={editingLog.theme} onChange={(e) => setEditingLog((f) => ({ ...f, theme: e.target.value }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
               <Fld label="Total"><input type="number" value={editingLog.total} onChange={(e) => setEditingLog((f) => ({ ...f, total: Number(e.target.value) }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>

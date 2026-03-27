@@ -93,32 +93,39 @@ function App() {
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
       }
-      // One-time migration: restore deleted Hipertensão (HAS) review card
-      const migKey = "rp26_mig_restore_has";
-      if (!localStorage.getItem(migKey)) {
-        localStorage.setItem(migKey, "1");
-        const loadedReviews = Array.isArray(r) ? r : [];
-        const loadedLogs = Array.isArray(rl) ? rl : [];
-        const hasTheme = "Sd. Metabólica I — HAS e Dislipidemia (Sem. 08)";
-        const hasKey = `clinica__${hasTheme.toLowerCase().trim()}`;
-        const hasExists = loadedReviews.some((rv) => rv.key === hasKey);
-        if (!hasExists) {
-          // Reconstruct from SEED_LOGS history for HAS
-          const hasLogs = loadedLogs.filter((l) => l.area === "clinica" && l.theme && l.theme.toLowerCase().includes("has"));
-          const lastLog = hasLogs.length > 0 ? hasLogs.sort((a, b) => b.date.localeCompare(a.date))[0] : null;
-          const lastPct = lastLog ? lastLog.pct : 78;
-          const history = hasLogs.map((l) => ({ date: l.date, pct: l.pct }));
-          if (history.length === 0) history.push({ date: "2026-03-10", pct: 78 });
-          const td = new Date().toISOString().slice(0, 10);
-          const newRev = {
-            id: uid(), key: hasKey, area: "clinica", theme: hasTheme,
-            intervalIndex: 1, nextDue: td, lastPerf: lastPct,
-            lastStudied: lastLog ? lastLog.date : "2026-03-10",
-            history
-          };
-          const updatedRevs = [newRev, ...loadedReviews];
-          setReviews(updatedRevs); saveKey("rp26_reviews", updatedRevs);
+      // Migration v2: restore HAS review, remove 1d interval, fix intervalIndex
+      const migKey2 = "rp26_mig_v2_fix_has";
+      if (!localStorage.getItem(migKey2)) {
+        localStorage.setItem(migKey2, "1");
+        let revs = Array.isArray(r) ? [...r] : [];
+        const td = today();
+        // 1) Shift all intervalIndex down by 1 (removed 1d interval)
+        revs = revs.map((rv) => ({ ...rv, intervalIndex: Math.max(0, rv.intervalIndex - 1) }));
+        // 2) Find & fix HAS card (old theme had "Dislipidemia" or "Metabólica")
+        const hasNewTheme = "HAS — Hipertensão Arterial (Sem. 08)";
+        const hasNewKey = `clinica__${hasNewTheme.toLowerCase().trim()}`;
+        const oldIdx = revs.findIndex((rv) => rv.area === "clinica" && (rv.key.includes("metabólica") || rv.key.includes("metabolica") || rv.key.includes("dislipidemia") || rv.key.includes("has e")));
+        if (oldIdx >= 0) {
+          // Rename and reschedule to today
+          revs[oldIdx] = { ...revs[oldIdx], theme: hasNewTheme, key: hasNewKey, nextDue: td, intervalIndex: 0 };
+        } else {
+          // Card doesn't exist — create it
+          const loadedLogs = Array.isArray(rl) ? rl : [];
+          const hasLogs = loadedLogs.filter((l) => l.area === "clinica" && l.theme && (l.theme.toLowerCase().includes("has") || l.theme.toLowerCase().includes("hipertens")));
+          const lastLog = hasLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
+          revs.unshift({
+            id: uid(), key: hasNewKey, area: "clinica", theme: hasNewTheme,
+            intervalIndex: 0, nextDue: td, lastPerf: lastLog?.pct || 78,
+            lastStudied: lastLog?.date || "2026-03-10",
+            history: hasLogs.length > 0 ? hasLogs.map((l) => ({ date: l.date, pct: l.pct })) : [{ date: "2026-03-10", pct: 78 }]
+          });
         }
+        // 3) Remove any standalone Dislipidemia card (it's a subtopic, not main)
+        revs = revs.filter((rv) => {
+          const k = rv.key.toLowerCase();
+          return !(k.includes("dislipidemia") && !k.includes("has"));
+        });
+        setReviews(revs); saveKey("rp26_reviews", revs);
       }
       setReady(true);
     });

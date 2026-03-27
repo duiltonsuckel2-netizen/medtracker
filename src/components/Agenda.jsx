@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { AREAS, areaMap, AREA_SHORT_MAP, SEMANAS, SEM_SAT } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, fmtDate, uid, weekDates, buildWeekTemplate } from "../utils.js";
@@ -48,7 +48,7 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
             ...day, items: [...day.items, ...rollovers.map((r) => ({ ...r, text: "⚠️ " + r.text.replace(/^🔄\s*/, "🔄 ") }))]
           });
           setWeek(rolled); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: savedSemana, days: rolled });
-        } else { setWeek(saved); }
+        } else { setWeek(saved); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: savedSemana, days: saved }); }
         const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (idx >= 0) setSemIdx(idx);
       } else {
@@ -72,13 +72,9 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
     const w = buildWeekTemplate(ni, reviews, alertThemes);
     setWeek(w); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: SEMANAS[ni]?.semana, days: w });
   }
-  const saveTimerRef = useRef(null);
   function save(days) {
     setWeek(days);
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: SEMANAS[semIdx]?.semana, days });
-    }, 300);
+    saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: SEMANAS[semIdx]?.semana, days });
   }
   function findAulaForItem(item) {
     // Match agenda item to a SEMANAS aula by id or text

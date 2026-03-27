@@ -34,7 +34,7 @@ function App() {
   const [tabKey, setTabKey] = useState(0);
 
   useEffect(() => { injectKeyframes(); }, []);
-  useEffect(() => { applyTheme(darkMode); }, [darkMode]);
+  applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
   const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8"];
   function exportBackup() {

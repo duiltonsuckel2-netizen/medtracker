@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
-import { AREAS, BENCHMARKS, CATS, areaMap, EXAM_THEMES_DB, KNOWN_PDFS } from "../data.js";
+import { AREAS, BENCHMARKS, CATS, areaMap, getExamThemesDB, KNOWN_PDFS } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, fmtDate, perc, uid, perfColor, perfLabel, catColor, mapThemeToSchedule, searchKnownPdf, defaultAreaForQuestion, buildDefaultQDetails } from "../utils.js";
 import { Fld, Empty, ChartTip } from "./UI.jsx";
@@ -31,17 +31,19 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
   const allAreasFilled = needArea.every((n) => qDetails[n]?.area);
   function handleSearch(q) { setSearchQuery(q); setSearchResults(searchKnownPdf(q)); }
   function selectKnownPdf(r) { setExamMeta((m) => ({ ...m, name: r.name, total: r.total })); setSearchQuery(r.name); setPdfStatus("idle"); setPdfMsg(""); }
-  function analyzeByName() {
+  async function analyzeByName() {
     const nome = examMeta.name.trim();
     const qtotal = Number(examMeta.total) || 100;
     if (!nome) return alert("Selecione ou preencha o nome da prova.");
+    setPdfStatus("loading"); setPdfMsg("Carregando banco de temas…");
+    const db = await getExamThemesDB();
     const searchKey = nome.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
-    let dbKey = Object.keys(EXAM_THEMES_DB).find((k) => {
+    let dbKey = db ? Object.keys(db).find((k) => {
       const kn = k.toLowerCase();
       return searchKey.includes(kn) || kn.includes(searchKey) || searchKey.split(" ").every((w) => kn.includes(w));
-    });
-    if (dbKey && EXAM_THEMES_DB[dbKey]) {
-      const dbThemes = EXAM_THEMES_DB[dbKey];
+    }) : null;
+    if (dbKey && db[dbKey]) {
+      const dbThemes = db[dbKey];
       const det = {};
       const enriched = [];
       Object.entries(dbThemes).forEach(([n, d]) => {
@@ -372,4 +374,5 @@ function ExamCard({ exam, allLogs, isOpen, onToggle, onDel, onUpdate, knownTheme
   );
 }
 
-export { Provas };
+const MemoizedProvas = React.memo(Provas);
+export { MemoizedProvas as Provas };

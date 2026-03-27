@@ -5,6 +5,7 @@ import { AREAS, INTERVALS, INT_LABELS, areaMap } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, diffDays, fmtDate, perc, perfColor } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
+import { useThemeProgress } from "../useThemeProgress.js";
 
 function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, onEditLog, onDelLog }) {
   const [subTab, setSubTab] = useState("proximas");
@@ -20,24 +21,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
   const [evoSearch, setEvoSearch] = useState("");
   const [evoFocused, setEvoFocused] = useState(false);
   const setQ = (k, v) => setQForm((f) => ({ ...f, [k]: v }));
-  const themeProgress = useMemo(() => {
-    const byTheme = {};
-    [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))].forEach((l) => {
-      const k = `${l.area}__${l.theme}`;
-      if (!byTheme[k]) byTheme[k] = { area: l.area, theme: l.theme, sessions: [] };
-      byTheme[k].sessions.push({ date: l.date, pct: l.pct, total: l.total || 0 });
-    });
-    return Object.values(byTheme)
-      .filter((t) => t.sessions.length >= 2)
-      .map((t) => {
-        const sorted = [...t.sessions].sort((a, b) => a.date.localeCompare(b.date));
-        const first = sorted[0].pct; const last = sorted[sorted.length - 1].pct;
-        const trend = last - first;
-        const avg = Math.round(sorted.reduce((s, x) => s + x.pct, 0) / sorted.length);
-        return { ...t, sorted, first, last, trend, avg, n: sorted.length };
-      })
-      .sort((a, b) => b.n - a.n);
-  }, [revLogs, sessions]);
+  const themeProgress = useThemeProgress(revLogs, sessions);
   function submitQ() { const tot = Number(qForm.total), ac = Number(qForm.acertos); const th = qForm.freeTheme ? qForm.theme : (qForm.theme || ""); if (!th.trim()) return alert("Informe o tema."); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onQuick(qForm.area, th, tot, ac); setQForm(emptyQ); setShowQ(false); }
   function submitMark() { const tot = Number(marking.total), ac = Number(marking.acertos); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onMark(marking.id, ac, tot); setMarking(null); }
   const qPct = Number(qForm.total) > 0 ? perc(Number(qForm.acertos), Number(qForm.total)) : null;
@@ -309,4 +293,5 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, onMark, onQuick, 
   );
 }
 
-export { Revisoes };
+const MemoizedRevisoes = React.memo(Revisoes);
+export { MemoizedRevisoes as Revisoes };

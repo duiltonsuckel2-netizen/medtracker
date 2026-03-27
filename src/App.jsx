@@ -1,17 +1,24 @@
-import React from "react";
-import { useState, useEffect } from "react";
+import React, { lazy, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx } from "./utils.js";
-import { loadKey, saveKey } from "./storage.js";
+import { loadKey, saveKey, saveKeyImmediate } from "./storage.js";
 import { Agenda } from "./components/Agenda.jsx";
-import { Dashboard } from "./components/Dashboard.jsx";
 import { SessionModal } from "./components/SessionModal.jsx";
 import { Sessoes } from "./components/Sessoes.jsx";
-import { Revisoes } from "./components/Revisoes.jsx";
 import { Temas } from "./components/Temas.jsx";
-import { Provas } from "./components/Provas.jsx";
 import { SkeletonCard } from "./components/UI.jsx";
+
+const Dashboard = lazy(() => import("./components/Dashboard.jsx").then(m => ({ default: m.Dashboard })));
+const Revisoes = lazy(() => import("./components/Revisoes.jsx").then(m => ({ default: m.Revisoes })));
+const Provas = lazy(() => import("./components/Provas.jsx").then(m => ({ default: m.Provas })));
+
+const LazyFallback = () => (
+  <div style={{ display: "flex", flexDirection: "column", gap: 16, paddingTop: 20 }}>
+    <SkeletonCard /><SkeletonCard />
+  </div>
+);
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem("rp26_dark") !== "false"; } catch { return true; } });
@@ -61,7 +68,7 @@ function App() {
         const logs = SEED_LOGS.map((l) => ({ ...l, id: uid() }));
         const se = buildUnicamp2024Exam();
         setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]);
-        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_seeded12", true);
+        saveKeyImmediate("rp26_reviews", revs); saveKeyImmediate("rp26_revlogs", logs); saveKeyImmediate("rp26_sessions", []); saveKeyImmediate("rp26_exams", [se]); saveKeyImmediate("rp26_seeded12", true);
       } else { setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []); }
       setReady(true);
     });
@@ -119,8 +126,9 @@ function App() {
     </div>
   );
 
-  const dueR = reviews.filter((r) => r.nextDue <= today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
-  const upR = reviews.filter((r) => r.nextDue > today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+  const td = today();
+  const dueR = useMemo(() => reviews.filter((r) => r.nextDue <= td).sort((a, b) => a.nextDue.localeCompare(b.nextDue)), [reviews, td]);
+  const upR = useMemo(() => reviews.filter((r) => r.nextDue > td).sort((a, b) => a.nextDue.localeCompare(b.nextDue)), [reviews, td]);
   const alertThemes = [];
   const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚" };
   const TABS = [
@@ -165,11 +173,13 @@ function App() {
       <div style={{ padding: `${S.xl}px`, maxWidth: 1200, margin: "0 auto", paddingBottom: 100 }}>
         <div key={tabKey} className="fade-in">
           <div style={{ display: tab === "agenda" ? "block" : "none" }}><Agenda reviews={reviews} revLogs={revLogs} alertThemes={alertThemes} onAddSubtemaNote={() => {}} /></div>
-          {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} />}
-          {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" />}
+          <Suspense fallback={<LazyFallback />}>
+            {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} />}
+            {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" />}
+            {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} />}
+            {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
+          </Suspense>
           {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
-          {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} />}
-          {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
           {tab === "temas" && <Temas reviews={reviews} onEditInterval={editReview} />}
         </div>
       </div>

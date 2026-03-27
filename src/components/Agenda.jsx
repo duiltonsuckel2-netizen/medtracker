@@ -7,8 +7,6 @@ import { loadKey, saveKey } from "../storage.js";
 import { Empty } from "./UI.jsx";
 
 function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
-  // DEBUG: remove after confirming code is loaded
-  React.useEffect(() => { console.log("[MedTracker DEBUG] Agenda loaded with subtopics feature. onAulaChecked:", typeof onAulaChecked, "subtopics:", subtopics); }, []);
   const [week, setWeek] = useState(null);
   const [history, setHistory] = useState([]);
   const [view, setView] = useState("current");
@@ -108,7 +106,6 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
     setTimeout(() => setJustToggled(null), 350);
     // If checking an aula item, trigger subtopic modal
     if (wasUnchecked && isAulaItem(item)) {
-      console.log("[MedTracker] Aula checked:", { id: item.id, text: item.text, semIdx });
       openSubtopicsFor(item);
     }
   }

@@ -1,9 +1,10 @@
 import React from "react";
 import { useState, useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
 import { AREAS, BENCHMARKS, CATS, areaMap, EXAM_THEMES_DB, KNOWN_PDFS } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, fmtDate, perc, uid, perfColor, perfLabel, catColor, mapThemeToSchedule, searchKnownPdf, defaultAreaForQuestion, buildDefaultQDetails } from "../utils.js";
-import { Fld, Empty } from "./UI.jsx";
+import { Fld, Empty, ChartTip } from "./UI.jsx";
 
 function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
   const [step, setStep] = useState(0);
@@ -15,6 +16,7 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
   const [searchResults, setSearchResults] = useState([]);
   const [pdfStatus, setPdfStatus] = useState("idle");
   const [pdfMsg, setPdfMsg] = useState("");
+  const [sortMode, setSortMode] = useState("best");
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const allLogs = useMemo(() => [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))], [revLogs, sessions]);
   const knownThemes = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set(allLogs.filter((l) => l.area === a.id).map((l) => l.theme))].sort(); }); return o; }, [allLogs]);
@@ -73,6 +75,7 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {step === 0 && <>
         <button onClick={() => setStep(1)} style={{ ...btn(C.blue), padding: "12px 24px", fontSize: 14, fontWeight: 600, width: "100%", borderRadius: R.lg, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>📝 Registrar prova</button>
+        {exams.length >= 2 && <ExamComparison exams={exams} sortMode={sortMode} setSortMode={setSortMode} />}
         {exams.length === 0 ? <Empty icon="📋" msg="Nenhuma prova registrada ainda. Registre sua primeira prova para acompanhar seu desempenho." /> : exams.map((exam) => <ExamCard key={exam.id} exam={exam} allLogs={allLogs} isOpen={detail === exam.id} onToggle={() => setDetail(detail === exam.id ? null : exam.id)} onDel={onDel} onUpdate={onUpdate} knownThemes={knownThemes} />)}
       </>}
       {step === 1 && <div style={{ ...card, border: `1px solid ${C.blue}40`, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -209,6 +212,95 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
         </div>
         <button onClick={() => { if (!allAreasFilled) return alert("Preencha a área de todas as questões erradas."); buildExam(); }} style={btn("#34D399")}>✓ Salvar prova</button>
       </div>}
+    </div>
+  );
+}
+
+function ExamComparison({ exams, sortMode, setSortMode }) {
+  const data = useMemo(() => {
+    const items = exams.map((e) => {
+      const s = e.cats?.soube?.length || 0;
+      const c = e.cats?.chutou?.length || 0;
+      const total = e.total || 1;
+      const acertos = e.acertos || (s + c);
+      const pct = perc(acertos, total);
+      return { name: e.name, pct, acertos, total, date: e.date };
+    });
+    if (sortMode === "best") items.sort((a, b) => b.pct - a.pct);
+    else if (sortMode === "worst") items.sort((a, b) => a.pct - b.pct);
+    else items.sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    return items;
+  }, [exams, sortMode]);
+  const avg = data.length > 0 ? Math.round(data.reduce((s, d) => s + d.pct, 0) / data.length) : 0;
+  return (
+    <div style={card}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 4, height: 18, borderRadius: 2, background: C.purple }} />
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Comparativo de desempenho</span>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {[{ id: "best", label: "Melhor" }, { id: "worst", label: "Pior" }, { id: "recent", label: "Recente" }].map((s) => (
+            <button key={s.id} onClick={() => setSortMode(s.id)} style={{ background: sortMode === s.id ? C.purple + "22" : C.surface, border: `1px solid ${sortMode === s.id ? C.purple : C.border}`, borderRadius: R.pill, padding: "4px 12px", cursor: "pointer", fontSize: 11, fontWeight: sortMode === s.id ? 700 : 500, color: sortMode === s.id ? C.purple : C.text3, fontFamily: F, transition: "all 0.15s" }}>{s.label}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ width: "100%", height: Math.max(200, data.length * 44 + 40) }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data} layout="vertical" margin={{ top: 4, right: 30, left: 8, bottom: 4 }} barSize={22}>
+            <CartesianGrid strokeDasharray="3 3" stroke={C.border} horizontal={false} />
+            <XAxis type="number" domain={[0, 100]} tick={{ fill: C.text3, fontSize: 11, fontFamily: FM }} tickFormatter={(v) => v + "%"} axisLine={{ stroke: C.border }} />
+            <YAxis type="category" dataKey="name" width={140} tick={{ fill: C.text2, fontSize: 11, fontFamily: F }} axisLine={false} tickLine={false} />
+            <Tooltip content={({ active, payload }) => {
+              if (!active || !payload?.length) return null;
+              const d = payload[0].payload;
+              return (
+                <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, padding: "10px 14px", boxShadow: SH.lg }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 4 }}>{d.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: perfColor(d.pct), fontFamily: FN }}>{d.pct}%</div>
+                  <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{d.acertos}/{d.total} acertos</div>
+                  {d.date && <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{fmtDate(d.date)}</div>}
+                </div>
+              );
+            }} />
+            <ReferenceLine x={avg} stroke={C.purple} strokeDasharray="4 4" label={{ value: `Média ${avg}%`, fill: C.purple, fontSize: 10, fontFamily: FM, position: "top" }} />
+            <Bar dataKey="pct" radius={[0, 6, 6, 0]}>
+              {data.map((d, i) => <Cell key={i} fill={perfColor(d.pct)} fillOpacity={0.85} />)}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div style={{ marginTop: 14, overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: F }}>
+          <thead>
+            <tr style={{ borderBottom: `2px solid ${C.border}` }}>
+              <th style={{ textAlign: "left", padding: "8px 10px", fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>#</th>
+              <th style={{ textAlign: "left", padding: "8px 10px", fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>Prova</th>
+              <th style={{ textAlign: "center", padding: "8px 10px", fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>Acertos</th>
+              <th style={{ textAlign: "center", padding: "8px 10px", fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>Taxa</th>
+              <th style={{ textAlign: "center", padding: "8px 10px", fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>vs Média</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((d, i) => {
+              const diff = d.pct - avg;
+              return (
+                <tr key={i} style={{ borderBottom: `1px solid ${C.border}`, background: i % 2 === 0 ? "transparent" : C.surface }}>
+                  <td style={{ padding: "8px 10px", fontWeight: 700, color: C.text3, fontFamily: FM }}>{i + 1}</td>
+                  <td style={{ padding: "8px 10px", fontWeight: 600, color: C.text }}>{d.name}</td>
+                  <td style={{ padding: "8px 10px", textAlign: "center", fontFamily: FN, color: C.text2 }}>{d.acertos}/{d.total}</td>
+                  <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                    <span style={{ fontWeight: 800, fontSize: 13, color: perfColor(d.pct), fontFamily: FN }}>{d.pct}%</span>
+                  </td>
+                  <td style={{ padding: "8px 10px", textAlign: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, fontFamily: FN, color: diff >= 0 ? C.green : C.red, padding: "2px 8px", borderRadius: R.pill, background: diff >= 0 ? C.green + "14" : C.red + "14" }}>{diff >= 0 ? "+" : ""}{diff}pp</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

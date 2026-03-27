@@ -45,15 +45,28 @@ function SessionModal({ onSave, onClose }) {
     setErrors(e);
     setTouched({ theme: true, total: true, acertos: true });
     if (Object.keys(e).length) return;
-    onSave({ area, theme: theme.trim(), total: t, acertos: a, date, semIdx });
+    // Auto-append (Sem. XX) if a week is selected and not already in the theme
+    let finalTheme = theme.trim();
+    if (semIdx != null && !/\(Sem\.\s*\d+\)/i.test(finalTheme)) {
+      finalTheme += ` (${SEMANAS[semIdx].semana})`;
+    }
+    onSave({ area, theme: finalTheme, total: t, acertos: a, date, semIdx });
   }
 
   // Auto-complete: collect theme names from semanas for current area
   const areaShort = AREAS.find((a2) => a2.id === area)?.short || "";
+
+  // Topics from selected week for the current area
+  const weekTopics = useMemo(() => {
+    if (semIdx == null || !areaShort) return [];
+    return SEMANAS[semIdx].aulas.filter((a) => a.area === areaShort).map((a) => a.topic);
+  }, [semIdx, areaShort]);
+
   const semanaThemes = useMemo(() => {
     if (!areaShort) return [];
+    if (semIdx != null) return weekTopics;
     return SEMANAS.flatMap((sem) => sem.aulas.filter((a) => a.area === areaShort).map((a) => a.topic));
-  }, [areaShort]);
+  }, [areaShort, semIdx, weekTopics]);
 
   const suggestions = useMemo(() => {
     const q = theme.toLowerCase().trim();
@@ -87,10 +100,34 @@ function SessionModal({ onSave, onClose }) {
               ))}
             </div>
           </Fld>
+          <Fld label="Semana do cronograma (opcional)">
+            <select value={semIdx ?? ""} onChange={(e) => { const v = e.target.value === "" ? null : Number(e.target.value); setSemIdx(v); setTheme(""); }} style={inp({ fontSize: 12 })}>
+              <option value="">Nenhuma — tema livre</option>
+              {SEMANAS.map((s, i) => <option key={i} value={i}>{s.semana} — {s.aulas.map((a) => a.area).join(" + ")}</option>)}
+            </select>
+          </Fld>
+          {/* When a week is selected, show that week's topics as quick-select chips */}
+          {semIdx != null && weekTopics.length > 0 && (
+            <div>
+              <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>Temas da {SEMANAS[semIdx].semana} em {areaShort}:</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {weekTopics.map((t, i) => {
+                  const sel = theme === t;
+                  const ac = AREAS.find((a2) => a2.id === area)?.color || C.accent;
+                  return (
+                    <button key={i} onClick={() => { setTheme(t); if (errors.theme) setErrors((er) => ({ ...er, theme: null })); }} style={{ padding: "7px 12px", borderRadius: R.full || 20, border: sel ? `2px solid ${ac}` : `1px solid ${C.border}`, background: sel ? ac + "20" : C.surface, cursor: "pointer", fontSize: 12, fontWeight: sel ? 700 : 400, color: sel ? ac : C.text2, fontFamily: F, transition: "all .15s ease" }}>{t}</button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {semIdx != null && weekTopics.length === 0 && areaShort && (
+            <div style={{ fontSize: 11, color: C.text3, padding: "6px 0" }}>Nenhuma aula de {areaShort} na {SEMANAS[semIdx].semana}. Troque a área ou digite o tema abaixo.</div>
+          )}
           {/* Theme with auto-complete */}
           <div style={{ position: "relative" }}>
-            <Fld label="Tema" error={touched.theme && errors.theme}>
-              <input ref={themeRef} type="text" value={theme} onChange={(e) => { setTheme(e.target.value); setShowSuggestions(true); if (errors.theme) setErrors((er) => ({ ...er, theme: null })); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { touch("theme"); validate("theme"); }} placeholder="Ex: Pneumonia, ICC, Fraturas…" style={inp(errStyle("theme"))} />
+            <Fld label={semIdx != null ? "Tema (ou digite outro)" : "Tema"} error={touched.theme && errors.theme}>
+              <input ref={themeRef} type="text" value={theme} onChange={(e) => { setTheme(e.target.value); setShowSuggestions(true); if (errors.theme) setErrors((er) => ({ ...er, theme: null })); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { touch("theme"); validate("theme"); }} placeholder={semIdx != null ? "Selecione acima ou digite…" : "Ex: Pneumonia, ICC, Fraturas…"} style={inp(errStyle("theme"))} />
             </Fld>
             {showSuggestions && suggestions.length > 0 && (
               <div ref={sugRef} style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, boxShadow: SH.lg, maxHeight: 160, overflowY: "auto", marginTop: 4 }}>
@@ -104,12 +141,6 @@ function SessionModal({ onSave, onClose }) {
             <Fld label="Total questões" error={touched.total && errors.total}><input type="number" min="0" value={total} onChange={(e) => { setTotal(e.target.value); if (errors.total) setErrors((er) => ({ ...er, total: null })); }} onBlur={() => { touch("total"); validate("total"); }} style={inp(errStyle("total"))} /></Fld>
             <Fld label="Acertos" error={touched.acertos && errors.acertos}><input type="number" min="0" value={acertos} onChange={(e) => { setAcertos(e.target.value); if (errors.acertos) setErrors((er) => ({ ...er, acertos: null })); }} onBlur={() => { touch("acertos"); validate("acertos"); }} style={inp({ borderColor: "#34D39944", ...errStyle("acertos") })} /></Fld>
           </div>
-          <Fld label="Semana do cronograma (opcional)">
-            <select value={semIdx ?? ""} onChange={(e) => setSemIdx(e.target.value === "" ? null : Number(e.target.value))} style={inp({ fontSize: 12 })}>
-              <option value="">Nenhuma</option>
-              {SEMANAS.map((s, i) => <option key={i} value={i}>{s.semana} — {s.aulas.map((a) => a.area).join(" + ")}</option>)}
-            </select>
-          </Fld>
           <button onClick={submit} style={btn("#34D399", { width: "100%", marginTop: 4 })}>✓ Salvar sessão</button>
         </div>
       </div>

@@ -109,7 +109,7 @@ function App() {
   }
   function addSession(session) {
     const s = { ...session, id: uid(), createdAt: today() }; pS([s, ...sessions]);
-    const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
+    const key = `${session.area}__${(session.theme || "").toLowerCase().trim()}`;
     const ex = reviews.find((r) => r.key === key); const pct = perc(session.acertos, session.total); const ni = nxtIdx(0, pct);
     const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
     pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);

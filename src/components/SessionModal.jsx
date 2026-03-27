@@ -43,7 +43,7 @@ function SessionModal({ onSave, onClose }) {
   const areaShort = AREAS.find((a2) => a2.id === area)?.short || "";
   const semanaThemes = useMemo(() => {
     if (!areaShort) return [];
-    return SEMANAS.flatMap((sem) => sem.aulas.filter((a) => a.area === areaShort).map((a) => a.topic));
+    return SEMANAS.flatMap((sem) => sem.aulas.filter((a) => a.area === areaShort).map((a) => a.topic)).filter(Boolean);
   }, [areaShort]);
 
   const suggestions = useMemo(() => {

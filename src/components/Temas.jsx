@@ -29,8 +29,8 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
   const filtered = useMemo(() => {
     let r = parentReviews;
     if (filterArea !== "all") r = r.filter((x) => x.area === filterArea);
-    if (search) r = r.filter((x) => x.theme.toLowerCase().includes(search.toLowerCase()) ||
-      subtopicReviews.some((s) => s.area === x.area && s.parentTheme === x.theme && s.theme.toLowerCase().includes(search.toLowerCase())));
+    if (search) r = r.filter((x) => (x.theme && x.theme.toLowerCase().includes(search.toLowerCase())) ||
+      subtopicReviews.some((s) => s.area === x.area && s.parentTheme === x.theme && s.theme && s.theme.toLowerCase().includes(search.toLowerCase())));
     return r;
   }, [parentReviews, subtopicReviews, filterArea, search]);
 
@@ -43,7 +43,7 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
 
   function getSubtopicsForTheme(r) {
     if (!subtopics) return { key: null, items: [] };
-    const normalize = (s) => s.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();
+    const normalize = (s) => (s || "").toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();
     const stopWords = new Set(["sem", "das", "dos", "del", "und", "the", "and", "para", "com", "por"]);
     const keywords = (s) => normalize(s).split(/\s+/).filter((w) => w.length >= 3 && !stopWords.has(w));
     const rTheme = normalize(r.theme);

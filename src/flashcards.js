@@ -79,12 +79,13 @@ function getStudiedTopics() {
   SEMANAS.forEach((sem) => {
     const satDate = SEM_SAT[sem.semana];
     if (!satDate || satDate > t) return;
-    sem.aulas.forEach((a) => topics.add(a.topic.toLowerCase().trim()));
+    sem.aulas.forEach((a) => { if (a.topic) topics.add(a.topic.toLowerCase().trim()); });
   });
   return topics;
 }
 
 function matchesCursinho(theme, cursinhoTopics) {
+  if (!theme) return false;
   const t = theme.toLowerCase().trim();
   for (const ct of cursinhoTopics) {
     if (ct.includes(t) || t.includes(ct)) return true;

@@ -52,7 +52,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   function getSubtopicsForReview(r) {
     if (!subtopics) return [];
     // Normalize: remove "(Sem. XX)", roman numerals, dashes, extra spaces, lowercase
-    const normalize = (s) => s.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();
+    const normalize = (s) => (s || "").toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/\b(i{1,3}|iv|v)\b/g, " ").replace(/[—–\-]/g, " ").replace(/\s+/g, " ").trim();
     // Extract significant words (3+ chars, skip stop words)
     const stopWords = new Set(["sem", "das", "dos", "del", "und", "the", "and", "para", "com", "por"]);
     const keywords = (s) => normalize(s).split(/\s+/).filter((w) => w.length >= 3 && !stopWords.has(w));

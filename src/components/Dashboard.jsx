@@ -91,11 +91,12 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     SEMANAS.forEach((sem) => {
       const satDate = SEM_SAT[sem.semana];
       if (!satDate || satDate > t) return;
-      sem.aulas.forEach((a) => topics.add(a.topic.toLowerCase().trim()));
+      sem.aulas.forEach((a) => { if (a.topic) topics.add(a.topic.toLowerCase().trim()); });
     });
     return topics;
   }, []);
   function matchesCursinho(theme) {
+    if (!theme) return false;
     const t = theme.toLowerCase().trim();
     for (const ct of cursinhoTopics) {
       if (ct.includes(t) || t.includes(ct)) return true;
@@ -108,6 +109,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     return false;
   }
   function findSummary(theme) {
+    if (!theme) return null;
     const t = theme.toLowerCase().trim();
     if (THEME_SUMMARIES[t]) return THEME_SUMMARIES[t];
     let best = null, bestScore = 0;
@@ -122,14 +124,16 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   }
   // Helper: build history for a theme from revLogs + sessions
   function themeHistory(area, theme) {
+    if (!theme) return [];
     const tLow = theme.toLowerCase().trim();
     const all = [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))]
-      .filter((l) => l.area === area && l.theme.toLowerCase().trim() === tLow)
+      .filter((l) => l.area === area && l.theme && l.theme.toLowerCase().trim() === tLow)
       .sort((a, b) => a.date.localeCompare(b.date));
     return all.map((l) => ({ date: l.date, pct: l.pct, total: l.total || 0 }));
   }
   // Helper: find exam errors for a theme
   function themeExamErrors(area, theme) {
+    if (!theme) return [];
     const tLow = theme.toLowerCase().trim();
     const errors = [];
     exams.forEach((ex) => {
@@ -147,8 +151,9 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   }
   // Helper: find next review due for a theme
   function themeNextReview(area, theme) {
+    if (!theme) return null;
     const tLow = theme.toLowerCase().trim();
-    return reviews.find((r) => r.area === area && r.theme.toLowerCase().trim() === tLow) || null;
+    return reviews.find((r) => r.area === area && r.theme && r.theme.toLowerCase().trim() === tLow) || null;
   }
   const alerts = useMemo(() => {
     const res = [];
@@ -167,6 +172,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     // Revisões consecutivas <75%
     const byThemeRevLogs = {};
     [...revLogs].sort((a, b) => a.date.localeCompare(b.date)).forEach((l) => {
+      if (!l.theme) return;
       const k = `${l.area}__${l.theme.toLowerCase().trim()}`;
       if (!byThemeRevLogs[k]) byThemeRevLogs[k] = { area: l.area, theme: l.theme, logs: [] };
       byThemeRevLogs[k].logs.push(l);

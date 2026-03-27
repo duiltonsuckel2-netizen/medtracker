@@ -182,14 +182,13 @@ function App() {
   const dueR = reviews.filter((r) => r.nextDue <= today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   const upR = reviews.filter((r) => r.nextDue > today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   const alertThemes = [];
-  const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚", flashcards:"🃏" };
+  const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚" };
   const TABS = [
     { id: "agenda", label: "Agenda" },
     { id: "dashboard", label: "Dashboard" },
     { id: "revisoes", label: `Revisões${dueR.length ? ` (${dueR.length})` : ""}` },
     { id: "provas", label: "Provas" },
     { id: "temas", label: "Temas" },
-    { id: "flashcards", label: "Flashcards" },
   ];
 
 

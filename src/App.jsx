@@ -67,24 +67,30 @@ function App() {
         const logs = SEED_LOGS.map((l) => ({ ...l, id: uid() }));
         const se = buildUnicamp2024Exam();
         setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]); setSubtopics({});
+        const seedFc = generateFlashcardDecks([se], revs, []);
+        setFlashcardDecks(seedFc); saveKey("rp26_flashcards", seedFc);
         saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_subtopics", {}); saveKey("rp26_seeded12", true);
-      } else { setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {}); setFlashcardDecks(Array.isArray(fc) ? fc : []); }
+      } else {
+        const loadedSessions = Array.isArray(s) ? s : [];
+        const loadedReviews = Array.isArray(r) ? r : [];
+        const loadedExams = Array.isArray(e) ? e : [];
+        const loadedFc = Array.isArray(fc) ? fc : [];
+        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(Array.isArray(rl) ? rl : []); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
+        // Auto-generate or upgrade flashcards immediately with loaded data
+        if (loadedExams.length > 0) {
+          const needsUpgrade = loadedFc.length > 0 && loadedFc.some(d => !d._v || d._v < 2);
+          if (loadedFc.length === 0 || needsUpgrade) {
+            const newDecks = generateFlashcardDecks(loadedExams, loadedReviews, loadedSessions);
+            if (newDecks.length > 0) {
+              const finalFc = needsUpgrade ? mergeDecks(loadedFc, newDecks) : newDecks;
+              setFlashcardDecks(finalFc); saveKey("rp26_flashcards", finalFc);
+            } else { setFlashcardDecks(loadedFc); }
+          } else { setFlashcardDecks(loadedFc); }
+        } else { setFlashcardDecks(loadedFc); }
+      }
       setReady(true);
     });
   }, []);
-  // Auto-generate/upgrade flashcards on load
-  React.useEffect(() => {
-    if (!ready || exams.length === 0) return;
-    // Regenerate if no decks OR if existing decks are from old version (v1 had shallow content)
-    const needsUpgrade = flashcardDecks.length > 0 && flashcardDecks.some(d => !d._v || d._v < 2);
-    if (flashcardDecks.length === 0 || needsUpgrade) {
-      const newDecks = generateFlashcardDecks(exams, reviews, sessions);
-      if (newDecks.length > 0) {
-        const merged = needsUpgrade ? mergeDecks(flashcardDecks, newDecks) : newDecks;
-        pFc(merged);
-      }
-    }
-  }, [ready]);
   const notify = (msg) => { setFlash(msg); setTimeout(() => setFlash(""), 2500); };
   const pS = (v) => { setSessions(v); saveKey("rp26_sessions", v); };
   const pR = (v) => { setReviews(v); saveKey("rp26_reviews", v); };

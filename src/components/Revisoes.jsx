@@ -9,7 +9,7 @@ import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicM
 
 function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics }) {
   const [subTab, setSubTab] = useState("proximas");
-  const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id).map((r) => r.theme), ...revLogs.filter((r) => r.area === a.id).map((r) => r.theme)])].sort(); }); return o; }, [reviews, revLogs]);
+  const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id).map((r) => r.theme).filter(Boolean), ...revLogs.filter((r) => r.area === a.id).map((r) => r.theme).filter(Boolean)])].sort(); }); return o; }, [reviews, revLogs]);
   const emptyQ = { area: "clinica", theme: "", freeTheme: false, total: "", acertos: "" };
   const [qForm, setQForm] = useState(emptyQ); const [showQ, setShowQ] = useState(false); const [marking, setMarking] = useState(null);
   const [subtemaModal, setSubtemaModal] = useState(null);
@@ -280,8 +280,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       <div style={{ ...card, background: C.surface, border: `1px solid ${C.blue}30` }}><div style={{ fontSize: 13, fontWeight: 600, color: C.blue, marginBottom: S.sm }}>Intervalos</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>{INTERVALS.map((iv, i) => <div key={i} style={{ background: C.card2, borderRadius: R.sm, padding: "5px 12px", fontSize: 11, color: C.text2, fontFamily: FM, fontWeight: 500 }}>{INT_LABELS[i]}</div>)}</div><div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>≥85% → avança · 75–84% → mantém · &lt;75% → volta um</div></div>
       </>}
       {subTab === "evolucao" && (() => {
-        const evoFiltered = themeProgress.filter((t) => (evoArea === "all" || t.area === evoArea) && (!evoSearch || t.theme.toLowerCase().includes(evoSearch.toLowerCase())));
-        const evoSuggestions = evoSearch.length >= 1 && evoFocused ? [...new Set(themeProgress.map((t) => t.theme))].filter((th) => th.toLowerCase().includes(evoSearch.toLowerCase())).slice(0, 6) : [];
+        const evoFiltered = themeProgress.filter((t) => (evoArea === "all" || t.area === evoArea) && (!evoSearch || (t.theme && t.theme.toLowerCase().includes(evoSearch.toLowerCase()))));
+        const evoSuggestions = evoSearch.length >= 1 && evoFocused ? [...new Set(themeProgress.map((t) => t.theme).filter(Boolean))].filter((th) => th.toLowerCase().includes(evoSearch.toLowerCase())).slice(0, 6) : [];
         const evoChip = (active, color) => ({ padding: "7px 16px", fontSize: 12, fontFamily: F, fontWeight: active ? 700 : 500, minHeight: H.sm, height: H.sm, borderRadius: R.pill, cursor: "pointer", background: active ? (color || C.card2) : "transparent", border: active ? `1px solid ${color ? color + "60" : C.border2}` : `1px solid ${C.border}`, color: active ? (color ? "#fff" : C.text) : C.text3, boxShadow: active ? SH.sm : "none", transition: "all 0.15s" });
         return <>
         <div style={{ fontSize: 12, color: C.text3, fontFamily: FM }}>Evolução de cada tema ao longo das revisões. Verde = melhorando, vermelho = caindo.</div>

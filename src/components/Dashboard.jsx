@@ -183,7 +183,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
       }
     });
     // Erros em prova: temas do cursinho com prevalência alta/muito alta
-    const studiedThemes = new Set(reviews.map((r) => r.theme.toLowerCase().trim()));
+    const studiedThemes = new Set(reviews.filter((r) => r.theme).map((r) => r.theme.toLowerCase().trim()));
     const examAlertsSeen = new Set();
     exams.forEach((ex) => {
       if (!ex.qDetails || !ex.cats) return;

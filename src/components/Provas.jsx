@@ -19,7 +19,7 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
   const [sortMode, setSortMode] = useState("best");
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const allLogs = useMemo(() => [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))], [revLogs, sessions]);
-  const knownThemes = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set(allLogs.filter((l) => l.area === a.id).map((l) => l.theme))].sort(); }); return o; }, [allLogs]);
+  const knownThemes = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set(allLogs.filter((l) => l.area === a.id).map((l) => l.theme).filter(Boolean))].sort(); }); return o; }, [allLogs]);
   const reset = () => { setStep(0); setExamMeta({ date: today(), name: "", total: 120 }); setQMap({}); setQDetails({}); setSearchQuery(""); setSearchResults([]); setPdfStatus("idle"); setPdfMsg(""); setAiAnalysis(null); };
   const total = Number(examMeta.total) || 0;
   const questions = Array.from({ length: total }, (_, i) => i + 1);

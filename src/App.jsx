@@ -63,7 +63,7 @@ function App() {
   useEffect(() => {
     Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_subtopics", {}), loadKey("rp26_seeded12", false), loadKey("rp26_flashcards", [])]).then(([s, r, rl, e, st, seeded, fc]) => {
       if (!seeded) {
-        const revs = SEED_REVIEWS.map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}`, history: [{ date: r.lastStudied, pct: r.lastPerf }] }));
+        const revs = SEED_REVIEWS.filter((r) => r.theme).map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}`, history: [{ date: r.lastStudied, pct: r.lastPerf }] }));
         const logs = SEED_LOGS.map((l) => ({ ...l, id: uid() }));
         const se = buildUnicamp2024Exam();
         setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]); setSubtopics({});

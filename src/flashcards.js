@@ -165,7 +165,7 @@ function generateCardsFromSummary(theme, area, summary) {
 // Main function: analyze exams and generate flashcard decks
 export function generateFlashcardDecks(exams, reviews, sessions) {
   const cursinhoTopics = getStudiedTopics();
-  const studiedThemes = new Set(reviews.map((r) => r.theme.toLowerCase().trim()));
+  const studiedThemes = new Set(reviews.filter((r) => r.theme).map((r) => r.theme.toLowerCase().trim()));
   const decks = [];
   const seenThemes = new Set();
 
@@ -234,13 +234,14 @@ export function generateFlashcardDecks(exams, reviews, sessions) {
 // Merge newly generated decks with existing saved flashcards (preserve SM-2 state)
 export function mergeDecks(existingDecks, newDecks) {
   const merged = [...existingDecks];
-  const existingThemes = new Set(existingDecks.map(d => `${d.area}__${d.theme.toLowerCase().trim()}`));
+  const existingThemes = new Set(existingDecks.filter(d => d.theme).map(d => `${d.area}__${d.theme.toLowerCase().trim()}`));
 
   newDecks.forEach((nd) => {
+    if (!nd.theme) return;
     const key = `${nd.area}__${nd.theme.toLowerCase().trim()}`;
     if (existingThemes.has(key)) {
       // Update existing deck: keep SM-2 state but refresh card content if needed
-      const idx = merged.findIndex(d => `${d.area}__${d.theme.toLowerCase().trim()}` === key);
+      const idx = merged.findIndex(d => d.theme && `${d.area}__${d.theme.toLowerCase().trim()}` === key);
       if (idx >= 0) {
         // Preserve existing card states
         merged[idx] = {

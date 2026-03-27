@@ -1,6 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
-import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam } from "./data.js";
+import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam, LOG_NAME_MAP } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
@@ -121,7 +121,30 @@ function App() {
           });
           if (changed) saveKey("rp26_reviews", loadedReviews);
         }
-        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(Array.isArray(rl) ? rl : []); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
+        // Migration v6: rename abbreviated log themes → official names + fix "Sd. Disfágica (Sem. 02)" review
+        let loadedLogs = Array.isArray(rl) ? rl : [];
+        if (!localStorage.getItem("rp26_mig_v6")) {
+          localStorage.setItem("rp26_mig_v6", "1");
+          // 1) Rename revLogs themes
+          let logsChanged = false;
+          loadedLogs = loadedLogs.map((l) => {
+            const mapped = LOG_NAME_MAP[l.theme];
+            if (mapped) { logsChanged = true; return { ...l, theme: mapped }; }
+            return l;
+          });
+          if (logsChanged) saveKey("rp26_revlogs", loadedLogs);
+          // 2) Fix review card "Sd. Disfágica (Sem. 02)" → "Hipertensão Porta (Sem. 02)"
+          const oldKey = "cirurgia__sd. disfágica (sem. 02)";
+          const newTheme = "Hipertensão Porta (Sem. 02)";
+          const newKey = `cirurgia__${newTheme.toLowerCase().trim()}`;
+          let revChanged = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            if (rv.key === oldKey) { revChanged = true; return { ...rv, theme: newTheme, key: newKey }; }
+            return rv;
+          });
+          if (revChanged) saveKey("rp26_reviews", loadedReviews);
+        }
+        setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
           const needsUpgrade = loadedFc.length > 0 && loadedFc.some(d => !d._v || d._v < 2);

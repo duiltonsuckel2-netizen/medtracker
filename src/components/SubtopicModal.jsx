@@ -69,7 +69,7 @@ function SubtopicModal({ area, topic, semana, existing, onSave, onClose }) {
             onChange={(e) => setNewItem(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") addItem(); }}
             placeholder="Ex: Abortamento, DTG, Ectópica…"
-            style={{ ...inp(), flex: 1, padding: "10px 14px", fontSize: 13 }}
+            style={{ ...inp(), flex: 1, padding: "10px 14px", fontSize: 16 }}
           />
           <button onClick={addItem} disabled={!newItem.trim()} style={btn(C.blue, { padding: "10px 16px", fontSize: 13, opacity: newItem.trim() ? 1 : 0.4 })}>+</button>
         </div>
@@ -130,8 +130,8 @@ function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) 
               <div key={i} style={{ background: C.card2, borderRadius: R.md, padding: 12, border: `1px solid ${C.border}` }}>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{entry.name}</div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <input type="number" min="0" value={entry.total} onChange={(e) => setEntry(i, "total", e.target.value)} placeholder="Total" style={{ ...inp(), width: 70, padding: "6px 10px", fontSize: 12, textAlign: "center" }} />
-                  <input type="number" min="0" value={entry.acertos} onChange={(e) => setEntry(i, "acertos", e.target.value)} placeholder="Acertos" style={{ ...inp(), width: 70, padding: "6px 10px", fontSize: 12, textAlign: "center", borderColor: "#34D39944" }} />
+                  <input type="number" min="0" value={entry.total} onChange={(e) => setEntry(i, "total", e.target.value)} placeholder="Total" style={{ ...inp(), width: 70, padding: "6px 10px", fontSize: 16, textAlign: "center" }} />
+                  <input type="number" min="0" value={entry.acertos} onChange={(e) => setEntry(i, "acertos", e.target.value)} placeholder="Acertos" style={{ ...inp(), width: 70, padding: "6px 10px", fontSize: 16, textAlign: "center", borderColor: "#34D39944" }} />
                   {pct !== null && <span style={{ fontSize: 14, fontWeight: 700, color: pctColor, fontFamily: "SF Mono, monospace", minWidth: 38 }}>{pct}%</span>}
                   <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
                     {CONFIDENCE_OPTS.map((c) => (

@@ -73,9 +73,54 @@ function App() {
         saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_subtopics", {}); saveKey("rp26_seeded12", true);
       } else {
         const loadedSessions = Array.isArray(s) ? s : [];
-        const loadedReviews = Array.isArray(r) ? r : [];
+        let loadedReviews = Array.isArray(r) ? r : [];
         const loadedExams = Array.isArray(e) ? e : [];
         const loadedFc = Array.isArray(fc) ? fc : [];
+        // Migration v4: fix HAS card + remove 1d interval (based on real Notion data)
+        if (!localStorage.getItem("rp26_mig_v4")) {
+          localStorage.setItem("rp26_mig_v4", "1");
+          // Canonical card identity
+          const hasTheme = "Sd. Metabólica I — HAS e Dislipidemia (Sem. 08)";
+          const hasKey = `clinica__${hasTheme.toLowerCase().trim()}`;
+          // Match any HAS variant (main cards only, preserve subtopics)
+          const isHasMainCard = (rv) => !rv.isSubtopic && rv.area === "clinica" && (
+            rv.key.includes("metabólica") || rv.key.includes("metabolica") ||
+            rv.key.includes("dislipidemia") || rv.key.includes("has e") ||
+            rv.key.includes("has —") || rv.key.includes("hipertensão arterial")
+          );
+          // 1) Shift all intervalIndex down by 1 (removed old 1d interval)
+          loadedReviews = loadedReviews.map((rv) => ({ ...rv, intervalIndex: Math.max(0, rv.intervalIndex - 1) }));
+          // 2) Remove all HAS variants (may exist with different keys)
+          loadedReviews = loadedReviews.filter((rv) => !isHasMainCard(rv));
+          // 3) Add single canonical card — state from Notion:
+          //    Mar 10: 78%, Mar 17: 83% → gap 14d → idx 1, nextDue Mar 24
+          //    Today is Mar 27 so 3 days overdue → shows as "pendente"
+          loadedReviews.unshift({
+            id: uid(), key: hasKey, area: "clinica", theme: hasTheme,
+            intervalIndex: 1, nextDue: "2026-03-24", lastPerf: 83,
+            lastStudied: "2026-03-17",
+            history: [{ date: "2026-03-10", pct: 78 }, { date: "2026-03-17", pct: 83 }]
+          });
+          saveKey("rp26_reviews", loadedReviews);
+        }
+        // Migration v5: fix intervalIndex for Hemorragia Dig II and SUS (Notion says 1 mês = idx 2)
+        if (!localStorage.getItem("rp26_mig_v5")) {
+          localStorage.setItem("rp26_mig_v5", "1");
+          const fixes = {
+            "cirurgia__hemorragia digestiva ii — proctologia (sem. 08)": 2,
+            "preventiva__sus — evolução histórica e financiamento (sem. 09)": 2,
+          };
+          let changed = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            const fixIdx = fixes[rv.key];
+            if (fixIdx !== undefined && rv.intervalIndex !== fixIdx) {
+              changed = true;
+              return { ...rv, intervalIndex: fixIdx };
+            }
+            return rv;
+          });
+          if (changed) saveKey("rp26_reviews", loadedReviews);
+        }
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(Array.isArray(rl) ? rl : []); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
@@ -89,34 +134,41 @@ function App() {
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
       }
-      // Migration v2: restore HAS review, remove 1d interval, fix intervalIndex
-      const migKey2 = "rp26_mig_v2_fix_has";
-      if (!localStorage.getItem(migKey2)) {
-        localStorage.setItem(migKey2, "1");
+      // Migration v3: fix all intervalIndex by real gap, restore HAS correctly
+      const migKey3 = "rp26_mig_v3_fix_intervals";
+      if (!localStorage.getItem(migKey3)) {
+        localStorage.setItem(migKey3, "1");
         let revs = Array.isArray(r) ? [...r] : [];
         const td = today();
-        // 1) Shift all intervalIndex down by 1 (removed 1d interval)
-        revs = revs.map((rv) => ({ ...rv, intervalIndex: Math.max(0, rv.intervalIndex - 1) }));
-        // 2) Find & fix HAS card (old theme had "Dislipidemia" or "Metabólica")
+        const IVALS = [7, 14, 30, 60, 90, 120, 180];
+        // 1) Recalculate intervalIndex from real gap (nextDue - lastStudied)
+        revs = revs.map((rv) => {
+          if (!rv.lastStudied || !rv.nextDue) return rv;
+          const gap = Math.round((new Date(rv.nextDue) - new Date(rv.lastStudied)) / 86400000);
+          let bestIdx = 0;
+          for (let i = 0; i < IVALS.length; i++) {
+            if (Math.abs(gap - IVALS[i]) <= Math.abs(gap - IVALS[bestIdx])) bestIdx = i;
+          }
+          return { ...rv, intervalIndex: bestIdx };
+        });
+        // 2) Fix HAS card (old theme had "Dislipidemia" or "Metabólica")
         const hasNewTheme = "HAS — Hipertensão Arterial (Sem. 08)";
         const hasNewKey = `clinica__${hasNewTheme.toLowerCase().trim()}`;
         const oldIdx = revs.findIndex((rv) => rv.area === "clinica" && (rv.key.includes("metabólica") || rv.key.includes("metabolica") || rv.key.includes("dislipidemia") || rv.key.includes("has e")));
         if (oldIdx >= 0) {
-          // Rename and reschedule to today
-          revs[oldIdx] = { ...revs[oldIdx], theme: hasNewTheme, key: hasNewKey, nextDue: td, intervalIndex: 0 };
+          revs[oldIdx] = { ...revs[oldIdx], theme: hasNewTheme, key: hasNewKey, nextDue: td };
         } else {
-          // Card doesn't exist — create it
           const loadedLogs = Array.isArray(rl) ? rl : [];
           const hasLogs = loadedLogs.filter((l) => l.area === "clinica" && l.theme && (l.theme.toLowerCase().includes("has") || l.theme.toLowerCase().includes("hipertens")));
           const lastLog = hasLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
           revs.unshift({
             id: uid(), key: hasNewKey, area: "clinica", theme: hasNewTheme,
-            intervalIndex: 0, nextDue: td, lastPerf: lastLog?.pct || 78,
+            intervalIndex: 1, nextDue: td, lastPerf: lastLog?.pct || 78,
             lastStudied: lastLog?.date || "2026-03-10",
             history: hasLogs.length > 0 ? hasLogs.map((l) => ({ date: l.date, pct: l.pct })) : [{ date: "2026-03-10", pct: 78 }]
           });
         }
-        // 3) Remove any standalone Dislipidemia card (it's a subtopic, not main)
+        // 3) Remove any standalone Dislipidemia card
         revs = revs.filter((rv) => {
           const k = rv.key.toLowerCase();
           return !(k.includes("dislipidemia") && !k.includes("has"));
@@ -137,24 +189,35 @@ function App() {
   function saveSubtopics(area, topic, items) {
     const key = `${area}__${topic}`;
     pSt({ ...subtopics, [key]: items });
+    // Persist subtopic names on matching review cards for reliable lookup
+    if (items.length > 0) {
+      const tWords = topic.toLowerCase().replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
+      const updated = reviews.map((r) => {
+        if (r.area !== area || r.isSubtopic) return r;
+        const rWords = r.theme.toLowerCase().replace(/\s*\(sem\.\s*\d+\)\s*/gi, " ").replace(/[—–\-]/g, " ").split(/\s+/).filter((w) => w.length >= 3);
+        const shared = tWords.filter((tw) => rWords.some((rw) => rw.includes(tw) || tw.includes(rw)));
+        if (shared.length >= Math.ceil(tWords.length * 0.5)) return { ...r, subtopicNames: items };
+        return r;
+      });
+      if (updated.some((r, i) => r !== reviews[i])) pR(updated);
+    }
   }
   function getSubtopics(area, topic) {
     return subtopics[`${area}__${topic}`] || [];
   }
-  function addSubtopicReview(area, parentTheme, subtema, total, acertos, confidence) {
-    const pct = perc(acertos, total);
+  function addSubtopicReview(area, parentTheme, subtema, pct) {
     const key = `${area}__${parentTheme.toLowerCase().trim()}::${subtema.toLowerCase().trim()}`;
     const ex = reviews.find((r) => r.key === key);
     const ni = nxtIdx(ex?.intervalIndex || 0, pct);
     const rev = {
       id: ex?.id || uid(), key, area, theme: subtema, parentTheme,
-      isSubtopic: true, confidence: confidence || null,
+      isSubtopic: true,
       intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]),
       lastPerf: pct, lastStudied: today(),
-      history: [...(ex?.history || []), { date: today(), pct, confidence: confidence || null }]
+      history: [...(ex?.history || []), { date: today(), pct }]
     };
     pR(ex ? reviews.map((r) => r.key === key ? rev : r) : [rev, ...reviews]);
-    pL([{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, total, acertos, pct, confidence: confidence || null, isSubtopic: true }, ...revLogs]);
+    pL([{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, pct, isSubtopic: true }, ...revLogs]);
   }
   function addSession(session) {
     const s = { ...session, id: uid(), createdAt: today() }; pS([s, ...sessions]);
@@ -171,12 +234,51 @@ function App() {
     else { pR([{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...reviews]); }
     notify("✓ Revisão registrada");
   }
-  function markReview(revId, acertos, total) {
+  function markReview(revId, acertos, total, subtopicScores) {
     const pct = perc(acertos, total); const rev = reviews.find((r) => r.id === revId); if (!rev) return;
     const ni = nxtIdx(rev.intervalIndex, pct);
-    pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] }));
-    pL([{ id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct }, ...revLogs]);
+    const entry = { date: today(), pct, _prev: { intervalIndex: rev.intervalIndex, nextDue: rev.nextDue, lastPerf: rev.lastPerf, lastStudied: rev.lastStudied } };
+    // Update main card + subtopic cards in one batch
+    let newReviews = reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
+    // Update subtopic cards if scores provided
+    if (subtopicScores && subtopicScores.length > 0) {
+      subtopicScores.forEach((s) => {
+        const sKey = `${rev.area}__${rev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
+        const ex = newReviews.find((r) => r.key === sKey);
+        const sni = nxtIdx(ex?.intervalIndex || 0, s.pct);
+        const sRev = {
+          id: ex?.id || uid(), key: sKey, area: rev.area, theme: s.name, parentTheme: rev.theme,
+          isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
+          lastPerf: s.pct, lastStudied: today(),
+          history: [...(ex?.history || []), { date: today(), pct: s.pct }]
+        };
+        newReviews = ex ? newReviews.map((r) => r.key === sKey ? sRev : r) : [sRev, ...newReviews];
+      });
+    }
+    pR(newReviews);
+    // Single log entry with inline subtopic scores
+    const logEntry = { id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct };
+    if (subtopicScores && subtopicScores.length > 0) logEntry.subtopicScores = subtopicScores;
+    pL([logEntry, ...revLogs]);
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
+  }
+  function undoMarkReview(revId) {
+    const rev = reviews.find((r) => r.id === revId); if (!rev) return;
+    const hist = rev.history || [];
+    if (hist.length === 0) return;
+    const last = hist[hist.length - 1];
+    const prev = last._prev;
+    if (prev) {
+      pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: hist.slice(0, -1) }));
+    } else {
+      // Sem _prev (entry antigo), mantém intervalIndex atual e coloca como vencida hoje
+      const prevEntry = hist.length >= 2 ? hist[hist.length - 2] : null;
+      pR(reviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: hist.slice(0, -1) }));
+    }
+    const revTheme = rev.theme;
+    const logIdx = revLogs.findIndex((l) => l.theme === revTheme && l.date === today());
+    if (logIdx >= 0) pL(revLogs.filter((_, i) => i !== logIdx));
+    notify("↩ Revisão desfeita — voltou para hoje");
   }
   function editReview(revId, ni, nd) { pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd })); notify("✓ Corrigido"); }
   function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; pE(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); pFc(merged); }, 100); }
@@ -234,14 +336,13 @@ function App() {
   const dueR = reviews.filter((r) => r.nextDue <= today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   const upR = reviews.filter((r) => r.nextDue > today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   const alertThemes = [];
-  const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚", flashcards:"🃏" };
+  const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚" };
   const TABS = [
-    { id: "agenda", label: "Agenda" },
     { id: "dashboard", label: "Dashboard" },
     { id: "revisoes", label: `Revisões${dueR.length ? ` (${dueR.length})` : ""}` },
     { id: "provas", label: "Provas" },
     { id: "temas", label: "Temas" },
-    { id: "flashcards", label: "Flashcards" },
+    { id: "agenda", label: "Agenda" },
   ];
 
 
@@ -250,7 +351,7 @@ function App() {
       {/* HEADER */}
       <div style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 20px)", background: `linear-gradient(160deg, rgba(129,140,248,0.12) 0%, rgba(196,181,253,0.10) 50%, transparent 100%)`, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
         <div style={{ display: "flex", alignItems: "center", padding: "12px 16px 10px", maxWidth: 1200, margin: "0 auto", gap: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 0, flexShrink: 0, marginRight: 14 }}>
+          <div onClick={() => switchTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: 0, flexShrink: 0, marginRight: 14, cursor: "pointer" }}>
             <img src={import.meta.env.BASE_URL + "logo-cropped.png"} alt="MedTracker" style={{ width: 42, height: 42 }} />
             <span style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.6, fontFamily: F }}><span style={{ color: C.purple }}>Med</span><span style={{ color: C.text, fontWeight: 700 }}>Tracker</span></span>
           </div>
@@ -282,7 +383,7 @@ function App() {
           {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
           {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
           {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
-          {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} />}
+          {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} onUndoMark={undoMarkReview} />}
           {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
           {tab === "temas" && <Temas reviews={reviews} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} />}
           {tab === "flashcards" && <Flashcards decks={flashcardDecks} onReview={handleFlashcardReview} />}

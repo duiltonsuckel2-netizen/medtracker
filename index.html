@@ -27,6 +27,20 @@
     </style>
   </head>
   <body>
+    <div id="splash" style="position:fixed;inset:0;z-index:9999;background:#0A0A0B;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s ease-out">
+      <img src="/medtracker/logo-cropped.png" alt="" style="width:72px;height:72px;animation:splashPulse 1.2s ease-in-out infinite" />
+      <div style="margin-top:14px;font-family:'Inter',system-ui,sans-serif;font-size:22px;font-weight:800;letter-spacing:-0.5px;animation:splashFade 0.6s ease-out">
+        <span style="color:#A78BFA">Med</span><span style="color:#F4F4F5;font-weight:700">Tracker</span>
+      </div>
+      <div style="margin-top:20px;width:48px;height:3px;border-radius:4px;background:#27272A;overflow:hidden">
+        <div style="width:100%;height:100%;background:linear-gradient(90deg,#A78BFA,#60A5FA);animation:splashBar 1s ease-in-out infinite;transform-origin:left"></div>
+      </div>
+    </div>
+    <style>
+      @keyframes splashPulse { 0%,100% { transform:scale(1);opacity:1 } 50% { transform:scale(1.08);opacity:0.85 } }
+      @keyframes splashFade { from { opacity:0;transform:translateY(8px) } to { opacity:1;transform:translateY(0) } }
+      @keyframes splashBar { 0% { transform:scaleX(0) } 50% { transform:scaleX(1) } 100% { transform:scaleX(0) } }
+    </style>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>

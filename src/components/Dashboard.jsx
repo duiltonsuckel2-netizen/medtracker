@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit } from "../theme.js";
-import { today, addDays, diffDays, fmtDate, perc, perfColor, syncWithNotion, weekDates } from "../utils.js";
+import { today, addDays, diffDays, fmtDate, perc, perfColor, weekDates } from "../utils.js";
 import { loadKey, saveKey } from "../storage.js";
 import { Fld, ChartTip } from "./UI.jsx";
 
@@ -232,13 +232,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     } catch (e) { setExportStatus("error"); }
   }
   async function doNotionSync() {
-    if (!notionToken.trim() || !notionDbId.trim()) return alert("Preencha token e database ID.");
-    setNotionStatus("loading"); setNotionMsg("Conectando ao Notion via IA…");
-    try {
-      const result = await syncWithNotion(notionToken, notionDbId);
-      if (result.reviews?.length > 0) { onNotionSync(result.reviews); setNotionStatus("done"); setNotionMsg(`✓ ${result.reviews.length} revisões sincronizadas do Notion!`); }
-      else { setNotionStatus("error"); setNotionMsg("Nenhuma revisão encontrada. Verifique o token e database ID."); }
-    } catch (e) { setNotionStatus("error"); setNotionMsg("Erro: " + e.message); }
+    setNotionStatus("error"); setNotionMsg("Sincronização com Notion indisponível. Use a importação manual via backup.");
   }
   const DASH_TABS = [
     { id: "overview", label: "Visão geral" },

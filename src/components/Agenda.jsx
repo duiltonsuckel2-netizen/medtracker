@@ -72,11 +72,13 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
     const w = buildWeekTemplate(ni, reviews, alertThemes);
     setWeek(w); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: SEMANAS[ni]?.semana, days: w });
   }
+  const saveTimerRef = useRef(null);
   function save(days) {
     setWeek(days);
-    // Save as object so _weekKey and _semana survive JSON.stringify
-    // (custom properties on Arrays are silently dropped by JSON.stringify)
-    saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: SEMANAS[semIdx]?.semana, days });
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: SEMANAS[semIdx]?.semana, days });
+    }, 300);
   }
   function findAulaForItem(item) {
     // Match agenda item to a SEMANAS aula by id or text
@@ -179,7 +181,7 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
         <select value={semIdx} onChange={(e) => rebuildForSem(Number(e.target.value))} style={{ ...inp(), width: "auto", fontSize: 11, padding: "6px 10px" }}>
           {SEMANAS.map((s, i) => <option key={i} value={i}>{s.semana} — {s.aulas.map((a) => a.area).join(" + ")}</option>)}
         </select>
-        <button onClick={() => archiveAndReset()} style={btn(C.blue, { padding: "7px 16px", fontSize: 12 })}>Próxima semana →</button>
+        <button onClick={() => { if (confirm("Arquivar semana atual e ir para a próxima?")) archiveAndReset(); }} style={btn(C.blue, { padding: "7px 16px", fontSize: 12 })}>Próxima semana →</button>
       </div>
       {view === "current" && semana && (() => {
         const satStr = SEM_SAT[semana.semana];

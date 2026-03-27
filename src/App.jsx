@@ -1,20 +1,21 @@
-import React from "react";
-import { useState, useEffect } from "react";
+import React, { Suspense } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam, LOG_NAME_MAP } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
 import { Agenda } from "./components/Agenda.jsx";
-import { Dashboard } from "./components/Dashboard.jsx";
 import { SessionModal } from "./components/SessionModal.jsx";
 import { Sessoes } from "./components/Sessoes.jsx";
-import { Revisoes } from "./components/Revisoes.jsx";
-import { Temas } from "./components/Temas.jsx";
-import { Provas } from "./components/Provas.jsx";
 import { SubtopicModal, SubtopicReviewModal } from "./components/SubtopicModal.jsx";
 import { SkeletonCard } from "./components/UI.jsx";
-import { Flashcards } from "./components/Flashcards.jsx";
 import { generateFlashcardDecks, mergeDecks, reviewCard } from "./flashcards.js";
+
+const Dashboard = React.lazy(() => import("./components/Dashboard.jsx").then(m => ({ default: m.Dashboard })));
+const Revisoes = React.lazy(() => import("./components/Revisoes.jsx").then(m => ({ default: m.Revisoes })));
+const Temas = React.lazy(() => import("./components/Temas.jsx").then(m => ({ default: m.Temas })));
+const Provas = React.lazy(() => import("./components/Provas.jsx").then(m => ({ default: m.Provas })));
+const Flashcards = React.lazy(() => import("./components/Flashcards.jsx").then(m => ({ default: m.Flashcards })));
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem("rp26_dark") !== "false"; } catch { return true; } });
@@ -33,8 +34,7 @@ function App() {
   const [tabKey, setTabKey] = useState(0);
 
   useEffect(() => { injectKeyframes(); }, []);
-
-  applyTheme(darkMode);
+  useEffect(() => { applyTheme(darkMode); }, [darkMode]);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
   const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak"];
   function exportBackup() {
@@ -47,7 +47,10 @@ function App() {
   function importBackup() {
     const input = document.createElement("input"); input.type = "file"; input.accept = ".json";
     input.onchange = (e) => { const f = e.target.files?.[0]; if (!f) return; const reader = new FileReader(); reader.onload = (ev) => { try {
-      const data = JSON.parse(ev.target.result); if (!data._version) return alert("Arquivo inválido.");
+      const data = JSON.parse(ev.target.result);
+      if (!data._version) return alert("Arquivo inválido — não é um backup do MedTracker.");
+      if (!data._version.startsWith("medtracker-backup-")) return alert("Formato de backup não reconhecido.");
+      if (!confirm(`Restaurar backup de ${data._exportDate ? new Date(data._exportDate).toLocaleDateString("pt-BR") : "data desconhecida"}? Isso vai substituir todos os dados atuais.`)) return;
       BACKUP_KEYS.forEach(k => { if (data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data[k])); });
       notify("Backup restaurado! Recarregando..."); setTimeout(() => window.location.reload(), 1000);
     } catch { alert("Erro ao ler o arquivo."); } }; reader.readAsText(f); };
@@ -309,13 +312,13 @@ function App() {
   function addSession(session) {
     const s = { ...session, id: uid(), createdAt: today() }; pS((prev) => [s, ...prev]);
     const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
-    const pct = perc(session.acertos, session.total); const ni = nxtIdx(0, pct);
+    const pct = perc(session.acertos, session.total);
     pR((prevReviews) => {
       const ex = prevReviews.find((r) => r.key === key);
+      const ni = nxtIdx(ex?.intervalIndex || 0, pct);
       const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
       return ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
     });
-    notify("✓ Sessão registrada — 1ª revisão em " + INTERVALS[ni] + "d");
   }
   function addRevLog(areaId, theme, total, acertos) {
     const pct = perc(acertos, total);
@@ -358,6 +361,7 @@ function App() {
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
   function undoMarkReview(revId) {
+    const targetRev = reviews.find((r) => r.id === revId);
     pR((prevReviews) => {
       const rev = prevReviews.find((r) => r.id === revId); if (!rev) return prevReviews;
       const hist = rev.history || [];
@@ -371,7 +375,7 @@ function App() {
       return prevReviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: hist.slice(0, -1) });
     });
     pL((prevLogs) => {
-      const logIdx = prevLogs.findIndex((l) => l.date === today());
+      const logIdx = prevLogs.findIndex((l) => l.date === today() && targetRev && l.area === targetRev.area && l.theme === targetRev.theme);
       return logIdx >= 0 ? prevLogs.filter((_, i) => i !== logIdx) : prevLogs;
     });
     notify("↩ Revisão desfeita — voltou para hoje");
@@ -466,7 +470,7 @@ function App() {
                 <button onClick={() => { importBackup(); setShowBackupMenu(false); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", color: C.text, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"📥"} Restaurar backup</button>
               </div>}
             </div>
-            <button onClick={toggleTheme} style={{ background: "none", border: "none", width: 28, height: 28, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.text3, opacity: 0.35, transition: "opacity 0.2s" }} onMouseEnter={e => e.currentTarget.style.opacity = "0.7"} onMouseLeave={e => e.currentTarget.style.opacity = "0.35"}>{darkMode ? "☀" : "☽"}</button>
+            <button onClick={toggleTheme} style={{ background: "none", border: "none", width: 28, height: 28, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.text3, opacity: 0.45, transition: "opacity 0.2s" }} onMouseEnter={e => e.currentTarget.style.opacity = "0.8"} onMouseLeave={e => e.currentTarget.style.opacity = "0.45"} title={darkMode ? "Modo claro" : "Modo escuro"}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{darkMode ? <><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></> : <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>}</svg></button>
           </div>
         </div>
       </div>
@@ -475,14 +479,16 @@ function App() {
       {/* CONTENT */}
       <div style={{ padding: `${S.xl}px`, maxWidth: 1200, margin: "0 auto", paddingBottom: 100 }}>
         <div key={tabKey} className="fade-in">
-          <div style={{ display: tab === "agenda" ? "block" : "none" }}><Agenda reviews={reviews} revLogs={revLogs} alertThemes={alertThemes} subtopics={subtopics} onAulaChecked={(area, topic, semana) => setSubtopicModal({ area, topic, semana })} /></div>
-          {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
-          {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
-          {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
-          {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} onUndoMark={undoMarkReview} />}
-          {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
-          {tab === "temas" && <Temas reviews={reviews} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} />}
-          {tab === "flashcards" && <Flashcards decks={flashcardDecks} onReview={handleFlashcardReview} />}
+          <Suspense fallback={<div style={{ display: "flex", flexDirection: "column", gap: S.lg, paddingTop: 20 }}><SkeletonCard /><SkeletonCard /></div>}>
+            <div style={{ display: tab === "agenda" ? "block" : "none" }}><Agenda reviews={reviews} revLogs={revLogs} alertThemes={alertThemes} subtopics={subtopics} onAulaChecked={(area, topic, semana) => setSubtopicModal({ area, topic, semana })} /></div>
+            {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
+            {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
+            {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
+            {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} onUndoMark={undoMarkReview} />}
+            {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
+            {tab === "temas" && <Temas reviews={reviews} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} />}
+            {tab === "flashcards" && <Flashcards decks={flashcardDecks} onReview={handleFlashcardReview} />}
+          </Suspense>
         </div>
       </div>
       {/* BOTTOM NAV — mobile only */}

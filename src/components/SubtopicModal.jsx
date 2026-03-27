@@ -1,6 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { C, F, FM, R, S, SH, inp, btn, tag } from "../theme.js";
 import { areaMap } from "../data.js";
+
+function useEscapeKey(onClose) {
+  useEffect(() => {
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+}
 
 const CONFIDENCE_OPTS = [
   { id: "domino", label: "Domino", icon: "💪", color: "#22C55E" },
@@ -9,6 +17,7 @@ const CONFIDENCE_OPTS = [
 ];
 
 function SubtopicModal({ area, topic, semana, existing, onSave, onClose }) {
+  useEscapeKey(onClose);
   const [items, setItems] = useState(existing || []);
   const [newItem, setNewItem] = useState("");
   const areaObj = areaMap[area];
@@ -87,6 +96,7 @@ function SubtopicModal({ area, topic, semana, existing, onSave, onClose }) {
 }
 
 function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) {
+  useEscapeKey(onClose);
   const [entries, setEntries] = useState(
     subtopics.map((s) => ({ name: s, pct: "" }))
   );
@@ -130,7 +140,7 @@ function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) 
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.card2, borderRadius: R.md, border: `1px solid ${val !== null ? pctColor + "40" : C.border}`, transition: "border-color .15s" }}>
                 <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{entry.name}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <input type="number" min="0" max="100" value={entry.pct} onChange={(e) => setEntry(i, "pct", e.target.value)} placeholder="—" style={{ ...inp(), width: 56, padding: "6px 8px", fontSize: 16, textAlign: "center", fontFamily: "SF Mono, monospace", fontWeight: 700, color: pctColor }} />
+                  <input type="number" min="0" max="100" value={entry.pct} onChange={(e) => { const v = e.target.value; if (v === "" || (Number(v) >= 0 && Number(v) <= 100)) setEntry(i, "pct", v); }} placeholder="—" style={{ ...inp(), width: 56, padding: "6px 8px", fontSize: 16, textAlign: "center", fontFamily: "SF Mono, monospace", fontWeight: 700, color: pctColor }} />
                   <span style={{ fontSize: 13, color: C.text3, fontWeight: 600 }}>%</span>
                 </div>
               </div>

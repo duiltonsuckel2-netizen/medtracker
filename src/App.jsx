@@ -178,6 +178,13 @@ function App() {
           });
           if (rlChanged) saveKey("rp26_revlogs", loadedLogs);
         }
+        // Fix any reviews with missing nextDue (caused by editReview bug)
+        let fixedDue = false;
+        loadedReviews = loadedReviews.map((rv) => {
+          if (!rv.nextDue) { fixedDue = true; return { ...rv, nextDue: addDays(rv.lastStudied || today(), INTERVALS[rv.intervalIndex || 0]) }; }
+          return rv;
+        });
+        if (fixedDue) saveKey("rp26_reviews", loadedReviews);
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams(loadedExams); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {});
         // Auto-generate or upgrade flashcards immediately with loaded data
         if (loadedExams.length > 0) {
@@ -350,7 +357,7 @@ function App() {
     });
     notify("↩ Revisão desfeita — voltou para hoje");
   }
-  function editReview(revId, ni, nd) { pR((prev) => prev.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd })); notify("✓ Corrigido"); }
+  function editReview(revId, ni, nd) { pR((prev) => prev.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd || addDays(r.lastStudied || today(), INTERVALS[ni]) })); notify("✓ Corrigido"); }
   function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; pE(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); pFc(merged); }, 100); }
   function delSession(id) { pS((prev) => prev.filter((s) => s.id !== id)); }
   function delExam(id) { pE((prev) => prev.filter((e) => e.id !== id)); }

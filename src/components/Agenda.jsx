@@ -86,12 +86,18 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
     setJustToggled(iid);
     setTimeout(() => setJustToggled(null), 350);
     // If checking an aula item, trigger subtopic modal
-    if (wasUnchecked && item?.text?.startsWith("📖 Aula:") && onAulaChecked) {
-      const aulaText = item.text.replace("📖 Aula: ", "");
-      // Find which area/topic this is from the current semana
+    const isAulaItem = item && (item.isAula || /Aula[:\s]/.test(item.text || ""));
+    if (wasUnchecked && isAulaItem && onAulaChecked) {
       const sem = SEMANAS[semIdx];
       if (sem) {
-        const aula = sem.aulas.find((a) => aulaText.includes(a.topic));
+        // Try to match by item id first (sa1 = first aula, sa2 = second)
+        let aula = null;
+        if (item.id === "sa1") aula = sem.aulas[0];
+        else if (item.id === "sa2") aula = sem.aulas[1];
+        // Fallback: match by text content
+        if (!aula) {
+          aula = sem.aulas.find((a) => (item.text || "").includes(a.topic));
+        }
         if (aula) {
           const areaId = AREA_SHORT_MAP[aula.area];
           onAulaChecked(areaId || aula.area, aula.topic, sem.semana);
@@ -234,16 +240,19 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
                         {isEd ? <input autoFocus value={editText} onChange={(e) => setEditText(e.target.value)} onBlur={commitEdit} onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(null); }} style={{ ...inp(), flex: 1, padding: "4px 8px", fontSize: 13, background: "none", border: "none", borderBottom: `1px solid ${C.border2}`, borderRadius: 0 }} />
                           : <span style={{ flex: 1, fontSize: 13, lineHeight: 1.4, color: item.done ? C.text3 : C.text, textDecoration: item.done ? "line-through" : "none", opacity: item.done ? 0.5 : 1, transition: "opacity .2s, color .2s" }}>{item.text}</span>}
                         {!isEd && (() => {
-                          // Show subtopic count badge for aula items
+                          // Detect aula items by id (sa1/sa2) or text pattern
+                          const isAula = item.isAula || item.id === "sa1" || item.id === "sa2" || /Aula[:\s]/.test(item.text || "");
                           let stCount = 0;
-                          if (item.text?.startsWith("📖 Aula:") && subtopics) {
+                          let matchedAula = null;
+                          if (isAula && subtopics) {
                             const sem = SEMANAS[semIdx];
                             if (sem) {
-                              const aulaText = item.text.replace("📖 Aula: ", "");
-                              const aula = sem.aulas.find((a) => aulaText.includes(a.topic));
-                              if (aula) {
-                                const areaId = AREA_SHORT_MAP[aula.area];
-                                const key = `${areaId || aula.area}__${aula.topic}`;
+                              if (item.id === "sa1") matchedAula = sem.aulas[0];
+                              else if (item.id === "sa2") matchedAula = sem.aulas[1];
+                              else matchedAula = sem.aulas.find((a) => (item.text || "").includes(a.topic));
+                              if (matchedAula) {
+                                const areaId = AREA_SHORT_MAP[matchedAula.area];
+                                const key = `${areaId || matchedAula.area}__${matchedAula.topic}`;
                                 stCount = (subtopics[key] || []).length;
                               }
                             }
@@ -251,7 +260,7 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
                           return (
                             <div style={{ display: "flex", gap: 2, flexShrink: 0, alignItems: "center" }}>
                               {stCount > 0 && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM, padding: "2px 7px", background: C.purple + "14", borderRadius: R.pill, border: `1px solid ${C.purple}25`, fontWeight: 600 }}>{stCount} sub</span>}
-                              {item.text?.startsWith("📖 Aula:") && item.done && <button onClick={(e) => { e.stopPropagation(); const sem = SEMANAS[semIdx]; if (sem) { const aulaText = item.text.replace("📖 Aula: ", ""); const aula = sem.aulas.find((a) => aulaText.includes(a.topic)); if (aula && onAulaChecked) { const areaId = AREA_SHORT_MAP[aula.area]; onAulaChecked(areaId || aula.area, aula.topic, sem.semana); } } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.purple, fontSize: 12, padding: "4px 6px", borderRadius: R.sm, display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, opacity: 0.5, transition: "opacity 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"} title="Editar subtemas">{"📋"}</button>}
+                              {isAula && item.done && matchedAula && <button onClick={(e) => { e.stopPropagation(); if (onAulaChecked) { const areaId = AREA_SHORT_MAP[matchedAula.area]; onAulaChecked(areaId || matchedAula.area, matchedAula.topic, SEMANAS[semIdx]?.semana); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.purple, fontSize: 12, padding: "4px 6px", borderRadius: R.sm, display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, opacity: 0.5, transition: "opacity 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"} title="Editar subtemas">{"📋"}</button>}
                               <button onClick={() => startEdit(day.id, item)} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 13, padding: "4px 6px", borderRadius: R.sm, display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, opacity: 0.4, transition: "opacity 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "0.8"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.4"}>{"✏"}</button>
                               {!item.fixed && <button onClick={() => deleteItem(day.id, item.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 13, padding: "4px 6px", borderRadius: R.sm, display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, opacity: 0.4, transition: "opacity 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.opacity = "0.8"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.4"}>{"✕"}</button>}
                             </div>

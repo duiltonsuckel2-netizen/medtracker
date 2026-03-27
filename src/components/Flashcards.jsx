@@ -4,6 +4,48 @@ import { today, fmtDate } from "../utils.js";
 import { areaMap } from "../data.js";
 import { getDueCards, deckStats, QUALITY_LABELS } from "../flashcards.js";
 
+// Renders structured flashcard back content with sections, bullets, and highlights
+function RichAnswer({ text }) {
+  const lines = (text || "").split("\n");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      {lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={i} style={{ height: 6 }} />;
+
+        // Section headers (lines with emoji prefix like "📋 RESUMO CLÍNICO")
+        if (/^[\u{1F300}-\u{1FAD6}]/u.test(trimmed) && trimmed === trimmed.toUpperCase() && trimmed.length < 60) {
+          return <div key={i} style={{ fontSize: 10, fontWeight: 700, color: C.purple, textTransform: "uppercase", letterSpacing: 0.8, marginTop: i > 0 ? 10 : 0, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>{trimmed}<span style={{ flex: 1, height: 1, background: C.purple + "25" }} /></div>;
+        }
+        // Section headers with emoji but mixed case
+        if (/^[\u{1F300}-\u{1FAD6}]/u.test(trimmed) && !trimmed.startsWith("•") && !trimmed.startsWith("▸") && trimmed.length < 80) {
+          return <div key={i} style={{ fontSize: 11, fontWeight: 700, color: C.text2, marginTop: i > 0 ? 8 : 0, marginBottom: 2 }}>{trimmed}</div>;
+        }
+        // Key point lines (📌)
+        if (trimmed.startsWith("📌")) {
+          return <div key={i} style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.6, padding: "6px 10px", background: C.purple + "10", borderRadius: 8, border: `1px solid ${C.purple}20`, marginBottom: 4 }}>{trimmed.replace("📌 ", "")}</div>;
+        }
+        // Bullet points with topic markers (▸)
+        if (trimmed.startsWith("▸")) {
+          return <div key={i} style={{ fontSize: 11, fontWeight: 600, color: C.text, lineHeight: 1.5, paddingLeft: 8, borderLeft: `3px solid ${C.purple}40`, marginBottom: 2 }}>{trimmed.replace("▸ ", "")}</div>;
+        }
+        // Indented detail lines (start with spaces or follow ▸)
+        if (line.startsWith("  ")) {
+          return <div key={i} style={{ fontSize: 11, color: C.text2, lineHeight: 1.6, paddingLeft: 14, marginBottom: 2 }}>{trimmed}</div>;
+        }
+        // Bullet points (•)
+        if (trimmed.startsWith("•")) {
+          const bulletText = trimmed.replace(/^•\s*/, "");
+          // Highlight key values: numbers with units, percentages
+          return <div key={i} style={{ fontSize: 12, color: C.text, lineHeight: 1.65, paddingLeft: 6, display: "flex", gap: 6 }}><span style={{ color: C.purple, flexShrink: 0 }}>{"•"}</span><span>{bulletText}</span></div>;
+        }
+        // Regular text
+        return <div key={i} style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>{trimmed}</div>;
+      })}
+    </div>
+  );
+}
+
 function Flashcards({ decks, onReview }) {
   const [mode, setMode] = useState("overview"); // overview | study | deck
   const [activeDeckId, setActiveDeckId] = useState(null);
@@ -216,30 +258,29 @@ function Flashcards({ decks, onReview }) {
             minHeight: 260,
             display: "flex",
             flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            textAlign: "center",
+            justifyContent: flipped ? "flex-start" : "center",
+            alignItems: flipped ? "stretch" : "center",
+            textAlign: flipped ? "left" : "center",
             cursor: !flipped ? "pointer" : "default",
             background: flipped ? C.card : `linear-gradient(135deg, ${C.card}, ${C.surface})`,
             border: `1px solid ${flipped ? C.purple + "40" : C.border}`,
             boxShadow: flipped ? SH.glow(C.purple) : SH.md,
             transition: "all 0.25s ease",
-            padding: "24px 20px",
+            padding: flipped ? "18px 20px" : "24px 20px",
             position: "relative",
             overflow: "hidden",
+            maxHeight: flipped ? 480 : "none",
+            overflowY: flipped ? "auto" : "hidden",
           }}
         >
           {!flipped ? (
             <>
               <div style={{ fontSize: 10, color: C.text3, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, marginBottom: 16 }}>PERGUNTA</div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: C.text, lineHeight: 1.6, maxWidth: 440 }}>{currentCard.front}</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: C.text, lineHeight: 1.6, maxWidth: 440, whiteSpace: "pre-line" }}>{currentCard.front}</div>
               <div style={{ fontSize: 11, color: C.text3, marginTop: 20, opacity: 0.6 }}>Toque para ver a resposta</div>
             </>
           ) : (
-            <>
-              <div style={{ fontSize: 10, color: C.purple, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600, marginBottom: 16 }}>RESPOSTA</div>
-              <div style={{ fontSize: 14, color: C.text, lineHeight: 1.7, maxWidth: 440, whiteSpace: "pre-line" }}>{currentCard.back}</div>
-            </>
+            <RichAnswer text={currentCard.back} />
           )}
         </div>
 

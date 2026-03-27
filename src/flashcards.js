@@ -115,53 +115,139 @@ function findBestSummary(theme) {
   return bestScore >= 5 ? best : null;
 }
 
+// ── Question templates — residency-level clinical questions ──────────────────
+// Each template generates a focused, exam-style question from a topic + detail
+const Q_TEMPLATES = [
+  // Diagnostic criteria / classification
+  (topic, det) => ({
+    front: `Quais os critérios diagnósticos e a classificação de:\n${topic}`,
+    section: "CRITÉRIOS E CLASSIFICAÇÃO",
+  }),
+  // Clinical management / treatment
+  (topic, det) => ({
+    front: `Qual a conduta e o tratamento de primeira linha?\n${topic}`,
+    section: "CONDUTA E TRATAMENTO",
+  }),
+  // Differential diagnosis / red flags
+  (topic, det) => ({
+    front: `Quais os diagnósticos diferenciais e sinais de alarme?\n${topic}`,
+    section: "DIAGNÓSTICO DIFERENCIAL",
+  }),
+  // Complications / prognosis
+  (topic, det) => ({
+    front: `Quais as principais complicações e como preveni-las?\n${topic}`,
+    section: "COMPLICAÇÕES",
+  }),
+  // High-yield facts for residency
+  (topic, det) => ({
+    front: `O que mais cai em prova de residência sobre:\n${topic}`,
+    section: "PEGADINHAS DE PROVA",
+  }),
+];
+
+// Build a rich answer block from resumo + topico data
+function buildAnswer(section, topicText, topicDetail, resumo, allTopics, cardIdx) {
+  const parts = [];
+
+  // Main answer from topic detail (most specific)
+  if (topicDetail) {
+    parts.push(`📌 ${topicText}\n${topicDetail}`);
+  } else {
+    parts.push(`📌 ${topicText}`);
+  }
+
+  // Extract relevant sentences from resumo that match this topic's keywords
+  const keywords = topicText.toLowerCase().split(/[\s,./()—:;-]+/).filter(w => w.length > 3);
+  const sentences = resumo.split(/\.\s+/).filter(s => s.length > 15);
+  const relevant = sentences.filter(s => {
+    const sLow = s.toLowerCase();
+    return keywords.some(kw => sLow.includes(kw));
+  });
+
+  if (relevant.length > 0) {
+    parts.push(`\n📋 Contexto clínico:\n${relevant.slice(0, 3).map(s => `• ${s.trim().replace(/\.$/, "")}.`).join("\n")}`);
+  }
+
+  // Add complementary high-yield facts from other topics
+  const others = allTopics.filter((_, i) => i !== cardIdx).slice(0, 2);
+  if (others.length > 0) {
+    const otherFacts = others.map(o => {
+      const t = typeof o === "string" ? o : (o.t || "");
+      const d = typeof o === "object" && o.d ? ` → ${o.d.split(".")[0]}.` : "";
+      return t ? `• ${t}${d}` : null;
+    }).filter(Boolean);
+    if (otherFacts.length > 0) {
+      parts.push(`\n🎯 Relacionado (alta incidência em provas):\n${otherFacts.join("\n")}`);
+    }
+  }
+
+  return parts.join("\n");
+}
+
 // Generate 5 flashcards from a theme summary (based on guidelines/directives)
+// Output: residency-exam level cards with clinical depth
 function generateCardsFromSummary(theme, area, summary) {
   const cards = [];
   const topicos = summary.topicos || [];
   const resumo = summary.resumo || "";
-
-  // Card 1: Overview/definition from resumo
   const sentences = resumo.split(/\.\s+/).filter(s => s.length > 15);
+
+  // Normalize all topicos to {text, detail} pairs
+  const normalized = topicos.map(tp => ({
+    text: typeof tp === "string" ? tp : (tp.t || ""),
+    detail: typeof tp === "object" && tp.d ? tp.d : "",
+  })).filter(t => t.text);
+
+  // Card 1: Comprehensive overview — the "explain it all" card
   if (sentences.length >= 1) {
-    const keyFact = sentences[0] + (sentences[0].endsWith(".") ? "" : ".");
-    const detail = sentences.slice(1, 3).join(". ") + ".";
+    const fullResumo = sentences.map(s => `• ${s.trim().replace(/\.$/, "")}.`).join("\n");
+    const topicList = normalized.slice(0, 5).map(t => {
+      const short = t.detail ? t.detail.split(".")[0] + "." : "";
+      return `▸ ${t.text}${short ? `\n  ${short}` : ""}`;
+    }).join("\n");
+
     cards.push({
-      front: `O que define ${theme}? Quais os conceitos-chave?`,
-      back: `${keyFact}\n\n${detail}`,
+      front: `[${theme.toUpperCase()}]\n\nResuma os conceitos-chave, critérios diagnósticos e conduta. O que não posso errar na prova?`,
+      back: `📋 RESUMO CLÍNICO\n${fullResumo}\n\n🎓 MAIS COBRADOS EM RESIDÊNCIA\n${topicList}`,
     });
   }
 
-  // Cards 2-5: From topicos (most tested in residency)
-  // topicos can be strings OR objects {t, d}
-  topicos.slice(0, 4).forEach((tp, i) => {
-    const text = typeof tp === "string" ? tp : (tp.t || "");
-    const detail = typeof tp === "object" && tp.d ? tp.d : "";
-    if (!text) return;
+  // Cards 2-5: One per topico, using varied question templates
+  normalized.slice(0, 4).forEach((tp, i) => {
+    const template = Q_TEMPLATES[i % Q_TEMPLATES.length];
+    const { front, section } = template(tp.text, tp.detail);
 
-    // Extract the key concept from parentheses or after ":"
-    const parenMatch = text.match(/\(([^)]+)\)/);
-    const hint = parenMatch ? parenMatch[1] : "";
+    const back = buildAnswer(section, tp.text, tp.detail, resumo, topicos, i);
 
-    const front = `${text.replace(/\([^)]*\)/, "").trim()}`;
-    const back = detail
-      ? `${text}\n\n${detail}`
-      : hint
-        ? `${text}\n\nPonto-chave: ${hint}`
-        : text;
-
-    cards.push({ front: `Explique: ${front}`, back });
+    cards.push({ front, back });
   });
 
-  // Fill up to 5 if needed
+  // If we still need cards (< 5), create from remaining resumo content
+  if (cards.length < 5 && normalized.length > 4) {
+    const extra = normalized.slice(4);
+    extra.forEach((tp) => {
+      if (cards.length >= 5) return;
+      const template = Q_TEMPLATES[cards.length % Q_TEMPLATES.length];
+      const { front } = template(tp.text, tp.detail);
+      const back = buildAnswer("COMPLEMENTAR", tp.text, tp.detail, resumo, topicos, cards.length);
+      cards.push({ front, back });
+    });
+  }
+
+  // Last resort: split resumo into clinical scenarios
   while (cards.length < 5 && sentences.length > cards.length) {
     const idx = cards.length;
-    if (sentences[idx]) {
-      cards.push({
-        front: `Qual o conceito? "${sentences[idx].slice(0, 60)}..."`,
-        back: sentences[idx] + ".",
-      });
-    } else break;
+    const s = sentences[idx];
+    if (!s) break;
+
+    // Extract key medical terms for a focused question
+    const terms = s.match(/[A-Z][a-záéíóúãõ]+(?:\s+[a-záéíóúãõ]+)*/g) || [];
+    const keyTerm = terms[0] || theme;
+
+    cards.push({
+      front: `Paciente com quadro sugestivo de ${keyTerm.toLowerCase()}.\nQual a fisiopatologia, diagnóstico e conduta?`,
+      back: `📌 ${s.trim().replace(/\.$/, "")}.\n\n📋 Contexto:\n${sentences.filter((_, j) => j !== idx).slice(0, 3).map(x => `• ${x.trim().replace(/\.$/, "")}.`).join("\n")}`,
+    });
   }
 
   return cards.slice(0, 5);
@@ -207,6 +293,7 @@ export function generateFlashcardDecks(exams, reviews, sessions) {
 
       decks.push({
         id: uid(),
+        _v: 2, // content version — bump when improving card quality
         theme: q.theme,
         area: q.area,
         areaLabel: areaInfo?.label || q.area,
@@ -244,17 +331,22 @@ export function mergeDecks(existingDecks, newDecks) {
   newDecks.forEach((nd) => {
     const key = `${nd.area}__${nd.theme.toLowerCase().trim()}`;
     if (existingThemes.has(key)) {
-      // Update existing deck: keep SM-2 state but refresh card content if needed
       const idx = merged.findIndex(d => `${d.area}__${d.theme.toLowerCase().trim()}` === key);
       if (idx >= 0) {
-        // Preserve existing card states
+        const old = merged[idx];
+        // If new version is higher, refresh all content but preserve SM-2 progress
+        const isUpgrade = (nd._v || 1) > (old._v || 1);
         merged[idx] = {
-          ...merged[idx],
+          ...old,
+          _v: nd._v || old._v || 1,
           examName: nd.examName,
           prevalencia: nd.prevalencia,
-          cards: merged[idx].cards.map((ec, i) => {
-            const nc = nd.cards[i];
-            if (!nc) return ec;
+          cards: nd.cards.map((nc, i) => {
+            const ec = old.cards[i];
+            if (!ec || isUpgrade) {
+              // New card or content upgrade — use new content, preserve SM-2 if available
+              return ec ? { ...nc, id: ec.id, easeFactor: ec.easeFactor, interval: ec.interval, repetitions: ec.repetitions, nextDue: ec.nextDue, lastReview: ec.lastReview, history: ec.history } : nc;
+            }
             return { ...ec, front: nc.front, back: nc.back };
           }),
         };

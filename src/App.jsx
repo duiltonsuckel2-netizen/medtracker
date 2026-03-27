@@ -72,11 +72,18 @@ function App() {
       setReady(true);
     });
   }, []);
-  // Auto-generate flashcards on first load if exams exist but no flashcards
+  // Auto-generate/upgrade flashcards on load
   React.useEffect(() => {
-    if (!ready || flashcardDecks.length > 0 || exams.length === 0) return;
-    const newDecks = generateFlashcardDecks(exams, reviews, sessions);
-    if (newDecks.length > 0) pFc(newDecks);
+    if (!ready || exams.length === 0) return;
+    // Regenerate if no decks OR if existing decks are from old version (v1 had shallow content)
+    const needsUpgrade = flashcardDecks.length > 0 && flashcardDecks.some(d => !d._v || d._v < 2);
+    if (flashcardDecks.length === 0 || needsUpgrade) {
+      const newDecks = generateFlashcardDecks(exams, reviews, sessions);
+      if (newDecks.length > 0) {
+        const merged = needsUpgrade ? mergeDecks(flashcardDecks, newDecks) : newDecks;
+        pFc(merged);
+      }
+    }
   }, [ready]);
   const notify = (msg) => { setFlash(msg); setTimeout(() => setFlash(""), 2500); };
   const pS = (v) => { setSessions(v); saveKey("rp26_sessions", v); };

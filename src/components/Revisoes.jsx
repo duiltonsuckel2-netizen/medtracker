@@ -371,7 +371,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
             {l.subtemas && !l.isSubtopic && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM }}>+subtemas</span>}
             <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{fmtDate(l.date)}{l.total ? ` · ${l.total}q` : ""}</span>
             {l.date === today() && !l.isSubtopic && onUndoMark && (() => { const rev = reviews.find((rv) => rv.theme === l.theme && rv.area === l.area && !rv.isSubtopic); return rev ? <button onClick={() => { if (confirm("Desfazer esta revisão e voltar pra hoje?")) onUndoMark(rev.id); }} style={{ background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 10, padding: "2px 6px", fontFamily: FM, fontWeight: 600 }}>↩ Desfazer</button> : null; })()}
-            <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "" }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
+            <button onClick={() => { if (isEd) { setEditingLog(null); } else { setEditingLog({ id: l.id, area: l.area, theme: l.theme, total: l.total, acertos: l.acertos, subtemas: l.subtemas || "", subtopicScores: l.subtopicScores ? l.subtopicScores.map((s) => ({ ...s })) : [] }); } }} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 11, padding: "2px 4px" }}>{isEd ? "▲" : "✏"}</button>
             <button onClick={() => onDelLog(l.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px 4px" }}>✕</button>
           </div>
           {l.subtopicScores && l.subtopicScores.length > 0 && !isEd && <div style={{ marginTop: 4, marginLeft: 48, display: "flex", gap: 10, flexWrap: "wrap", fontSize: 11, color: C.text3 }}>{l.subtopicScores.map((s, i) => <span key={i} style={{ background: C.surface, padding: "3px 8px", borderRadius: R.sm, border: `1px solid ${C.border}` }}>{s.name}: <span style={{ fontWeight: 700, color: perfColor(s.pct), fontFamily: FN }}>{s.pct}%</span></span>)}</div>}
@@ -383,9 +383,21 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
               <Fld label="Total"><input type="number" value={editingLog.total} onChange={(e) => setEditingLog((f) => ({ ...f, total: Number(e.target.value) }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
               <Fld label="Acertos"><input type="number" value={editingLog.acertos} onChange={(e) => setEditingLog((f) => ({ ...f, acertos: Number(e.target.value) }))} style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
             </div>
-            <Fld label="Subtemas (anotações livres)"><input value={editingLog.subtemas} onChange={(e) => setEditingLog((f) => ({ ...f, subtemas: e.target.value }))} placeholder="Ex: Pior em farmacologia, bom em diagnóstico…" style={inp({ padding: "6px 8px", fontSize: 12 })} /></Fld>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: C.purple, fontFamily: FM }}>Subtemas — % de acertos</span>
+                <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: [...(f.subtopicScores || []), { name: "", pct: "" }] }))} style={{ background: "none", border: `1px dashed ${C.purple}50`, borderRadius: R.sm, padding: "3px 10px", cursor: "pointer", fontSize: 11, color: C.purple, fontFamily: FM }}>+ Subtema</button>
+              </div>
+              {editingLog.subtopicScores && editingLog.subtopicScores.map((s, si) => (
+                <div key={si} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <input value={s.name} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, name: e.target.value }) }))} placeholder="Nome do subtema" style={inp({ padding: "5px 8px", fontSize: 12, flex: 1 })} />
+                  <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.map((st, i) => i !== si ? st : { ...st, pct: e.target.value === "" ? "" : Number(e.target.value) }) }))} placeholder="%" style={inp({ padding: "5px 8px", fontSize: 12, width: 52, textAlign: "center", fontFamily: FN, fontWeight: 700 })} />
+                  <button onClick={() => setEditingLog((f) => ({ ...f, subtopicScores: f.subtopicScores.filter((_, i) => i !== si) }))} style={{ background: "none", border: "none", cursor: "pointer", color: C.border2, fontSize: 12, padding: "2px" }}>✕</button>
+                </div>
+              ))}
+            </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { onEditLog(editingLog.id, editingLog); setEditingLog(null); }} style={btn("#34D399", { padding: "6px 14px", fontSize: 12 })}>✓ Salvar</button>
+              <button onClick={() => { const scores = (editingLog.subtopicScores || []).filter((s) => s.name.trim() && s.pct !== "" && s.pct >= 0); onEditLog(editingLog.id, { ...editingLog, subtopicScores: scores.length > 0 ? scores : undefined }); setEditingLog(null); }} style={btn("#34D399", { padding: "6px 14px", fontSize: 12 })}>✓ Salvar</button>
               <button onClick={() => setEditingLog(null)} style={btn(C.card2, { padding: "6px 14px", fontSize: 12 })}>Cancelar</button>
             </div>
           </div>}

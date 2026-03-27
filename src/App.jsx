@@ -56,9 +56,11 @@ function App() {
   const [showBackupMenu, setShowBackupMenu] = useState(false);
 
   function switchTab(id) {
-    if (id === tab) return;
-    setTab(id);
-    setTabKey((k) => k + 1);
+    if (id !== tab) {
+      setTab(id);
+      setTabKey((k) => k + 1);
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   useEffect(() => {

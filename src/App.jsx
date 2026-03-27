@@ -13,6 +13,8 @@ import { Temas } from "./components/Temas.jsx";
 import { Provas } from "./components/Provas.jsx";
 import { SubtopicModal, SubtopicReviewModal } from "./components/SubtopicModal.jsx";
 import { SkeletonCard } from "./components/UI.jsx";
+import { Flashcards } from "./components/Flashcards.jsx";
+import { generateFlashcardDecks, mergeDecks, reviewCard } from "./flashcards.js";
 
 function App() {
   const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem("rp26_dark") !== "false"; } catch { return true; } });
@@ -22,6 +24,7 @@ function App() {
   const [revLogs, setRevLogs] = useState([]);
   const [exams, setExams] = useState([]);
   const [subtopics, setSubtopics] = useState({});
+  const [flashcardDecks, setFlashcardDecks] = useState([]);
   const [ready, setReady] = useState(false);
   const [subtopicModal, setSubtopicModal] = useState(null);
   const [flash, setFlash] = useState("");
@@ -32,7 +35,7 @@ function App() {
 
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -58,23 +61,30 @@ function App() {
   }
 
   useEffect(() => {
-    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_subtopics", {}), loadKey("rp26_seeded12", false)]).then(([s, r, rl, e, st, seeded]) => {
+    Promise.all([loadKey("rp26_sessions", []), loadKey("rp26_reviews", []), loadKey("rp26_revlogs", []), loadKey("rp26_exams", []), loadKey("rp26_subtopics", {}), loadKey("rp26_seeded12", false), loadKey("rp26_flashcards", [])]).then(([s, r, rl, e, st, seeded, fc]) => {
       if (!seeded) {
         const revs = SEED_REVIEWS.map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}`, history: [{ date: r.lastStudied, pct: r.lastPerf }] }));
         const logs = SEED_LOGS.map((l) => ({ ...l, id: uid() }));
         const se = buildUnicamp2024Exam();
         setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]); setSubtopics({});
         saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_subtopics", {}); saveKey("rp26_seeded12", true);
-      } else { setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {}); }
+      } else { setSessions(Array.isArray(s) ? s : []); setReviews(Array.isArray(r) ? r : []); setRevLogs(Array.isArray(rl) ? rl : []); setExams(Array.isArray(e) ? e : []); setSubtopics(st && typeof st === "object" && !Array.isArray(st) ? st : {}); setFlashcardDecks(Array.isArray(fc) ? fc : []); }
       setReady(true);
     });
   }, []);
+  // Auto-generate flashcards on first load if exams exist but no flashcards
+  React.useEffect(() => {
+    if (!ready || flashcardDecks.length > 0 || exams.length === 0) return;
+    const newDecks = generateFlashcardDecks(exams, reviews, sessions);
+    if (newDecks.length > 0) pFc(newDecks);
+  }, [ready]);
   const notify = (msg) => { setFlash(msg); setTimeout(() => setFlash(""), 2500); };
   const pS = (v) => { setSessions(v); saveKey("rp26_sessions", v); };
   const pR = (v) => { setReviews(v); saveKey("rp26_reviews", v); };
   const pL = (v) => { setRevLogs(v); saveKey("rp26_revlogs", v); };
   const pE = (v) => { setExams(v); saveKey("rp26_exams", v); };
   const pSt = (v) => { setSubtopics(v); saveKey("rp26_subtopics", v); };
+  const pFc = (v) => { setFlashcardDecks(v); saveKey("rp26_flashcards", v); };
   function saveSubtopics(area, topic, items) {
     const key = `${area}__${topic}`;
     pSt({ ...subtopics, [key]: items });
@@ -120,10 +130,21 @@ function App() {
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
   function editReview(revId, ni, nd) { pR(reviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd })); notify("✓ Corrigido"); }
-  function addExam(exam) { pE([{ ...exam, id: uid() }, ...exams]); notify("✓ Prova registrada"); }
+  function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; pE(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); pFc(merged); }, 100); }
   function delSession(id) { pS(sessions.filter((s) => s.id !== id)); }
   function delExam(id) { pE(exams.filter((e) => e.id !== id)); }
-  function updateExam(id, updates) { pE(exams.map((e) => e.id !== id ? e : { ...e, ...updates })); notify("✓ Prova atualizada"); }
+  function updateExam(id, updates) { pE(exams.map((e) => e.id !== id ? e : { ...e, ...updates })); notify("✓ Prova atualizada"); regenerateFlashcards(); }
+  function regenerateFlashcards() {
+    setTimeout(() => {
+      const newDecks = generateFlashcardDecks(exams, reviews, sessions);
+      const merged = mergeDecks(flashcardDecks, newDecks);
+      pFc(merged);
+    }, 100);
+  }
+  function handleFlashcardReview(deckId, cardId, qualityKey) {
+    const updated = reviewCard(flashcardDecks, deckId, cardId, qualityKey);
+    pFc(updated);
+  }
   function editRevLog(logId, updates) { pL(revLogs.map((l) => l.id !== logId ? l : { ...l, ...updates, pct: updates.acertos != null && updates.total != null ? perc(updates.acertos, updates.total) : l.pct })); notify("✓ Revisão atualizada"); }
   function delRevLog(logId) { pL(revLogs.filter((l) => l.id !== logId)); notify("✓ Revisão removida"); }
   function handleNotionSync(newRevs) {
@@ -148,13 +169,14 @@ function App() {
   const dueR = reviews.filter((r) => r.nextDue <= today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   const upR = reviews.filter((r) => r.nextDue > today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
   const alertThemes = [];
-  const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚" };
+  const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚", flashcards:"🃏" };
   const TABS = [
     { id: "agenda", label: "Agenda" },
     { id: "dashboard", label: "Dashboard" },
     { id: "revisoes", label: `Revisões${dueR.length ? ` (${dueR.length})` : ""}` },
     { id: "provas", label: "Provas" },
     { id: "temas", label: "Temas" },
+    { id: "flashcards", label: "Flashcards" },
   ];
 
 
@@ -192,12 +214,13 @@ function App() {
       <div style={{ padding: `${S.xl}px`, maxWidth: 1200, margin: "0 auto", paddingBottom: 100 }}>
         <div key={tabKey} className="fade-in">
           <div style={{ display: tab === "agenda" ? "block" : "none" }}><Agenda reviews={reviews} revLogs={revLogs} alertThemes={alertThemes} subtopics={subtopics} onAulaChecked={(area, topic, semana) => setSubtopicModal({ area, topic, semana })} /></div>
-          {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} />}
-          {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" />}
+          {tab === "dashboard" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
+          {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} />}
           {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
           {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} />}
           {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
           {tab === "temas" && <Temas reviews={reviews} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} />}
+          {tab === "flashcards" && <Flashcards decks={flashcardDecks} onReview={handleFlashcardReview} />}
         </div>
       </div>
       {/* BOTTOM NAV — mobile only */}

@@ -36,7 +36,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   useEffect(() => { applyTheme(darkMode); }, [darkMode]);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -52,6 +52,8 @@ function App() {
       if (!data._version.startsWith("medtracker-backup-")) return alert("Formato de backup não reconhecido.");
       if (!confirm(`Restaurar backup de ${data._exportDate ? new Date(data._exportDate).toLocaleDateString("pt-BR") : "data desconhecida"}? Isso vai substituir todos os dados atuais.`)) return;
       BACKUP_KEYS.forEach(k => { if (data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data[k])); });
+      // Mark all migrations as done — imported data is already migrated
+      ["rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8"].forEach(k => localStorage.setItem(k, "1"));
       notify("Backup restaurado! Recarregando..."); setTimeout(() => window.location.reload(), 1000);
     } catch { alert("Erro ao ler o arquivo."); } }; reader.readAsText(f); };
     input.click();

@@ -262,18 +262,19 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
             {s.sub && <div style={{ fontSize: 10, color: C.text3, marginTop: S.xs, fontWeight: 400, opacity: 0.6 }}>{s.sub}</div>}
           </div>
         ))}
-        <button onClick={onNavigateFlashcards} style={{ background: `linear-gradient(135deg, ${C.yellow}45, ${C.purple}50)`, border: `1px solid ${C.yellow}35`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: S.xs, boxShadow: SH.glow(C.yellow), transition: "all 0.15s ease" }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.purple); }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.yellow); }}>
-          <div style={{ fontSize: 10, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{flashcardDecks.reduce((s, d) => s + d.cards.filter(c => !c.nextDue || c.nextDue <= today()).length, 0)} pendentes</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.text, fontFamily: FN, lineHeight: 1 }}>Flashcards</div>
-        </button>
-        <button onClick={onNewSession} style={{ background: `linear-gradient(135deg, ${C.blue}50, ${C.purple}60)`, border: `1px solid ${C.purple}40`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: S.xs, boxShadow: SH.glow(C.purple), transition: "all 0.15s ease" }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.blue); }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.purple); }}>
-          <div style={{ fontSize: 10, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Registrar</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.text, fontFamily: FN, lineHeight: 1 }}>+ Sessão</div>
-        </button>
-        <button onClick={onAlerts} style={{ background: `linear-gradient(135deg, ${C.red}45, ${C.purple}50)`, border: `1px solid ${C.red}35`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: S.xs, boxShadow: SH.glow(C.red), transition: "all 0.15s ease" }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.purple); }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.red); }}>
-          <div style={{ fontSize: 10, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{alerts.length > 0 ? `${alerts.length} temas` : "0 temas"}</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: C.text, fontFamily: FN, lineHeight: 1 }}>GAPS</div>
-        </button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.md }}>
+        {[
+          { label: "Sessão", icon: "+", color: C.blue, accent: C.purple, onClick: onNewSession },
+          { label: "Flashcards", icon: "🃏", color: C.yellow, accent: C.purple, onClick: onNavigateFlashcards, sub: flashcardDecks.reduce((s, d) => s + d.cards.filter(c => !c.nextDue || c.nextDue <= today()).length, 0) },
+          { label: "Gaps", icon: alerts.length > 0 ? String(alerts.length) : "✓", color: C.red, accent: C.purple, onClick: onAlerts },
+        ].map((b) => (
+          <button key={b.label} onClick={b.onClick} style={{ background: `linear-gradient(135deg, ${b.color}20, ${b.accent}15)`, border: `1px solid ${b.color}30`, borderRadius: R.xl, padding: "14px 12px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, transition: "all 0.15s ease", boxShadow: "none" }} onMouseEnter={(e) => { e.currentTarget.style.background = `linear-gradient(135deg, ${b.color}35, ${b.accent}25)`; e.currentTarget.style.boxShadow = SH.glow(b.color); }} onMouseLeave={(e) => { e.currentTarget.style.background = `linear-gradient(135deg, ${b.color}20, ${b.accent}15)`; e.currentTarget.style.boxShadow = "none"; }}>
+            <span style={{ fontSize: 16, fontWeight: 800, color: b.color, fontFamily: FN, lineHeight: 1 }}>{b.icon}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text, fontFamily: F }}>{b.label}</span>
+            {b.sub > 0 && <span style={{ fontSize: 10, color: b.color, fontFamily: FM, fontWeight: 600, opacity: 0.7 }}>{b.sub}</span>}
+          </button>
+        ))}
       </div>
       <div style={{ display: "flex", gap: 4, background: C.surface, borderRadius: R.pill, padding: 4, overflowX: "auto", scrollbarWidth: "none", border: `1px solid ${C.border}` }}>
         {DASH_TABS.map((t) => { const active = activeTab === t.id; return (

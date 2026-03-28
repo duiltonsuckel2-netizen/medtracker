@@ -59,7 +59,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     });
     return Object.entries(byW).sort((a, b) => a[0].localeCompare(b[0])).map(([wk, v]) => ({ name: fmtDate(wk), "% geral": Math.round(v.sum / v.n) }));
   }, [revLogs]);
-  const totalQ = revLogs.reduce((s, x) => s + (x.total || 0), 0) + sessions.reduce((s, x) => s + (x.total || 0), 0);
+  const totalQ = revLogs.reduce((s, x) => s + (x.total || 0), 0) + sessions.reduce((s, x) => s + (x.total || 0), 0) + exams.reduce((s, x) => s + (x.total || 0), 0);
   const barData = AREAS.map((a) => ({ area: a.short, "% questões": revAreaAvg[a.id] ?? 0 }));
   const START_DATE = "2026-02-02";
   const allStudyDates = useMemo(() => {

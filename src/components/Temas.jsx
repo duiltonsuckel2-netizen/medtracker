@@ -7,6 +7,7 @@ import { CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 
 /* Extract week number from "(Sem. XX)" */
 function extractWeek(theme) {
+  if (!theme) return null;
   const m = theme.match(/\(Sem\.\s*(\d+)\)/i);
   return m ? parseInt(m[1], 10) : null;
 }
@@ -81,7 +82,7 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
       const q = search.toLowerCase();
       items = items.filter((w) =>
         w.aulas.some((a) => a.topic.toLowerCase().includes(q)) ||
-        w.allRevs.some((r) => r.theme.toLowerCase().includes(q))
+        w.allRevs.some((r) => r.theme && r.theme.toLowerCase().includes(q))
       );
     }
     return items;
@@ -307,7 +308,7 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
                                     padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4,
                                   }}>
                                     {stItems.map((st, i) => {
-                                      const subRev = subRevs.find((sr) => sr.theme.toLowerCase() === st.toLowerCase());
+                                      const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
                                       const conf = subRev?.history?.slice(-1)[0]?.confidence;
                                       const confObj = conf ? CONFIDENCE_OPTS.find((c) => c.id === conf) : null;
                                       return (

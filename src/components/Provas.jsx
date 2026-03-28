@@ -47,7 +47,7 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
       const enriched = [];
       Object.entries(dbThemes).forEach(([n, d]) => {
         const num = Number(n);
-        det[num] = { area: d.a, theme: d.t, schedule: mapThemeToSchedule(d.t) };
+        det[num] = { area: d.a, theme: d.t, prev: d.prev || null, schedule: mapThemeToSchedule(d.t) };
         enriched.push({ n: num, theme: d.t, area: d.a, schedule: det[num].schedule });
       });
       setQDetails(det); setAiAnalysis(enriched); setPdfStatus("done");

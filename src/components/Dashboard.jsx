@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
-import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES } from "../data.js";
+import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES, EXAM_THEMES_DB } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit } from "../theme.js";
 import { today, addDays, diffDays, fmtDate, perc, perfColor, weekDates, mapThemeToSchedule } from "../utils.js";
 import { loadKey, saveKey } from "../storage.js";
@@ -207,8 +207,10 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
       if (!ex.qDetails || !ex.cats) return;
       [...(ex.cats.errou_viu || []), ...(ex.cats.errou_nao || [])].forEach((n) => {
         const q = ex.qDetails[n];
-        if (!q || !q.theme || !q.prev) return;
-        if (q.prev !== "muito alta" && q.prev !== "alta") return;
+        if (!q || !q.theme) return;
+        // Enrich prev from EXAM_THEMES_DB if missing in saved qDetails
+        const prev = q.prev || (ex.name ? (() => { const key = Object.keys(EXAM_THEMES_DB).find((k) => ex.name.toLowerCase().includes(k)); return key && EXAM_THEMES_DB[key]?.[n]?.prev; })() : null);
+        if (!prev || (prev !== "muito alta" && prev !== "alta")) return;
         const tLow = q.theme.toLowerCase().trim();
         const seenInCursinho = studiedThemes.has(tLow) || matchesCursinho(q.theme) || (ex.cats.errou_viu || []).includes(n);
         const key = `${q.area}__${tLow}`;
@@ -217,11 +219,8 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         const erType = (ex.cats.errou_viu || []).includes(n) ? "já vi" : "nunca vi";
         const sched = mapThemeToSchedule(q.theme);
         const schedLabel = sched ? ` · ${sched.semana}` : "";
-        if (seenInCursinho) {
-          res.push({ type: "danger", icon: "🎯", title: `Erro em prova: ${q.theme}`, msg: `Prevalência ${q.prev} · ${ex.name} · errei (${erType})${schedLabel}`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: q.prev, erType });
-        } else if (q.prev === "muito alta") {
-          res.push({ type: "warning", icon: "⚠️", title: `Gap futuro: ${q.theme}`, msg: `Prevalência ${q.prev} · ${ex.name} · errei (${erType})${schedLabel ? schedLabel : " · ainda não no cursinho"}`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: q.prev, erType });
-        }
+        if (!seenInCursinho) return;
+        res.push({ type: "danger", icon: "🎯", title: `Erro em prova: ${q.theme}`, msg: `Prevalência ${prev} · ${ex.name} · errei (${erType})${schedLabel}`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: prev, erType });
       });
     });
     return res;

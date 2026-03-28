@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit } from "../theme.js";
-import { today, addDays, diffDays, fmtDate, perc, perfColor, weekDates } from "../utils.js";
+import { today, addDays, diffDays, fmtDate, perc, perfColor, weekDates, mapThemeToSchedule } from "../utils.js";
 import { loadKey, saveKey } from "../storage.js";
 import { Fld, ChartTip } from "./UI.jsx";
 
@@ -117,6 +117,12 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
       for (const tw of tWords) for (const cw of cWords) { if (tw === cw || cw.includes(tw) || tw.includes(cw)) score++; }
       if (score >= 2 || (score >= 1 && tWords.length <= 2)) return true;
     }
+    // Fallback: check MED_SCHEDULE (expanded keywords)
+    const sched = mapThemeToSchedule(theme);
+    if (sched) {
+      const satDate = SEM_SAT[sched.semana];
+      if (satDate && satDate <= today()) return true;
+    }
     return false;
   }
   function findSummary(theme) {
@@ -205,12 +211,17 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         if (q.prev !== "muito alta" && q.prev !== "alta") return;
         const tLow = q.theme.toLowerCase().trim();
         const seenInCursinho = studiedThemes.has(tLow) || matchesCursinho(q.theme) || (ex.cats.errou_viu || []).includes(n);
-        if (!seenInCursinho) return;
         const key = `${q.area}__${tLow}`;
         if (examAlertsSeen.has(key)) return;
         examAlertsSeen.add(key);
         const erType = (ex.cats.errou_viu || []).includes(n) ? "já vi" : "nunca vi";
-        res.push({ type: "danger", icon: "🎯", title: `Erro em prova: ${q.theme}`, msg: `Prevalência ${q.prev} · ${ex.name} · errei (${erType})`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: q.prev, erType });
+        const sched = mapThemeToSchedule(q.theme);
+        const schedLabel = sched ? ` · ${sched.semana}` : "";
+        if (seenInCursinho) {
+          res.push({ type: "danger", icon: "🎯", title: `Erro em prova: ${q.theme}`, msg: `Prevalência ${q.prev} · ${ex.name} · errei (${erType})${schedLabel}`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: q.prev, erType });
+        } else if (q.prev === "muito alta") {
+          res.push({ type: "warning", icon: "⚠️", title: `Gap futuro: ${q.theme}`, msg: `Prevalência ${q.prev} · ${ex.name} · errei (${erType})${schedLabel ? schedLabel : " · ainda não no cursinho"}`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: q.prev, erType });
+        }
       });
     });
     return res;

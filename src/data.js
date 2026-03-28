@@ -245,10 +245,10 @@ export const SEM_SAT = {
 export const CATS = [
   { id: "soube", label: "Soube", short: "S", color: "#22C55E", desc: "Acertei pq sabia" },
   { id: "chutou", label: "Chutei/acertei", short: "C", color: "#F59E0B", desc: "Acertei pq chutei" },
-  { id: "errou_viu", label: "Errei (já vi)", short: "EV", color: "#EF4444", desc: "Errei e deveria saber" },
   { id: "errou_nao", label: "Errei (nunca vi)", short: "EN", color: "#F97316", desc: "Errei pq nunca vi" },
+  { id: "errou_viu", label: "Errei (já vi)", short: "EV", color: "#EF4444", desc: "Errei e deveria saber" },
 ];
-export const CAT_CYCLE = ["soube", "chutou", "errou_viu", "errou_nao", null];
+export const CAT_CYCLE = ["soube", "chutou", "errou_nao", "errou_viu", null];
 
 export const MED_SCHEDULE = [
   { semana: "Sem. 01", area: "cirurgia", topics: ["Sd. Ictérica", "Hepatite", "Icterícia", "Cirrose", "Fígado", "Hipertensão Porta", "Insuficiência Hepática", "Encefalopatia Hepática", "Hepatite Medicamentosa", "Vias Biliares", "Coledocolitíase", "Colangite", "Câncer de Pâncreas", "Pâncreas"] },

@@ -10,6 +10,7 @@ import { Sessoes } from "./components/Sessoes.jsx";
 import { SubtopicModal, SubtopicReviewModal } from "./components/SubtopicModal.jsx";
 import { SkeletonCard } from "./components/UI.jsx";
 import { generateFlashcardDecks, mergeDecks, reviewCard } from "./flashcards.js";
+import { initSync, createSync, joinSync, disconnectSync, debouncedPush, getSyncId, pushToCloud } from "./sync.js";
 
 const Dashboard = React.lazy(() => import("./components/Dashboard.jsx").then(m => ({ default: m.Dashboard })));
 const Revisoes = React.lazy(() => import("./components/Revisoes.jsx").then(m => ({ default: m.Revisoes })));
@@ -59,6 +60,22 @@ function App() {
     input.click();
   }
   const [showBackupMenu, setShowBackupMenu] = useState(false);
+  const [syncStatus, setSyncStatus] = useState("off"); // off | syncing | synced | error
+  const [syncId, setSyncId] = useState(getSyncId());
+  const [showSyncModal, setShowSyncModal] = useState(false);
+  const [syncInput, setSyncInput] = useState("");
+
+  // Sync initialization
+  useEffect(() => {
+    initSync(
+      () => window.location.reload(), // on remote update: reload to pick up new data
+      (status) => setSyncStatus(status)
+    ).then((active) => {
+      if (active) setSyncStatus("synced");
+    });
+  }, []);
+
+  function triggerSync() { debouncedPush(); }
 
   function switchTab(id) {
     if (id !== tab) {
@@ -291,12 +308,12 @@ function App() {
   }, []);
   const undoTimerRef = React.useRef(null);
   const notify = (msg) => { setFlash(msg); setTimeout(() => setFlash(""), 2500); };
-  const pS = (v) => { if (typeof v === "function") { setSessions((prev) => { const next = v(prev); saveKey("rp26_sessions", next); return next; }); } else { setSessions(v); saveKey("rp26_sessions", v); } };
-  const pR = (v) => { if (typeof v === "function") { setReviews((prev) => { const next = v(prev); saveKey("rp26_reviews", next); return next; }); } else { setReviews(v); saveKey("rp26_reviews", v); } };
-  const pL = (v) => { if (typeof v === "function") { setRevLogs((prev) => { const next = v(prev); saveKey("rp26_revlogs", next); return next; }); } else { setRevLogs(v); saveKey("rp26_revlogs", v); } };
-  const pE = (v) => { if (typeof v === "function") { setExams((prev) => { const next = v(prev); saveKey("rp26_exams", next); return next; }); } else { setExams(v); saveKey("rp26_exams", v); } };
-  const pSt = (v) => { if (typeof v === "function") { setSubtopics((prev) => { const next = v(prev); saveKey("rp26_subtopics", next); return next; }); } else { setSubtopics(v); saveKey("rp26_subtopics", v); } };
-  const pFc = (v) => { if (typeof v === "function") { setFlashcardDecks((prev) => { const next = v(prev); saveKey("rp26_flashcards", next); return next; }); } else { setFlashcardDecks(v); saveKey("rp26_flashcards", v); } };
+  const pS = (v) => { if (typeof v === "function") { setSessions((prev) => { const next = v(prev); saveKey("rp26_sessions", next); return next; }); } else { setSessions(v); saveKey("rp26_sessions", v); } triggerSync(); };
+  const pR = (v) => { if (typeof v === "function") { setReviews((prev) => { const next = v(prev); saveKey("rp26_reviews", next); return next; }); } else { setReviews(v); saveKey("rp26_reviews", v); } triggerSync(); };
+  const pL = (v) => { if (typeof v === "function") { setRevLogs((prev) => { const next = v(prev); saveKey("rp26_revlogs", next); return next; }); } else { setRevLogs(v); saveKey("rp26_revlogs", v); } triggerSync(); };
+  const pE = (v) => { if (typeof v === "function") { setExams((prev) => { const next = v(prev); saveKey("rp26_exams", next); return next; }); } else { setExams(v); saveKey("rp26_exams", v); } triggerSync(); };
+  const pSt = (v) => { if (typeof v === "function") { setSubtopics((prev) => { const next = v(prev); saveKey("rp26_subtopics", next); return next; }); } else { setSubtopics(v); saveKey("rp26_subtopics", v); } triggerSync(); };
+  const pFc = (v) => { if (typeof v === "function") { setFlashcardDecks((prev) => { const next = v(prev); saveKey("rp26_flashcards", next); return next; }); } else { setFlashcardDecks(v); saveKey("rp26_flashcards", v); } triggerSync(); };
   function saveSubtopics(area, topic, items) {
     const key = `${area}__${topic}`;
     pSt((prev) => ({ ...prev, [key]: items }));
@@ -490,8 +507,18 @@ function App() {
             {flash && (<span className="fade-in" style={{ fontSize: 10, color: C.green, fontFamily: FM, fontWeight: 600, background: `rgba(34,197,94,0.1)`, padding: "4px 10px", borderRadius: R.pill, border: `1px solid rgba(34,197,94,0.2)` }}>{flash}</span>)}
             <div style={{ position: "relative" }}>
               <button onClick={() => setShowBackupMenu(v => !v)} style={{ background: "none", border: "none", width: 28, height: 28, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.text3, opacity: 0.35, transition: "opacity 0.2s" }} onMouseEnter={e => e.currentTarget.style.opacity = "0.7"} onMouseLeave={e => e.currentTarget.style.opacity = "0.35"}>{"💾"}</button>
-              {showBackupMenu && <div className="fade-in" style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.lg, boxShadow: SH.lg, overflow: "hidden", zIndex: 200, minWidth: 180 }}>
-                <div style={{ padding: "8px 16px", fontSize: 10, color: C.text3, borderBottom: `1px solid ${C.border}`, fontFamily: FM }}>v2.1 — 28/03</div>
+              {showBackupMenu && <div className="fade-in" style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.lg, boxShadow: SH.lg, overflow: "hidden", zIndex: 200, minWidth: 200 }}>
+                <div style={{ padding: "8px 16px", fontSize: 10, color: C.text3, borderBottom: `1px solid ${C.border}`, fontFamily: FM, display: "flex", justifyContent: "space-between" }}>
+                  <span>v2.2 — 28/03</span>
+                  {syncId && <span style={{ color: syncStatus === "synced" ? C.green : syncStatus === "error" ? C.red : C.yellow }}>{syncStatus === "synced" ? "sincronizado" : syncStatus === "syncing" ? "sincronizando..." : syncStatus === "error" ? "erro sync" : ""}</span>}
+                </div>
+                {syncId ? (
+                  <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, color: C.text3 }}>Código:</span>
+                    <span style={{ fontSize: 14, fontFamily: FM, fontWeight: 700, color: C.purple, letterSpacing: 1.5 }}>{syncId}</span>
+                  </div>
+                ) : null}
+                <button onClick={() => { setShowBackupMenu(false); setShowSyncModal(true); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: syncId ? C.green : C.purple, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{syncId ? "☁️ Sync ativo" : "☁️ Ativar sincronização"}</button>
                 <button onClick={() => { exportBackup(); setShowBackupMenu(false); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.text, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"📤"} Exportar backup</button>
                 <button onClick={() => { importBackup(); setShowBackupMenu(false); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.text, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"📥"} Restaurar backup</button>
                 <button onClick={() => { setShowBackupMenu(false); caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).then(() => { navigator.serviceWorker?.getRegistrations().then(rs => rs.forEach(r => r.unregister())); setTimeout(() => window.location.reload(true), 300); }).catch(() => window.location.reload(true)); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"🔄"} Forçar atualização</button>
@@ -501,6 +528,41 @@ function App() {
           </div>
         </div>
       </div>
+      {showSyncModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) setShowSyncModal(false); }}>
+          <div className="fade-in" style={{ background: C.card, borderRadius: 20, padding: 24, maxWidth: 400, width: "100%", border: `1px solid ${C.border2}`, boxShadow: SH.lg }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>Sincronização</div>
+              <button onClick={() => setShowSyncModal(false)} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 18 }}>✕</button>
+            </div>
+            {syncId ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ background: C.surface, borderRadius: R.md, padding: 14, border: `1px solid ${C.border}`, textAlign: "center" }}>
+                  <div style={{ fontSize: 11, color: C.text3, marginBottom: 6 }}>Seu código de sincronização</div>
+                  <div style={{ fontSize: 28, fontFamily: FM, fontWeight: 800, color: C.purple, letterSpacing: 3 }}>{syncId}</div>
+                  <div style={{ fontSize: 11, color: C.green, marginTop: 6 }}>Sincronização ativa</div>
+                </div>
+                <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Use este código nos outros dispositivos pra sincronizar automaticamente.</div>
+                <button onClick={() => { pushToCloud(); notify("Sync forçado!"); }} style={btn(C.blue, { width: "100%", fontSize: 13 })}>Forçar sync agora</button>
+                <button onClick={() => { disconnectSync(); setSyncId(null); setSyncStatus("off"); setShowSyncModal(false); notify("Sync desconectado"); }} style={btn(C.card2, { width: "100%", fontSize: 13, color: C.red })}>Desconectar sync</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ background: C.surface, borderRadius: R.md, padding: 12, border: `1px solid ${C.border}`, fontSize: 12, color: C.text3, lineHeight: 1.5 }}>
+                  Sincronize seus dados entre iPhone, iPad e computador automaticamente via nuvem.
+                </div>
+                <button onClick={async () => { const id = await createSync(); setSyncId(id); setSyncStatus("synced"); notify("Sync criado!"); initSync(() => window.location.reload(), (s) => setSyncStatus(s)); }} style={btn(C.purple, { width: "100%", fontSize: 13 })}>Criar código de sync (1o dispositivo)</button>
+                <div style={{ fontSize: 12, color: C.text3, textAlign: "center" }}>ou</div>
+                <div style={{ fontSize: 12, color: C.text3 }}>Já tem um código? Digite abaixo:</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input value={syncInput} onChange={(e) => setSyncInput(e.target.value.toUpperCase())} placeholder="Ex: ABC123" maxLength={6} style={{ ...inp(), flex: 1, fontSize: 18, textAlign: "center", fontFamily: FM, fontWeight: 700, letterSpacing: 3 }} />
+                  <button disabled={syncInput.length < 6} onClick={async () => { try { const id = await joinSync(syncInput, () => window.location.reload()); setSyncId(id); setSyncStatus("synced"); setShowSyncModal(false); notify("Conectado! Recarregando..."); setTimeout(() => window.location.reload(), 1000); } catch (e) { alert("Código não encontrado."); } }} style={btn(C.blue, { padding: "10px 20px", fontSize: 13, opacity: syncInput.length < 6 ? 0.4 : 1 })}>Entrar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {showSessionModal && <SessionModal onSave={(s) => { addSession(s); setShowSessionModal(false); }} onClose={() => setShowSessionModal(false)} />}
       {subtopicModal && <SubtopicModal area={subtopicModal.area} topic={subtopicModal.topic} semana={subtopicModal.semana} existing={getSubtopics(subtopicModal.area, subtopicModal.topic)} onSave={(items) => { saveSubtopics(subtopicModal.area, subtopicModal.topic, items); setSubtopicModal(null); notify(items.length > 0 ? `✓ ${items.length} subtema${items.length > 1 ? "s" : ""} salvo${items.length > 1 ? "s" : ""}` : "✓ Aula marcada"); }} onClose={() => setSubtopicModal(null)} />}
       {/* CONTENT */}

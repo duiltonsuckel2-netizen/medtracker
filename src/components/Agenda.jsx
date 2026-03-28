@@ -4,6 +4,7 @@ import { AREAS, areaMap, AREA_SHORT_MAP, SEMANAS, SEM_SAT } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, fmtDate, uid, weekDates, buildWeekTemplate } from "../utils.js";
 import { loadKey, saveKey } from "../storage.js";
+import { debouncedPush } from "../sync.js";
 import { Empty } from "./UI.jsx";
 
 function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
@@ -75,6 +76,7 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
   function save(days) {
     setWeek(days);
     saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: SEMANAS[semIdx]?.semana, days });
+    debouncedPush();
   }
   function findAulaForItem(item) {
     // Match agenda item to a SEMANAS aula by id or text

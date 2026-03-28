@@ -251,28 +251,110 @@ export const CATS = [
 export const CAT_CYCLE = ["soube", "chutou", "errou_nao", "errou_viu", null];
 
 export const MED_SCHEDULE = [
-  { semana: "Sem. 01", area: "cirurgia", topics: ["Sd. Ictérica", "Hepatite", "Icterícia", "Cirrose", "Fígado", "Hipertensão Porta", "Insuficiência Hepática", "Encefalopatia Hepática", "Hepatite Medicamentosa", "Vias Biliares", "Coledocolitíase", "Colangite", "Câncer de Pâncreas", "Pâncreas"] },
-  { semana: "Sem. 02", area: "cirurgia", topics: ["Disfagia", "Sd. Disfágica", "Esôfago", "DRGE", "Hérnia de Hiato", "Acalasia", "Boerhaave", "Perfuração Esofágica", "Câncer de Esôfago"] },
-  { semana: "Sem. 03", area: "go", topics: ["IST", "DST", "Úlcera genital", "Sífilis", "Gonorreia", "Herpes genital", "Cancro mole", "Verrugas genitais", "HPV", "Donovanose", "Linfogranuloma"] },
-  { semana: "Sem. 04", area: "ped", topics: ["Sd. Respiratória", "Pneumonia", "Bronquiolite", "Asma", "Crupe", "Laringite", "OMA", "Otite", "Faringite", "Mononucleose", "Coqueluche"] },
-  { semana: "Sem. 05", area: "cirurgia", topics: ["Sd. Dispéptica", "Úlcera péptica", "Gastrite", "H. pylori", "Zollinger-Ellison", "Corpo estranho", "Ingestão corpo estranho", "Hérnia de hiato"] },
-  { semana: "Sem. 06", area: "cirurgia", topics: ["Hemorragia digestiva", "HDA", "HDB", "Varizes esofágicas", "Angiodisplasia", "Divertículo", "Diverticulose", "Diverticulite", "Hemorragia digestiva obscura"] },
-  { semana: "Sem. 07", area: "ped", topics: ["Doenças exantemáticas", "Sarampo", "Rubéola", "Varicela", "Escarlatina", "Roséola", "Eritema infeccioso", "Sd. luva e meia", "Exantema súbito"] },
-  { semana: "Sem. 08", area: "clinica", topics: ["HAS", "Hipertensão", "Sd. Metabólica", "Dislipidemia", "Hiperaldosteronismo", "Feocromocitoma", "Hipertensão secundária", "Crise hipertensiva"] },
-  { semana: "Sem. 09", area: "preventiva", topics: ["SUS", "APS", "Atenção primária", "NASF", "ESF", "Saúde da família", "Receita médica", "Financiamento SUS", "Regionalização", "Hierarquização"] },
-  { semana: "Sem. 10", area: "cirurgia", topics: ["Dor abdominal", "Abdome agudo", "Apendicite", "Peritonite", "Obstrução intestinal", "Íleo", "Vólvulo", "Febre tifoide", "Porfiria"] },
-  { semana: "Sem. 11", area: "clinica", topics: ["Diabetes", "DM2", "DM1", "Hipoglicemia", "Cetoacidose", "HNKC", "Sd. Metabólica", "Obesidade", "Insulina"] },
-  { semana: "Sem. 11", area: "ped", topics: ["Vacinação", "Imunização", "Calendário vacinal", "Vacinas", "PNI"] },
-  { semana: "Sem. 12", area: "clinica", topics: ["Tireoide", "Hipotireoidismo", "Hipertireoidismo", "Tireoidite", "Nódulo tireoidiano", "Câncer de tireoide", "Bócio"] },
-  { semana: "Sem. 12", area: "cirurgia", topics: ["Obstrução intestinal", "Íleo paralítico", "Vólvulo", "Hérnia encarcerada", "Neoplasia colorretal"] },
-  { semana: "Sem. 13", area: "clinica", topics: ["Suprarrenal", "Adrenal", "Doença de Addison", "Cushing", "Hiperaldosteronismo", "Feocromocitoma", "Hipófise", "Acromegalia", "Prolactinoma"] },
-  { semana: "Sem. 13", area: "go", topics: ["Câncer de mama", "Câncer de ovário", "Oncologia ginecológica", "Rastreamento mama", "Mamografia", "BI-RADS"] },
-  { semana: "Sem. 14", area: "clinica", topics: ["UTI", "Terapia intensiva", "Sepse", "Choque", "Ventilação mecânica", "IOT", "PCR", "Ressuscitação", "SIRS"] },
-  { semana: "Sem. 14", area: "preventiva", topics: ["Medidas de saúde", "Prevenção", "Rastreamento", "Vigilância epidemiológica", "Cobertura vacinal", "Saúde do trabalhador"] },
-  { semana: "Sem. 15", area: "clinica", topics: ["Pneumonia", "PAC", "PAH", "Pneumocistose", "Tuberculose", "Derrame pleural", "Pleurite", "DPOC", "Asma"] },
-  { semana: "Sem. 15", area: "go", topics: ["Câncer de endométrio", "Câncer de colo", "Oncologia ginecológica", "Colposcopia", "Papanicolau", "Células glandulares"] },
-  { semana: "Sem. 16", area: "preventiva", topics: ["Epidemiologia", "Estudos epidemiológicos", "Coorte", "Caso-controle", "Transversal", "RR", "OR", "Bradford Hill", "Viés"] },
-  { semana: "Sem. 16", area: "go", topics: ["Doenças clínicas na gravidez", "Pré-eclâmpsia", "HELLP", "Diabetes gestacional", "Cardiopatia", "Anemia", "Epilepsia na gestação"] },
+  // ── Sem. 01: CM Sd. Ictérica — Hepatites + PED Doenças Exantemáticas ──
+  { semana: "Sem. 01", area: "clinica", topics: ["Sd. Ictérica", "Hepatite", "Icterícia", "Cirrose", "Fígado", "Encefalopatia Hepática", "Hepatite viral", "Hepatite autoimune", "Hepatite alcoólica", "Hepatite medicamentosa"] },
+  { semana: "Sem. 01", area: "ped", topics: ["Doenças exantemáticas", "Exantemáticas", "Sarampo", "Rubéola", "Varicela", "Escarlatina", "Roséola", "Eritema infeccioso", "Exantema súbito", "Mononucleose", "Epstein-Barr", "EBV", "Sd. luva e meia"] },
+  // ── Sem. 02: CM Sd. Ictérica — Vias Biliares + CIR Hipertensão Porta ──
+  { semana: "Sem. 02", area: "clinica", topics: ["Vias Biliares", "Coledocolitíase", "Colangite", "Colecistite", "Colelitíase", "Câncer de Pâncreas", "Pâncreas", "Tumor de Klatskin", "Colangiocarcinoma", "Sd. Ictérica"] },
+  { semana: "Sem. 02", area: "cirurgia", topics: ["Hipertensão Porta", "Varizes esofágicas", "Esplenomegalia", "Ascite", "TIPS", "Cirrose descompensada"] },
+  // ── Sem. 03: CIR Insuficiência Hepática + GO IST — Úlceras Genitais ──
+  { semana: "Sem. 03", area: "cirurgia", topics: ["Insuficiência Hepática", "Transplante hepático", "Encefalopatia hepática"] },
+  { semana: "Sem. 03", area: "go", topics: ["IST", "DST", "Úlcera genital", "Sífilis", "Gonorreia", "Herpes genital", "Cancro mole", "HPV", "Donovanose", "Linfogranuloma", "Clamídia", "Corrimento vaginal", "Vaginose", "Candidíase"] },
+  // ── Sem. 04: CIR Sd. Disfágica — Esôfago + PED Sd. Respiratórias I ──
+  { semana: "Sem. 04", area: "cirurgia", topics: ["Sd. Disfágica", "Disfagia", "Esôfago", "DRGE", "Refluxo gastroesofágico", "Hérnia de Hiato", "Acalasia", "Boerhaave", "Câncer de Esôfago", "Fundoplicatura", "Nissen", "Barrett"] },
+  { semana: "Sem. 04", area: "ped", topics: ["Sd. Respiratórias I", "Bronquiolite", "Crupe", "Laringite", "Laringotraqueobronquite", "Epiglotite", "OMA", "Otite", "Faringite", "Coqueluche", "IVAS", "Rinossinusite", "Tosse", "Lactente sibilante"] },
+  // ── Sem. 05: CIR Sd. Dispéptica + PED Sd. Respiratórias II ──
+  { semana: "Sem. 05", area: "cirurgia", topics: ["Sd. Dispéptica", "Dispepsia", "Úlcera péptica", "Gastrite", "H. pylori", "Helicobacter", "Zollinger-Ellison", "Endoscopia", "Gastrectomia"] },
+  { semana: "Sem. 05", area: "ped", topics: ["Sd. Respiratórias II", "PAC infância", "Pneumonia infantil", "Pneumonia comunitária", "Asma infantil", "Broncoespasmo", "Derrame pleural", "Empiema", "Dispositivo inalatório", "Espaçador"] },
+  // ── Sem. 06: CM Sd. Diarreica + CIR Hemorragia Digestiva I ──
+  { semana: "Sem. 06", area: "clinica", topics: ["Sd. Diarreica", "Diarreia", "Retocolite", "Colite ulcerativa", "Doença de Crohn", "Crohn", "DII", "Doença inflamatória intestinal", "Diarreia crônica", "Colite", "Giardíase", "Amebíase", "Fístula perianal"] },
+  { semana: "Sem. 06", area: "cirurgia", topics: ["Hemorragia Digestiva I", "Hemorragia digestiva", "HDA", "HDB", "Varizes esofágicas", "Angiodisplasia", "Divertículo", "Diverticulose", "Mallory-Weiss", "Síndrome compartimental"] },
+  // ── Sem. 08: CM HAS e Sd. Metabólica + CIR Hemorragia Digestiva II ──
+  { semana: "Sem. 08", area: "clinica", topics: ["HAS", "Hipertensão", "Sd. Metabólica", "Dislipidemia", "Hiperaldosteronismo", "Feocromocitoma", "Hipertensão secundária", "Crise hipertensiva", "Hipertensão mascarada", "Hipertensão avental branco", "MAPA", "MRPA", "Emergência hipertensiva"] },
+  { semana: "Sem. 08", area: "cirurgia", topics: ["Hemorragia Digestiva II", "HDB", "Angiodisplasia", "Diverticulose colônica", "Hemorroida", "Fissura anal"] },
+  // ── Sem. 09: PREV SUS — APS e Financiamento + GO Sangramentos 1º Trimestre ──
+  { semana: "Sem. 09", area: "preventiva", topics: ["SUS", "APS", "Atenção primária", "NASF", "ESF", "Saúde da família", "Financiamento SUS", "Regionalização", "Hierarquização", "Conselho de saúde", "Conferência de saúde", "CIT", "Participação social", "Controle social", "Lei 8080", "Lei 8142"] },
+  { semana: "Sem. 09", area: "go", topics: ["Sangramentos 1º Trimestre", "Abortamento", "Aborto", "Gravidez ectópica", "Ectópica", "Doença trofoblástica", "Mola hidatiforme", "Mola", "DTG", "Ameaça de aborto", "Sangramento primeiro trimestre"] },
+  // ── Sem. 10: CIR Sd. Álgica Abdominal + GO Sangramentos 2ª Metade ──
+  { semana: "Sem. 10", area: "cirurgia", topics: ["Sd. Álgica Abdominal", "Dor abdominal", "Abdome agudo", "Apendicite", "Peritonite", "Pancreatite", "Diverticulite", "Isquemia mesentérica", "Obstrução intestinal", "Íleo", "Vólvulo", "Abdome agudo inflamatório", "Abdome agudo obstrutivo", "Abdome agudo perfurativo"] },
+  { semana: "Sem. 10", area: "go", topics: ["Sangramentos 2ª Metade", "Placenta prévia", "DPP", "Descolamento prematuro", "Acretismo", "Acretismo placentário", "Vasa prévia", "Rotura uterina", "Hemorragia pós-parto", "Atonia uterina"] },
+  // ── Sem. 11: CM Sd. Metabólica II — Diabetes + PED ITU / Imunização ──
+  { semana: "Sem. 11", area: "clinica", topics: ["Diabetes", "DM2", "DM1", "Hipoglicemia", "Cetoacidose", "CAD", "Estado hiperosmolar", "Insulina", "TOTG", "Hemoglobina glicada", "Metformina", "Neuropatia diabética", "Nefropatia diabética", "Retinopatia diabética", "SOP"] },
+  { semana: "Sem. 11", area: "ped", topics: ["ITU", "Infecção urinária", "Imunização", "Vacinação", "Calendário vacinal", "Vacinas", "PNI", "Refluxo vesicoureteral", "Vacina oncológico"] },
+  // ── Sem. 12: CM Sd. Endócrinas — Tireoide + CIR Hérnias ──
+  { semana: "Sem. 12", area: "clinica", topics: ["Tireoide", "Hipotireoidismo", "Hipertireoidismo", "Tireoidite", "Nódulo tireoidiano", "Câncer de tireoide", "Bócio", "Graves", "Hashimoto", "Tireotoxicose"] },
+  { semana: "Sem. 12", area: "cirurgia", topics: ["Hérnias", "Hérnia inguinal", "Hérnia umbilical", "Hérnia incisional", "Hérnia encarcerada", "Hérnia femoral"] },
+  // ── Sem. 13: CM Sd. Endócrinas — Suprarrenal + GO Oncologia Ginecológica ──
+  { semana: "Sem. 13", area: "clinica", topics: ["Suprarrenal", "Adrenal", "Doença de Addison", "Cushing", "Insuficiência adrenal", "Hipófise", "Acromegalia", "Prolactinoma", "Pan-hipopituitarismo"] },
+  { semana: "Sem. 13", area: "go", topics: ["Oncologia ginecológica", "Câncer de mama", "Câncer de ovário", "Rastreamento mama", "Mamografia", "BI-RADS", "Densidade mamária"] },
+  // ── Sem. 14: CM Terapia Intensiva + PREV Sistemas de Informação ──
+  { semana: "Sem. 14", area: "clinica", topics: ["UTI", "Terapia intensiva", "Sepse", "Choque", "Choque séptico", "Ventilação mecânica", "IOT", "PCR", "Ressuscitação", "SIRS", "Hemodinâmica", "Drogas vasoativas", "Noradrenalina"] },
+  { semana: "Sem. 14", area: "preventiva", topics: ["Sistemas de Informação", "SINAN", "SIM", "SINASC", "Vigilância epidemiológica", "Notificação compulsória"] },
+  // ── Sem. 15: CM Sd. Bacterianas — Pneumonia + GO Oncologia — Colo e Vulva ──
+  { semana: "Sem. 15", area: "clinica", topics: ["Pneumonia", "PAC", "PAH", "Tuberculose", "TB latente", "Derrame pleural", "DPOC", "Influenza", "Imunobiológicos"] },
+  { semana: "Sem. 15", area: "go", topics: ["Câncer de colo", "Câncer de endométrio", "Colposcopia", "Papanicolau", "NIC", "NIV", "HPV oncogênico", "Rastreamento colo uterino", "DNA-HPV", "Adenocarcinoma endométrio"] },
+  // ── Sem. 16: PREV Estudos Epidemiológicos + GO Doenças Clínicas na Gravidez ──
+  { semana: "Sem. 16", area: "preventiva", topics: ["Epidemiologia", "Estudos epidemiológicos", "Coorte", "Caso-controle", "Transversal", "Ecológico", "RR", "OR", "Risco relativo", "Bradford Hill", "Viés", "Confundidor", "NNT", "Sensibilidade", "Especificidade", "VPP", "VPN", "Relato de caso", "Série de casos", "Ensaio clínico", "PICO", "GRADE", "Fração atribuível", "FAP", "Rastreamento", "Sobrediagnóstico", "Incidência", "Prevalência"] },
+  { semana: "Sem. 16", area: "go", topics: ["Doenças clínicas na gravidez", "Pré-eclâmpsia", "Eclâmpsia", "HELLP", "Diabetes gestacional", "Sulfato de magnésio", "Pré-natal", "Exames pré-natal", "Ecografia morfológica", "RPMO", "Ruptura prematura de membranas"] },
+  // ── Sem. 17: CM Infecções Hepáticas + CM HIV e Imunologia ──
+  { semana: "Sem. 17", area: "clinica", topics: ["HIV", "AIDS", "TARV", "Infecções oportunistas", "Pneumocistose", "Imunologia", "CD4", "Carga viral", "PEP", "PrEP", "Febre amarela"] },
+  // ── Sem. 18: CM Doenças Infecciosas Emergentes + PREV Bioestatística ──
+  { semana: "Sem. 18", area: "clinica", topics: ["Doenças infecciosas emergentes", "Dengue", "Zika", "Chikungunya", "Leptospirose", "Arboviroses", "Malária"] },
+  { semana: "Sem. 18", area: "preventiva", topics: ["Bioestatística", "Medidas de frequência", "Taxa de mortalidade", "Medidas de efeito", "Intervalo de confiança", "Valor de p", "Erro tipo I", "Erro tipo II"] },
+  // ── Sem. 19: CM Micoses Sistêmicas + PED Neonatologia ──
+  { semana: "Sem. 19", area: "ped", topics: ["Neonatologia", "Triagem neonatal", "Teste do pezinho", "Teste do coraçãozinho", "Exame físico RN", "Reanimação neonatal", "Icterícia neonatal", "Taquipneia transitória", "Doença membrana hialina", "Infecção congênita", "CMV", "Toxoplasmose congênita", "TORCH"] },
+  // ── Sem. 20: PED Neonatologia — Enterocolite + CIR Tumores Intestinais ──
+  { semana: "Sem. 20", area: "cirurgia", topics: ["Tumores intestinais", "Câncer colorretal", "Polipose", "Apêndice", "Tumor carcinoide", "Neoplasia colorretal"] },
+  // ── Sem. 21: CIR Urologia Oncológica + PED Tumores Abdominais ──
+  { semana: "Sem. 21", area: "cirurgia", topics: ["Urologia oncológica", "Câncer de próstata", "Câncer renal", "Câncer de bexiga", "Câncer de testículo", "HPB"] },
+  // ── Sem. 22: PED DNPM + CM Pneumopatias Intersticiais ──
+  { semana: "Sem. 22", area: "ped", topics: ["DNPM", "Desenvolvimento neuropsicomotor", "Atraso desenvolvimento", "TEA", "Autismo", "TDAH", "Déficit de atenção"] },
+  // ── Sem. 23: GO TEV e Transtornos do Humor + CM Cuidados Paliativos ──
+  { semana: "Sem. 23", area: "go", topics: ["TEV", "Tromboembolismo gestação", "Transtornos do humor", "Depressão pós-parto", "Psicofármacos gestação", "Sertralina", "ISRS", "Psicofármacos"] },
+  // ── Sem. 24: CM Tópicos Especiais + PREV Doenças Infecciosas ──
+  { semana: "Sem. 24", area: "preventiva", topics: ["Doenças infecciosas", "Notificação", "Investigação epidemiológica", "Surto", "Endemia", "Epidemia", "Pandemia"] },
+  // ── Sem. 25: CM Neurologia Vascular + PREV Saúde do Trabalhador ──
+  { semana: "Sem. 25", area: "clinica", topics: ["AVC", "AIT", "Neurologia vascular", "Trombólise", "AVC isquêmico", "AVC hemorrágico", "Hemorragia subaracnoidea", "Demência", "Alzheimer"] },
+  { semana: "Sem. 25", area: "preventiva", topics: ["Saúde do trabalhador", "Doença ocupacional", "PCMSO", "CAT", "Silicose", "Asbestose", "LER", "DORT", "Lombalgia ocupacional"] },
+  // ── Sem. 26: CM Doenças Neuromusculares + GO Ginecologia Geral ──
+  { semana: "Sem. 26", area: "clinica", topics: ["Doenças neuromusculares", "Miastenia gravis", "Guillain-Barré", "Neuropatia periférica", "Esclerose múltipla", "ELA"] },
+  { semana: "Sem. 26", area: "go", topics: ["Ginecologia geral", "SUA", "Sangramento uterino anormal", "Mioma", "Pólipo endometrial", "Anovulação", "Amenorreia", "SOP", "Ovários policísticos", "Contracepção", "Anticoncepção", "DIU", "ACO", "Implante", "Métodos contraceptivos", "Pílula combinada"] },
+  // ── Sem. 27: CM Neuro-oncologia + GO Anatomia Pélvica / SPM ──
+  { semana: "Sem. 27", area: "go", topics: ["Anatomia pélvica", "Endometriose", "Dor pélvica", "Dismenorreia", "Prolapso genital", "Incontinência urinária"] },
+  // ── Sem. 28: CM Nefrologia I + CIR Urologia ──
+  { semana: "Sem. 28", area: "clinica", topics: ["Nefrologia", "Glomerulopatias", "Síndrome nefrótica", "Síndrome nefrítica", "Glomerulonefrite", "IgA", "GESF"] },
+  // ── Sem. 29: CM Nefrologia II + CIR Trauma I ──
+  { semana: "Sem. 29", area: "cirurgia", topics: ["Trauma", "ATLS", "Trauma cervical", "Trauma facial", "Via aérea", "Choque hemorrágico", "Reposição volêmica", "Trauma torácico", "Pneumotórax"] },
+  // ── Sem. 30: CM Distúrbios Ácido-Base + CIR Trauma II ──
+  { semana: "Sem. 30", area: "cirurgia", topics: ["Trauma abdominal", "Trauma coluna", "Trauma raquimedular", "Hemotórax", "Drenagem torácica"] },
+  // ── Sem. 32: CM Hematologia III + GO Climatério e Infertilidade ──
+  { semana: "Sem. 32", area: "go", topics: ["Climatério", "Menopausa", "Terapia hormonal", "TH", "Infertilidade", "FIV", "Reprodução assistida", "Reserva ovariana", "FSH", "AMH", "Fisiologia ovariana", "Gonadotrofinas", "Duas células"] },
+  // ── Sem. 33: CM Infectologia + GO Gênero e Dismenorreia ──
+  { semana: "Sem. 33", area: "clinica", topics: ["Toxoplasmose", "CMV congênito", "Citomegalovírus", "TORCH", "Rubéola congênita", "Sífilis congênita"] },
+  // ── Sem. 35: CM Reumatologia I + CM Especial II ──
+  { semana: "Sem. 35", area: "clinica", topics: ["Reumatologia", "Artrite reumatoide", "Artrite", "Lúpus", "LES", "Esclerodermia", "Dermatomiosite", "Polimiosite", "Vasculite", "Lúpus neuropsiquiátrico"] },
+  // ── Sem. 37: CM Hipertensão Pulmonar + GO Mecanismo de Parto ──
+  { semana: "Sem. 37", area: "clinica", topics: ["Hipertensão pulmonar", "TEP", "Tromboembolismo pulmonar", "Embolia pulmonar", "Anticoagulação"] },
+  { semana: "Sem. 37", area: "go", topics: ["Mecanismo de parto", "Cesárea", "Trabalho de parto", "Partograma", "Fórceps", "Parto prematuro", "Tocólise", "Corticoterapia antenatal", "Cerclagem", "Trabalho de parto pré-termo"] },
+  // ── Sem. 38: CM Cardiologia I — Pós-IAM / Pericardite + Cardiologia II ──
+  { semana: "Sem. 38", area: "clinica", topics: ["Cardiologia", "IAM", "Infarto", "Pericardite", "Endocardite", "Insuficiência cardíaca", "ICC", "Valvulopatia", "Estenose aórtica", "Cardiotoxicidade", "5-fluorouracil", "Duke"] },
+  // ── Sem. 39: CM Arritmias e Marca-Passo + Cardiologia III ──
+  { semana: "Sem. 39", area: "clinica", topics: ["Arritmias", "Fibrilação atrial", "Flutter", "Taquicardia ventricular", "Marca-passo", "Síncope", "Morte súbita", "QT longo", "Wolff-Parkinson-White"] },
+  // ── Sem. 40: CM Cardiomiopatias + PED Pediatria Geral ──
+  { semana: "Sem. 40", area: "ped", topics: ["Pediatria geral", "Aleitamento materno", "Pega correta", "Alimentação complementar", "Crescimento", "Curva de crescimento", "Baixa estatura", "Puberdade precoce"] },
+  // ── Sem. 41: PED Nutrição Infantil + CIR Suporte Nutricional ──
+  { semana: "Sem. 41", area: "ped", topics: ["Nutrição infantil", "Desnutrição", "Constipação", "Constipação intestinal"] },
+  // ── Sem. 42: CIR Cirurgia Geral + PREV Animais Peçonhentos ──
+  { semana: "Sem. 42", area: "cirurgia", topics: ["Cirurgia geral", "Queimadura", "Queimaduras", "Queimadura elétrica", "Grande queimado", "Cuidados locais queimadura"] },
+  { semana: "Sem. 42", area: "preventiva", topics: ["Animais peçonhentos", "Acidente ofídico", "Escorpião", "Aranha", "Profilaxia antirrábica", "Raiva"] },
+  // ── Sem. 43: CIR Cirurgia Plástica + CM Intoxicações ──
+  { semana: "Sem. 43", area: "cirurgia", topics: ["Cirurgia plástica", "Cicatrização", "Feridas", "Quelóide", "Enxerto", "Retalho"] },
+  // ── Sem. 44: CIR Cabeça e Pescoço + CIR Proctologia ──
+  { semana: "Sem. 44", area: "cirurgia", topics: ["Cirurgia cabeça e pescoço", "Nódulo cervical", "Câncer cabeça pescoço", "Traqueostomia", "Carcinoma basocelular", "Melanoma", "Câncer de pele", "Proctologia"] },
+  // ── Sem. 45: CM Dermatologia ──
+  { semana: "Sem. 45", area: "clinica", topics: ["Dermatologia", "Anafilaxia", "Piodermites", "Psoríase", "Dermatite", "Eczema", "Alopecia", "Alopecia cicatricial", "Urticária", "Eritema nodoso", "Pitiríase"] },
+  // ── Sem. 46: CIR Cirurgia Vascular ──
+  { semana: "Sem. 46", area: "cirurgia", topics: ["Cirurgia vascular", "Aneurisma", "Doença arterial periférica", "Trombose venosa", "TVP", "Insuficiência venosa", "Varizes", "Pé diabético"] },
 ];
 
 export const EXAM_THEMES_RAW = {"ufcspa 2022":{1:{a:"ped",t:"Reanimação neonatal"},2:{a:"ped",t:"Icterícia neonatal"},3:{a:"ped",t:"Reanimação neonatal"},4:{a:"ped",t:"Aleitamento materno"},5:{a:"ped",t:"Infecções congênitas (TORCH)"},6:{a:"ped",t:"Crescimento infantil"},7:{a:"ped",t:"Pressão arterial pediátrica"},8:{a:"ped",t:"Estado de mal epiléptico"},9:{a:"ped",t:"TDAH"},10:{a:"ped",t:"Redes de Atenção à Saúde"},11:{a:"ped",t:"Desenvolvimento neuropsicomotor"},12:{a:"ped",t:"Otite média aguda"},13:{a:"ped",t:"Rastreamento Ca colo uterino"},14:{a:"ped",t:"Vacinação / Imunização"},15:{a:"ped",t:"Redes de Atenção à Saúde"},16:{a:"ped",t:"Otite média aguda"},17:{a:"ped",t:"ITU na infância"},18:{a:"ped",t:"Transtorno do espectro autista"},19:{a:"ped",t:"PAC na infância"},20:{a:"ped",t:"Dispositivos inalatórios"},21:{a:"preventiva",t:"Redes de Atenção à Saúde"},22:{a:"preventiva",t:"Prevenção quaternária"},23:{a:"preventiva",t:"ITU na infância"},24:{a:"preventiva",t:"Atributos da APS"},25:{a:"preventiva",t:"Fibrilação atrial / Flutter"},26:{a:"preventiva",t:"Redes de Atenção à Saúde"},27:{a:"preventiva",t:"Otite média aguda"},28:{a:"preventiva",t:"Contracepção"},29:{a:"preventiva",t:"Controle social / Conselhos"},30:{a:"preventiva",t:"Atributos da APS"},31:{a:"preventiva",t:"ITU / Piúria"},32:{a:"preventiva",t:"ESF / Saúde da Família"},33:{a:"preventiva",t:"Rastreamento Ca colo uterino"},34:{a:"preventiva",t:"Princípios do SUS"},35:{a:"preventiva",t:"Princípios do SUS"},36:{a:"preventiva",t:"Rastreamento / Sobrediagnóstico"},37:{a:"preventiva",t:"Viés / Confundimento"},38:{a:"preventiva",t:"Fibrilação atrial / Flutter"},39:{a:"preventiva",t:"Vacinação / Imunização"},40:{a:"preventiva",t:"ESF / Saúde da Família"},41:{a:"cirurgia",t:"Redes de Atenção à Saúde"},42:{a:"cirurgia",t:"Otite média aguda"},43:{a:"cirurgia",t:"PAC na infância"},44:{a:"cirurgia",t:"Rastreamento Ca colo uterino"},45:{a:"cirurgia",t:"Fibrilação atrial / Flutter"},46:{a:"cirurgia",t:"Hemorragia digestiva"},47:{a:"cirurgia",t:"Delirium"},48:{a:"cirurgia",t:"Princípios do SUS"},49:{a:"cirurgia",t:"Otite média aguda"},50:{a:"cirurgia",t:"Otite média aguda"},51:{a:"cirurgia",t:"Otite média aguda"},52:{a:"cirurgia",t:"Crescimento infantil"},53:{a:"cirurgia",t:"Otite média aguda"},54:{a:"cirurgia",t:"Otite média aguda"},55:{a:"cirurgia",t:"Intussuscepção intestinal"},56:{a:"cirurgia",t:"Colelitíase / Colecistectomia"},57:{a:"cirurgia",t:"DRGE / Refluxo gastroesofágico"},58:{a:"cirurgia",t:"Doença inflamatória intestinal"},59:{a:"cirurgia",t:"TEV / TVP / TEP"},60:{a:"cirurgia",t:"Hérnia inguinal / femoral"},61:{a:"go",t:"Contracepção"},62:{a:"go",t:"Desenvolvimento neuropsicomotor"},63:{a:"go",t:"Otite média aguda"},64:{a:"go",t:"Rastreamento / Sobrediagnóstico"},65:{a:"go",t:"Redes de Atenção à Saúde"},66:{a:"go",t:"Rastreamento Ca colo uterino"},67:{a:"go",t:"SUA / Adenomiose"},68:{a:"go",t:"Sensibilidade / Especificidade / VPP-VPN"},69:{a:"go",t:"Redes de Atenção à Saúde"},70:{a:"go",t:"Redes de Atenção à Saúde"},71:{a:"go",t:"Diagnóstico de gestação"},72:{a:"go",t:"Crescimento infantil"},73:{a:"go",t:"Reanimação neonatal"},74:{a:"go",t:"Aleitamento materno"},75:{a:"go",t:"Fibrilação atrial / Flutter"},76:{a:"go",t:"Crescimento infantil"},77:{a:"go",t:"Pré-natal"},78:{a:"go",t:"Redes de Atenção à Saúde"},79:{a:"go",t:"Reanimação neonatal"},80:{a:"go",t:"Reanimação neonatal"},81:{a:"clinica",t:"Dispositivos inalatórios"},82:{a:"clinica",t:"Sensibilidade / Especificidade / VPP-VPN"},83:{a:"clinica",t:"Fibrilação atrial / Flutter"},84:{a:"clinica",t:"Ensaio clínico randomizado"},85:{a:"clinica",t:"Princípios do SUS"},86:{a:"clinica",t:"Incidência / Prevalência"},87:{a:"clinica",t:"Rastreamento Ca colo uterino"},88:{a:"clinica",t:"Rastreamento Ca colo uterino"},89:{a:"clinica",t:"Otite média aguda"},90:{a:"clinica",t:"Rastreamento Ca colo uterino"},91:{a:"clinica",t:"Otite média aguda"},92:{a:"clinica",t:"Contracepção"},93:{a:"clinica",t:"Alcoolismo / Rastreamento"},94:{a:"clinica",t:"Redes de Atenção à Saúde"},95:{a:"clinica",t:"Redes de Atenção à Saúde"},96:{a:"clinica",t:"PAC / Pneumonia comunitária"},97:{a:"clinica",t:"Ensaio clínico randomizado"},98:{a:"clinica",t:"Otite média aguda"},99:{a:"clinica",t:"Sensibilidade / Especificidade / VPP-VPN"},100:{a:"clinica",t:"Ensaio clínico randomizado"}},

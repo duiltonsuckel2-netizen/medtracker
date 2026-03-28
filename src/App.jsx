@@ -353,6 +353,7 @@ function App() {
     pL((prevLogs) => [{ id: uid(), date: today(), area, theme: `${parentTheme} › ${subtema}`, parentTheme, subtema, pct, isSubtopic: true }, ...prevLogs]);
   }
   function addSession(session) {
+    if (!session.theme || !session.area) return;
     const s = { ...session, id: uid(), createdAt: today() }; pS((prev) => [s, ...prev]);
     const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
     const pct = perc(session.acertos, session.total);
@@ -364,6 +365,7 @@ function App() {
     });
   }
   function addRevLog(areaId, theme, total, acertos) {
+    if (!theme || !areaId) return;
     const pct = perc(acertos, total);
     pL((prevLogs) => [{ id: uid(), date: today(), area: areaId, theme, total, acertos, pct }, ...prevLogs]);
     const key = `${areaId}__${theme.toLowerCase().trim()}`;
@@ -375,19 +377,23 @@ function App() {
     notify("✓ Revisão registrada");
   }
   function markReview(revId, acertos, total, subtopicScores) {
-    const pct = perc(acertos, total); const rev = reviews.find((r) => r.id === revId); if (!rev) return;
+    const pct = perc(acertos, total);
+    // Read rev from current state for log entry (before pR runs)
+    const rev = reviews.find((r) => r.id === revId); if (!rev) return;
     const ni = nxtIdx(rev.intervalIndex, pct);
-    const entry = { date: today(), pct, _prev: { intervalIndex: rev.intervalIndex, nextDue: rev.nextDue, lastPerf: rev.lastPerf, lastStudied: rev.lastStudied } };
     // Update main card + subtopic cards in one batch
     pR((prevReviews) => {
-      let newReviews = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
+      const prevRev = prevReviews.find((r) => r.id === revId); if (!prevRev) return prevReviews;
+      const niInner = nxtIdx(prevRev.intervalIndex, pct);
+      const entry = { date: today(), pct, _prev: { intervalIndex: prevRev.intervalIndex, nextDue: prevRev.nextDue, lastPerf: prevRev.lastPerf, lastStudied: prevRev.lastStudied } };
+      let newReviews = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: niInner, nextDue: addDays(today(), INTERVALS[niInner]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
       if (subtopicScores && subtopicScores.length > 0) {
         subtopicScores.forEach((s) => {
-          const sKey = `${rev.area}__${rev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
+          const sKey = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
           const ex = newReviews.find((r) => r.key === sKey);
           const sni = nxtIdx(ex?.intervalIndex || 0, s.pct);
           const sRev = {
-            id: ex?.id || uid(), key: sKey, area: rev.area, theme: s.name, parentTheme: rev.theme,
+            id: ex?.id || uid(), key: sKey, area: prevRev.area, theme: s.name, parentTheme: prevRev.theme,
             isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
             lastPerf: s.pct, lastStudied: today(),
             history: [...(ex?.history || []), { date: today(), pct: s.pct }]
@@ -458,8 +464,10 @@ function App() {
     notify("✓ Revisão restaurada");
   }
   function handleNotionSync(newRevs) {
+    if (!Array.isArray(newRevs)) return;
     const existing = [...reviews];
     newRevs.forEach((nr) => {
+      if (!nr.theme || !nr.area) return;
       const key = `${nr.area}__${nr.theme.toLowerCase().trim()}`;
       const idx = existing.findIndex((r) => r.key === key);
       const built = { ...nr, id: idx >= 0 ? existing[idx].id : uid(), key, history: idx >= 0 ? existing[idx].history : [{ date: nr.lastStudied, pct: nr.lastPerf }] };

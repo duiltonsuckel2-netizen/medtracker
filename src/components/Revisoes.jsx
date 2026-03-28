@@ -9,7 +9,7 @@ import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicM
 
 function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics, onUndoMark }) {
   const [subTab, setSubTab] = useState("proximas");
-  const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id).map((r) => r.theme), ...revLogs.filter((r) => r.area === a.id).map((r) => r.theme)])].sort(); }); return o; }, [reviews, revLogs]);
+  const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id && r.theme).map((r) => r.theme), ...revLogs.filter((r) => r.area === a.id && r.theme).map((r) => r.theme)])].sort(); }); return o; }, [reviews, revLogs]);
   const emptyQ = { area: "clinica", theme: "", freeTheme: false, total: "", acertos: "" };
   const [qForm, setQForm] = useState(emptyQ); const [showQ, setShowQ] = useState(false); const [marking, setMarking] = useState(null);
   const [subtemaModal, setSubtemaModal] = useState(null);
@@ -27,6 +27,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   const themeProgress = useMemo(() => {
     const byTheme = {};
     [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))].forEach((l) => {
+      if (!l.theme || !l.area) return;
       const k = `${l.area}__${l.theme}`;
       if (!byTheme[k]) byTheme[k] = { area: l.area, theme: l.theme, sessions: [] };
       byTheme[k].sessions.push({ date: l.date, pct: l.pct, total: l.total || 0 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
 import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit } from "../theme.js";
@@ -10,6 +10,7 @@ import { Fld, ChartTip } from "./UI.jsx";
 
 function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, onNewSession, onAlerts, forceTab, flashcardDecks, onNavigateFlashcards }) {
   const [activeTab, setActiveTab] = useState(forceTab || "overview");
+  useEffect(() => { if (forceTab) setActiveTab(forceTab); }, [forceTab]);
   const [notionToken, setNotionToken] = useState("");
   const [notionDbId, setNotionDbId] = useState("");
   const [notionStatus, setNotionStatus] = useState("idle");
@@ -42,7 +43,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   const revEvo = useMemo(() => {
     if (!revLogs.length) return [];
     const byW = {};
-    [...revLogs].sort((a, b) => a.date.localeCompare(b.date)).forEach((r) => {
+    [...revLogs].filter((r) => r.date && r.area).sort((a, b) => a.date.localeCompare(b.date)).forEach((r) => {
       const d = new Date(r.date + "T12:00:00"); const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7)); const wk = mon.toISOString().slice(0, 10);
       if (!byW[wk]) byW[wk] = {}; if (!byW[wk][r.area]) byW[wk][r.area] = { sum: 0, n: 0 }; byW[wk][r.area].sum += r.pct; byW[wk][r.area].n += 1;
     });
@@ -53,7 +54,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   const generalEvo = useMemo(() => {
     if (!revLogs.length) return [];
     const byW = {};
-    [...revLogs].sort((a, b) => a.date.localeCompare(b.date)).forEach((r) => {
+    [...revLogs].filter((r) => r.date).sort((a, b) => a.date.localeCompare(b.date)).forEach((r) => {
       const d = new Date(r.date + "T12:00:00"); const mon = new Date(d); mon.setDate(d.getDate() - ((d.getDay() + 6) % 7)); const wk = mon.toISOString().slice(0, 10);
       if (!byW[wk]) byW[wk] = { sum: 0, n: 0 }; byW[wk].sum += r.pct; byW[wk].n += 1;
     });
@@ -80,6 +81,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   const themeProgress = useMemo(() => {
     const byTheme = {};
     [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))].forEach((l) => {
+      if (!l.theme || !l.area) return;
       const k = `${l.area}__${l.theme}`;
       if (!byTheme[k]) byTheme[k] = { area: l.area, theme: l.theme, sessions: [] };
       byTheme[k].sessions.push({ date: l.date, pct: l.pct, total: l.total || 0 });
@@ -134,7 +136,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   function themeHistory(area, theme) {
     const tLow = theme.toLowerCase().trim();
     const all = [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))]
-      .filter((l) => l.area === area && l.theme.toLowerCase().trim() === tLow)
+      .filter((l) => l.area === area && l.theme && l.theme.toLowerCase().trim() === tLow)
       .sort((a, b) => a.date.localeCompare(b.date));
     return all.map((l) => ({ date: l.date, pct: l.pct, total: l.total || 0 }));
   }
@@ -176,7 +178,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     });
     // Revisões consecutivas <75%
     const byThemeRevLogs = {};
-    [...revLogs].sort((a, b) => a.date.localeCompare(b.date)).forEach((l) => {
+    [...revLogs].filter((l) => l.theme && l.area).sort((a, b) => a.date.localeCompare(b.date)).forEach((l) => {
       const k = `${l.area}__${l.theme.toLowerCase().trim()}`;
       if (!byThemeRevLogs[k]) byThemeRevLogs[k] = { area: l.area, theme: l.theme, logs: [] };
       byThemeRevLogs[k].logs.push(l);
@@ -193,7 +195,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
       }
     });
     // Erros em prova: temas do cursinho com prevalência alta/muito alta
-    const studiedThemes = new Set(reviews.map((r) => r.theme.toLowerCase().trim()));
+    const studiedThemes = new Set(reviews.filter((r) => r.theme).map((r) => r.theme.toLowerCase().trim()));
     const examAlertsSeen = new Set();
     exams.forEach((ex) => {
       if (!ex.qDetails || !ex.cats) return;

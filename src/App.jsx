@@ -66,9 +66,10 @@ function App() {
   const [syncInput, setSyncInput] = useState("");
 
   // Sync initialization
+  const [syncBanner, setSyncBanner] = useState(false);
   useEffect(() => {
     initSync(
-      () => window.location.reload(), // on remote update: reload to pick up new data
+      () => setSyncBanner(true), // on remote update: show banner instead of reload
       (status) => setSyncStatus(status)
     ).then((active) => {
       if (active) setSyncStatus("synced");
@@ -556,7 +557,7 @@ function App() {
                 <div style={{ fontSize: 12, color: C.text3 }}>Já tem um código? Digite abaixo:</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input value={syncInput} onChange={(e) => setSyncInput(e.target.value.toUpperCase())} placeholder="Ex: ABC123" maxLength={6} style={{ ...inp(), flex: 1, fontSize: 18, textAlign: "center", fontFamily: FM, fontWeight: 700, letterSpacing: 3 }} />
-                  <button disabled={syncInput.length < 6} onClick={async () => { try { const id = await joinSync(syncInput, () => window.location.reload()); setSyncId(id); setSyncStatus("synced"); setShowSyncModal(false); notify("Conectado! Recarregando..."); setTimeout(() => window.location.reload(), 1000); } catch (e) { alert("Código não encontrado."); } }} style={btn(C.blue, { padding: "10px 20px", fontSize: 13, opacity: syncInput.length < 6 ? 0.4 : 1 })}>Entrar</button>
+                  <button disabled={syncInput.length < 6} onClick={async () => { try { const id = await joinSync(syncInput, () => setSyncBanner(true)); setSyncId(id); setSyncStatus("synced"); setShowSyncModal(false); notify("Conectado! Recarregando..."); setTimeout(() => window.location.reload(), 1500); } catch (e) { alert("Código não encontrado."); } }} style={btn(C.blue, { padding: "10px 20px", fontSize: 13, opacity: syncInput.length < 6 ? 0.4 : 1 })}>Entrar</button>
                 </div>
               </div>
             )}
@@ -565,6 +566,14 @@ function App() {
       )}
       {showSessionModal && <SessionModal onSave={(s) => { addSession(s); setShowSessionModal(false); }} onClose={() => setShowSessionModal(false)} />}
       {subtopicModal && <SubtopicModal area={subtopicModal.area} topic={subtopicModal.topic} semana={subtopicModal.semana} existing={getSubtopics(subtopicModal.area, subtopicModal.topic)} onSave={(items) => { saveSubtopics(subtopicModal.area, subtopicModal.topic, items); setSubtopicModal(null); notify(items.length > 0 ? `✓ ${items.length} subtema${items.length > 1 ? "s" : ""} salvo${items.length > 1 ? "s" : ""}` : "✓ Aula marcada"); }} onClose={() => setSubtopicModal(null)} />}
+      {/* SYNC BANNER */}
+      {syncBanner && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 999, padding: "10px 16px", background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+          <span style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>Dados atualizados de outro dispositivo</span>
+          <button onClick={() => window.location.reload()} style={{ background: "#fff", border: "none", borderRadius: 8, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", color: C.purple }}>Atualizar</button>
+          <button onClick={() => setSyncBanner(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+      )}
       {/* CONTENT */}
       <div style={{ padding: `${S.xl}px`, maxWidth: 1200, margin: "0 auto", paddingBottom: 100 }}>
         <div key={tabKey} className="fade-in">

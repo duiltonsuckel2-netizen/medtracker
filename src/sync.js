@@ -1,5 +1,33 @@
-import { db } from "./firebase.js";
-import { doc, setDoc, onSnapshot, getDoc } from "firebase/firestore";
+let _db = null;
+let _doc = null;
+let _setDoc = null;
+let _onSnapshot = null;
+let _getDoc = null;
+
+async function loadFirebase() {
+  if (_db) return true;
+  try {
+    const { initializeApp } = await import("firebase/app");
+    const { getFirestore, doc, setDoc, onSnapshot, getDoc } = await import("firebase/firestore");
+    const app = initializeApp({
+      apiKey: "AIzaSyDcKbbDD2Anw9Il6XoOK96afftRSdRday0",
+      authDomain: "medtracker-ce055.firebaseapp.com",
+      projectId: "medtracker-ce055",
+      storageBucket: "medtracker-ce055.firebasestorage.app",
+      messagingSenderId: "292292223003",
+      appId: "1:292292223003:web:c6d1408a0b8cb486d618be",
+    });
+    _db = getFirestore(app);
+    _doc = doc;
+    _setDoc = setDoc;
+    _onSnapshot = onSnapshot;
+    _getDoc = getDoc;
+    return true;
+  } catch (e) {
+    console.warn("Firebase load failed:", e);
+    return false;
+  }
+}
 
 const SYNC_KEYS = [
   "rp26_sessions", "rp26_reviews", "rp26_revlogs", "rp26_exams",
@@ -31,7 +59,6 @@ function setSyncId(id) {
 }
 
 function generateSyncId() {
-  // 6-char alphanumeric code, easy to type on mobile
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let code = "";
   for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
@@ -59,12 +86,14 @@ function applyData(data) {
 
 async function pushToCloud() {
   if (!_syncId || _pushing) return;
+  const ok = await loadFirebase();
+  if (!ok) return;
   _pushing = true;
   try {
     const data = collectData();
     data._updatedAt = Date.now();
     data._deviceId = DEVICE_ID;
-    await setDoc(doc(db, "sync", _syncId), data);
+    await _setDoc(_doc(_db, "sync", _syncId), data);
     if (_onSyncStatus) _onSyncStatus("synced");
   } catch (e) {
     console.warn("Sync push failed:", e);
@@ -81,19 +110,19 @@ function debouncedPush() {
   _debounceTimer = setTimeout(pushToCloud, 2000);
 }
 
-function startListening(onRemoteUpdate) {
+async function startListening(onRemoteUpdate) {
   if (_unsubscribe) _unsubscribe();
   if (!_syncId) return;
+  const ok = await loadFirebase();
+  if (!ok) return;
 
   let _lastRemoteTs = 0;
-  const RELOAD_COOLDOWN = 10000; // 10s cooldown between reloads
+  const RELOAD_COOLDOWN = 10000;
 
-  _unsubscribe = onSnapshot(doc(db, "sync", _syncId), (snap) => {
+  _unsubscribe = _onSnapshot(_doc(_db, "sync", _syncId), (snap) => {
     if (!snap.exists()) return;
     const data = snap.data();
-    // Ignore own writes
     if (data._deviceId === DEVICE_ID) return;
-    // Prevent reload loops: only reload if remote data is newer and cooldown passed
     const now = Date.now();
     const lastReload = Number(sessionStorage.getItem("rp26_last_sync_reload") || "0");
     if (now - lastReload < RELOAD_COOLDOWN) return;
@@ -119,8 +148,7 @@ async function initSync(onRemoteUpdate, onStatusChange) {
   _onSyncStatus = onStatusChange || null;
   _syncId = getSyncId();
   if (!_syncId) return false;
-  startListening(onRemoteUpdate);
-  // Delay enabling pushes to avoid init/migration saves triggering sync loops
+  await startListening(onRemoteUpdate);
   setTimeout(() => { _initialized = true; }, 5000);
   return true;
 }
@@ -135,17 +163,16 @@ async function createSync() {
 
 async function joinSync(code, onRemoteUpdate) {
   const id = code.toUpperCase().trim();
-  // Check if doc exists
-  const snap = await getDoc(doc(db, "sync", id));
+  const ok = await loadFirebase();
+  if (!ok) throw new Error("Firebase não carregou");
+  const snap = await _getDoc(_doc(_db, "sync", id));
   if (snap.exists()) {
-    // Pull remote data first
     const data = snap.data();
     applyData(data);
   }
   setSyncId(id);
   _syncId = id;
-  startListening(onRemoteUpdate);
-  // Push local data too (merge)
+  await startListening(onRemoteUpdate);
   await pushToCloud();
   return id;
 }

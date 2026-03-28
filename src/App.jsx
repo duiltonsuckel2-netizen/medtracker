@@ -544,7 +544,7 @@ function App() {
                   <div style={{ fontSize: 11, color: C.green, marginTop: 6 }}>Sincronização ativa</div>
                 </div>
                 <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Use este código nos outros dispositivos pra sincronizar automaticamente.</div>
-                <button onClick={() => { pushToCloud(); notify("Sync forçado!"); }} style={btn(C.blue, { width: "100%", fontSize: 13 })}>Forçar sync agora</button>
+                <button onClick={async () => { try { await pushToCloud(); notify("Sync enviado!"); } catch (e) { alert("Erro: " + e.message); } }} style={btn(C.blue, { width: "100%", fontSize: 13 })}>Forçar sync agora</button>
                 <button onClick={() => { disconnectSync(); setSyncId(null); setSyncStatus("off"); setShowSyncModal(false); notify("Sync desconectado"); }} style={btn(C.card2, { width: "100%", fontSize: 13, color: C.red })}>Desconectar sync</button>
               </div>
             ) : (

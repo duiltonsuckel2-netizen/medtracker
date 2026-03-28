@@ -72,22 +72,20 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {
-          // 1) Force-update: unregister any old SW, clear caches, re-register fresh
-          try {
-            var regs = await navigator.serviceWorker.getRegistrations();
-            for (var r of regs) {
-              await r.unregister();
-            }
-            var keys = await caches.keys();
-            for (var k of keys) {
-              await caches.delete(k);
-            }
-          } catch(e) {}
-
-          // 2) Register fresh SW
           try {
             var reg = await navigator.serviceWorker.register('/medtracker/sw.js', { updateViaCache: 'none' });
-            setInterval(function() { reg.update(); }, 60000);
+            // Check for updates every 30s
+            setInterval(function() { reg.update(); }, 30000);
+            // When a new SW is found, activate it and reload immediately
+            reg.addEventListener('updatefound', function() {
+              var newSW = reg.installing;
+              if (!newSW) return;
+              newSW.addEventListener('statechange', function() {
+                if (newSW.state === 'activated') {
+                  window.location.reload();
+                }
+              });
+            });
           } catch(e) {}
         });
       }

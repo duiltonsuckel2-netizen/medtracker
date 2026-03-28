@@ -250,15 +250,12 @@ function App() {
           }
         }
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(loadedSt);
-        // Auto-generate or upgrade flashcards immediately with loaded data
+        // Auto-generate or merge flashcards on every load (picks up new THEME_SUMMARIES)
         if (loadedExams.length > 0) {
-          const needsUpgrade = loadedFc.length > 0 && loadedFc.some(d => !d._v || d._v < 2);
-          if (loadedFc.length === 0 || needsUpgrade) {
-            const newDecks = generateFlashcardDecks(loadedExams, loadedReviews, loadedSessions);
-            if (newDecks.length > 0) {
-              const finalFc = needsUpgrade ? mergeDecks(loadedFc, newDecks) : newDecks;
-              setFlashcardDecks(finalFc); saveKey("rp26_flashcards", finalFc);
-            } else { setFlashcardDecks(loadedFc); }
+          const newDecks = generateFlashcardDecks(loadedExams, loadedReviews, loadedSessions);
+          if (newDecks.length > 0) {
+            const finalFc = loadedFc.length > 0 ? mergeDecks(loadedFc, newDecks) : newDecks;
+            setFlashcardDecks(finalFc); saveKey("rp26_flashcards", finalFc);
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
       }

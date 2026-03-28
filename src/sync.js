@@ -19,6 +19,7 @@ let _pushing = false;
 let _syncId = null;
 let _debounceTimer = null;
 let _onSyncStatus = null;
+let _initialized = false;
 
 function getSyncId() {
   return localStorage.getItem("rp26_sync_id") || null;
@@ -74,24 +75,36 @@ async function pushToCloud() {
 }
 
 function debouncedPush() {
-  if (!_syncId) return;
+  if (!_syncId || !_initialized) return;
   if (_debounceTimer) clearTimeout(_debounceTimer);
   if (_onSyncStatus) _onSyncStatus("syncing");
-  _debounceTimer = setTimeout(pushToCloud, 1500);
+  _debounceTimer = setTimeout(pushToCloud, 2000);
 }
 
 function startListening(onRemoteUpdate) {
   if (_unsubscribe) _unsubscribe();
   if (!_syncId) return;
 
+  let _lastRemoteTs = 0;
+  const RELOAD_COOLDOWN = 10000; // 10s cooldown between reloads
+
   _unsubscribe = onSnapshot(doc(db, "sync", _syncId), (snap) => {
     if (!snap.exists()) return;
     const data = snap.data();
     // Ignore own writes
     if (data._deviceId === DEVICE_ID) return;
+    // Prevent reload loops: only reload if remote data is newer and cooldown passed
+    const now = Date.now();
+    const lastReload = Number(sessionStorage.getItem("rp26_last_sync_reload") || "0");
+    if (now - lastReload < RELOAD_COOLDOWN) return;
+    if (data._updatedAt && data._updatedAt <= _lastRemoteTs) return;
+    _lastRemoteTs = data._updatedAt || now;
     applyData(data);
     if (_onSyncStatus) _onSyncStatus("synced");
-    if (onRemoteUpdate) onRemoteUpdate();
+    if (onRemoteUpdate) {
+      sessionStorage.setItem("rp26_last_sync_reload", String(now));
+      onRemoteUpdate();
+    }
   }, (err) => {
     console.warn("Sync listen error:", err);
     if (_onSyncStatus) _onSyncStatus("error");
@@ -107,6 +120,8 @@ async function initSync(onRemoteUpdate, onStatusChange) {
   _syncId = getSyncId();
   if (!_syncId) return false;
   startListening(onRemoteUpdate);
+  // Delay enabling pushes to avoid init/migration saves triggering sync loops
+  setTimeout(() => { _initialized = true; }, 5000);
   return true;
 }
 

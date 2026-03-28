@@ -276,28 +276,38 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
       {view === "history" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {history.length === 0 && <Empty icon={"📅"} msg="Nenhuma semana arquivada ainda." />}
-          {history.map((entry, i) => <HistoryEntry key={i} entry={entry} />)}
+          {history.map((entry, i) => <HistoryEntry key={i} entry={entry} onUpdate={(updated) => { const nh = [...history]; nh[i] = updated; setHistory(nh); saveKey("rp_agenda_history", nh); debouncedPush(); }} />)}
         </div>
       )}
     </div>
   );
 }
 
-function HistoryEntry({ entry }) {
+function HistoryEntry({ entry, onUpdate }) {
   const [open, setOpen] = useState(false);
-  const pC = entry.progress >= 85 ? C.green : entry.progress >= 60 ? C.yellow : C.red;
+  const done = entry.days.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
+  const total = entry.days.reduce((s, d) => s + d.items.length, 0);
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+  const pC = progress >= 85 ? C.green : progress >= 60 ? C.yellow : C.red;
+  function toggleItem(dayId, itemId) {
+    const newDays = entry.days.map((d) => d.id !== dayId ? d : { ...d, items: d.items.map((it) => it.id !== itemId ? it : { ...it, done: !it.done }) });
+    const newDone = newDays.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
+    onUpdate({ ...entry, days: newDays, done: newDone, progress: total > 0 ? Math.round((newDone / total) * 100) : 0 });
+  }
   return (
     <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 18, overflow: "hidden" }}>
       <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 14, cursor: "pointer" }} onClick={() => setOpen((o) => !o)}>
-        <div style={{ width: 46, height: 46, borderRadius: R.md, background: pC + "18", border: `2px solid ${pC}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: SH.glow(pC) }}><span style={{ fontSize: 14, fontWeight: 700, color: pC, ...NUM }}>{entry.progress}%</span></div>
-        <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{entry.label}</div><div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{entry.done}/{entry.total} concluídos</div></div>
+        <div style={{ width: 46, height: 46, borderRadius: R.md, background: pC + "18", border: `2px solid ${pC}35`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: SH.glow(pC) }}><span style={{ fontSize: 14, fontWeight: 700, color: pC, ...NUM }}>{progress}%</span></div>
+        <div style={{ flex: 1 }}><div style={{ fontSize: 13, fontWeight: 600 }}>{entry.label}</div><div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{done}/{total} concluídos</div></div>
         <span style={{ color: C.text3, transition: "transform .2s", transform: open ? "rotate(180deg)" : "rotate(0)" }}>{"▼"}</span>
       </div>
       {open && <div className="fade-in" style={{ padding: "0 18px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
         {entry.days.map((day) => <div key={day.id}>
           <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>{day.label}</div>
-          {day.items.map((it) => <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", opacity: it.done ? 0.4 : 0.85 }}>
-            <span style={{ fontSize: 11, color: it.done ? C.green : C.text3 }}>{it.done ? "✓" : "○"}</span>
+          {day.items.map((it) => <div key={it.id} onClick={() => toggleItem(day.id, it.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", opacity: it.done ? 0.4 : 0.85, cursor: "pointer" }}>
+            <div style={{ width: 18, height: 18, borderRadius: 5, border: it.done ? `2px solid ${C.green}` : `2px solid ${C.border2}`, background: it.done ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all .2s" }}>
+              {it.done && <span style={{ fontSize: 10, color: "#000", fontWeight: 800 }}>{"✓"}</span>}
+            </div>
             <span style={{ fontSize: 12, textDecoration: it.done ? "line-through" : "none" }}>{it.text}</span>
           </div>)}
         </div>)}

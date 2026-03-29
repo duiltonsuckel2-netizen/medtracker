@@ -177,10 +177,11 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         res.push({ type: "danger", icon: "🔴", title: `Ponto cego: ${t.theme}`, msg: `${badSessions} sessões abaixo de 70% · última: ${t.last}%`, area: t.area, theme: t.theme, history: t.sorted, totalQ: t.sorted.reduce((s, x) => s + x.total, 0), avg: t.avg, trend: t.trend });
       }
     });
+    const pontoCegoKeys = new Set(res.map((a) => `${a.area}__${(a.theme||"").toLowerCase().trim()}`));
     themeProgress.filter((t) => t.last < t.avg - 10 && t.n >= 3).forEach((t) => {
       res.push({ type: "info", icon: "📉", title: `Queda em: ${t.theme}`, msg: `Média ${t.avg}% → última ${t.last}%`, area: t.area, theme: t.theme, history: t.sorted, avg: t.avg, trend: t.trend });
     });
-    // Revisões recentes <75% (revLogs + sessions)
+    // Revisões recentes <75% (revLogs + sessions) — skip if already a Ponto cego
     const byThemeAllLogs = {};
     [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))].filter((l) => l.theme && l.area).sort((a, b) => (a.date || "").localeCompare(b.date || "")).forEach((l) => {
       const k = `${l.area}__${l.theme.toLowerCase().trim()}`;
@@ -192,10 +193,10 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
       if (t.logs.length < 2) return;
       const allBad = t.logs.filter((l) => l.pct < 75);
       const lastEntry = t.logs[t.logs.length - 1];
-      // Alert if last entry is <75% AND at least one other entry is also <75%
+      // Alert if last entry is <75% AND at least one other entry is also <75% (skip if already Ponto cego)
       if (lastEntry.pct < 75 && allBad.length >= 2) {
         const k = `${t.area}__${t.theme.toLowerCase().trim()}`;
-        if (consecSeen.has(k)) return;
+        if (consecSeen.has(k) || pontoCegoKeys.has(k)) return;
         consecSeen.add(k);
         const showBad = allBad.slice(-2);
         res.push({ type: "danger", icon: "📊", title: `2 revisões <75%: ${t.theme}`, msg: `Últimas: ${showBad[0].pct}% e ${showBad[1].pct}% — reforçar teoria`, area: t.area, theme: t.theme, history: t.logs.map((l) => ({ date: l.date, pct: l.pct, total: l.total || 0 })) });

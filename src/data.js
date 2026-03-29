@@ -400,6 +400,36 @@ export const EXAM_THEMES_RAW = {"ufcspa 2022":{1:{a:"ped",t:"Reanimação neonat
 
 export const EXAM_THEMES_DB = EXAM_THEMES_RAW;
 
+// ── ANÁLISE UFCSPA 2026 — prevalência baseada em UFCSPA 2022-2025 ──
+export const UFCSPA_2026_ANALYSIS = {
+  resumo: "81% dos temas foram NOVOS na UFCSPA 2026. Prova com perfil muito diferente dos anos anteriores. Clínica e Cirurgia foram 100% temas inéditos.",
+  distribuicao: { clinica: 20, go: 20, ped: 20, preventiva: 20, cirurgia: 20 },
+  destaques: [
+    "Clínica: 100% temas novos — cardiotoxicidade por 5-FU, lúpus neuropsiquiátrico, mudanças climáticas",
+    "GO: forte ênfase em obstetrícia (10 questões Q31-40). Rastreamento Ca colo + Contracepção são recorrentes",
+    "Pediatria: Reanimação neonatal (Q43) e PAC na infância (Q54) são clássicos da UFCSPA. Sd. West e morte súbita surpreenderam",
+    "Preventiva: Redes de Atenção/ESF/APS (Q72) é o tema MAIS recorrente da UFCSPA (4/4 provas). TEPT e GRADE são novidades",
+    "Cirurgia: quase tudo inédito. 2 questões de pancreatite (Q82+Q98), 2 de DRGE (Q84+Q93)"
+  ],
+  sempreCAI: [
+    { q: 72, tema: "Redes de Atenção à Saúde / ESF / Atributos APS", freq: "4/4 provas" },
+    { q: 21, tema: "Rastreamento Ca colo uterino", freq: "4/4 provas" },
+    { q: 25, tema: "Contracepção", freq: "4/4 provas" },
+    { q: 43, tema: "Reanimação neonatal", freq: "4/4 provas" },
+    { q: 54, tema: "PAC na infância", freq: "4/4 provas" },
+    { q: 56, tema: "Vacinação / Imunização", freq: "4/4 provas" },
+    { q: 63, tema: "Ensaio clínico randomizado", freq: "4/4 provas" },
+    { q: 76, tema: "Atributos da APS", freq: "4/4 provas" },
+    { q: 87, tema: "Doença inflamatória intestinal", freq: "4/4 provas" }
+  ],
+  prevUfcspa: {
+    21:"muito alta",25:"muito alta",29:"alta",34:"alta",
+    41:"média",43:"muito alta",45:"média",47:"alta",53:"média",54:"muito alta",56:"muito alta",59:"média",
+    63:"muito alta",64:"alta",66:"alta",68:"média",72:"muito alta",76:"muito alta",77:"média",
+    87:"muito alta",94:"alta"
+  }
+};
+
 export const KNOWN_PDFS = [
   // ── RS — FundMed (fundmed.org.br) ──────────────────────────────────────
   { key: "ufcspa 2026", name: "UFCSPA 2026 Acesso Direto", total: 100 },

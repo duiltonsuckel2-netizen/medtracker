@@ -279,7 +279,7 @@ function App() {
         } else { setFlashcardDecks(loadedFc); }
       }
       // One-time dedup: remove duplicate reviews and revLogs
-      const dedupKey = "rp26_mig_dedup_v2";
+      const dedupKey = "rp26_mig_dedup_v3";
       if (seeded && !localStorage.getItem(dedupKey)) {
         localStorage.setItem(dedupKey, "1");
         const seen = new Map();

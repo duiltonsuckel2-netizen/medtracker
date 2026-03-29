@@ -1,6 +1,6 @@
 import React, { Suspense } from "react";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam, LOG_NAME_MAP } from "./data.js";
+import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam, buildUfcspa2026Exam, LOG_NAME_MAP } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx, diffDays } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
@@ -152,16 +152,27 @@ function App() {
         const revs = SEED_REVIEWS.map((r) => ({ ...r, id: uid(), key: `${r.area}__${r.theme.toLowerCase().trim()}`, history: [{ date: r.lastStudied, pct: r.lastPerf }] }));
         const logs = SEED_LOGS.map((l) => ({ ...l, id: uid() }));
         const se = buildUnicamp2024Exam();
-        setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se]); setSubtopics({});
-        const seedFc = generateFlashcardDecks([se], revs, []);
+        const uf = buildUfcspa2026Exam();
+        setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se, uf]); setSubtopics({});
+        const seedFc = generateFlashcardDecks([se, uf], revs, []);
         setFlashcardDecks(seedFc); saveKey("rp26_flashcards", seedFc);
-        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_subtopics", {}); saveKey("rp26_seeded12", true);
+        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se, uf]); saveKey("rp26_subtopics", {}); saveKey("rp26_seeded12", true);
       } else {
         let loadedSessions = Array.isArray(s) ? s : [];
         let loadedReviews = Array.isArray(r) ? r : [];
         let loadedExams = Array.isArray(e) ? e : [];
         const loadedFc = Array.isArray(fc) ? fc : [];
         let loadedLogs = Array.isArray(rl) ? rl : [];
+
+        // Ensure built-in exams always exist
+        if (!loadedExams.some((ex) => ex.name && ex.name.includes("UFCSPA"))) {
+          loadedExams.push(buildUfcspa2026Exam());
+          saveKey("rp26_exams", loadedExams);
+        }
+        if (!loadedExams.some((ex) => ex.name && ex.name.includes("UNICAMP"))) {
+          loadedExams.push(buildUnicamp2024Exam());
+          saveKey("rp26_exams", loadedExams);
+        }
 
         // AUTO-BACKUP: save snapshot before anything else touches the data
         // Keeps last 3 backups rotated so user can always restore

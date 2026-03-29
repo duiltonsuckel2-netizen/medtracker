@@ -185,6 +185,43 @@ export function buildUnicamp2024Exam() {
   return { id: uid(), date: "2026-03-21", name: "UNICAMP 2024 (1ª fase)", total: 120, acertos: soube.size + chutou.size, cats, qDetails, areaResults, pdfAnalyzed: true };
 }
 
+const UFCSPA_THEMES = {
+  1:"Choque séptico / Hemodinâmica",2:"Lúpus neuropsiquiátrico (LES)",3:"Nutrição e risco de câncer / Doença coronariana",4:"Alopecia cicatricial / Dermatologia",5:"Insuficiência adrenal primária e secundária",6:"Tuberculose latente / Imunobiológicos",7:"Tromboembolismo pulmonar recorrente",8:"Síndrome dos ovários policísticos (SOP)",9:"Úlcera gástrica / Investigação Ca gástrico",10:"Cardiotoxicidade por 5-fluorouracil",11:"Febre amarela",12:"Psicofármacos em asmáticos",13:"AVC hiperagudo / Trombólise",14:"Demência rapidamente progressiva",15:"Diabetes mellitus / TOTG — Critérios SBD",16:"Sd. Diarreica — Retocolite ulcerativa",17:"Climatério / Menopausa",18:"Psiquiatria",19:"Endocardite infecciosa — Critérios de Duke",20:"Hipertensão arterial sistêmica",
+  21:"Rastreamento Ca colo uterino / DNA-HPV",22:"Climatério / Menopausa",23:"Amenorreia primária / Sd. Mayer-Rokitansky",24:"Endometriose / Infertilidade",25:"Contracepção",26:"Mamografia / Densidade mamária — BI-RADS",27:"Fisiologia ovariana — Duas células, duas gonadotrofinas",28:"Infertilidade",29:"Sangramento uterino anormal / Anovulação",30:"Climatério — Aspectos psíquicos",31:"Sangramentos 1º Trimestre — Doença trofoblástica gestacional",32:"Placenta prévia / Sangramento 3o trimestre",33:"Pré-eclâmpsia / Sulfato de magnésio",34:"Pré-natal — Exames e condutas 2o trimestre",35:"Trabalho de parto pré-termo / Tocólise",36:"Sangramentos 2ª Metade — Acretismo placentário / Hemorragia pós-parto",37:"Sangramentos 2ª Metade — Fatores de risco para acretismo placentário",38:"Sertralina / ISRS em pré-concepcional",39:"Ruptura prematura de membranas ovulares (RPMO)",40:"Pré-natal",
+  41:"Infecções congênitas",42:"Taquipneia transitória do RN",43:"Reanimação neonatal",44:"Psiquiatria",45:"TDAH",46:"Coqueluche",47:"Aleitamento materno — Pega correta",48:"Doenças Exantemáticas — Mononucleose / Epstein-Barr",49:"Abdômen agudo pediátrico",50:"Dengue grave na infância",51:"Constipação em pediatria",52:"Profilaxia endocardite — Cardiopatia congênita",53:"ASMA",54:"Sd. Respiratórias II — PAC na infância",55:"Síndrome de West / Hipsarritmia",56:"Vacinação do paciente oncológico",57:"PALS",58:"Queimaduras pediátricas — Cuidados locais",59:"Neurologia",60:"Síncope na adolescência / Morte súbita cardíaca",
+  61:"Relato de caso / Série de casos",62:"Estudo transversal / Causalidade reversa",63:"Ensaio clínico randomizado — PICO",64:"Testes em paralelo e em série — Sensibilidade/Especificidade",65:"Risco relativo / Medidas de efeito",66:"Rastreamento / Sobrediagnóstico / Viés de tempo ganho",67:"Método GRADE — Avaliação de evidências",68:"Estudo de coorte / Incidência",69:"Amitriptilina — Farmacologia na APS",70:"TEPT — Transtorno de estresse pós-traumático",71:"SUS — APS e Financiamento — Participação social / CIT / Conselhos",72:"Redes de Atenção à Saúde / ESF / Atributos APS",73:"SUS / APS",74:"Lombalgia na APS — Fatores de risco",75:"Violência contra a mulher — Acolhimento",76:"Atributos da APS / Violência",77:"Epidemiologia",78:"Fração atribuível populacional (FAP)",79:"Entrevista motivacional — Osteoartrite na APS",80:"HAS e Sd. Metabólica — Hipertensão mascarada",
+  81:"Queimaduras",82:"Sd. Álgica Abdominal — Pancreatite aguda",83:"Sd. Dispéptica — H. pylori / Rastreio endoscópico",84:"DRGE — Doença do refluxo gastroesofágico",85:"Hérnia de hiato",86:"Carcinoma basocelular",87:"Sd. Diarreica — Doença de Crohn / Fístula perianal",88:"Farmaco",89:"Adenocarcinoma de endométrio",90:"Neurologia",91:"Atresia esofágica / Malformações congênitas (VACTERL)",92:"Câncer colorretal — Sinais e sintomas",93:"Fundoplicatura de Nissen / DRGE cirúrgica",94:"Hemorragia Digestiva I — Síndrome compartimental abdominal",95:"Trauma abdominal — TC no ATLS",96:"Choque hemorrágico / Reposição volêmica",97:"Pneumotórax espontâneo primário",98:"Sd. Álgica Abdominal — Pancreatite aguda / Classificação de gravidade",99:"Traqueostomia",100:"Hérnia umbilical encarcerada",
+};
+
+function ufcspaArea(n) {
+  if (n >= 1 && n <= 20) return "clinica";
+  if (n >= 21 && n <= 40) return "go";
+  if (n >= 41 && n <= 60) return "ped";
+  if (n >= 61 && n <= 80) return "preventiva";
+  if (n >= 81 && n <= 100) return "cirurgia";
+}
+
+export function buildUfcspa2026Exam() {
+  const soube = new Set([1,9,13,16,19,20,26,29,30,31,32,33,34,36,37,39,42,47,48,50,54,55,60,63,68,70,71,72,74,75,76,79,80,82,83,84,85,87,92,94,95,96,98]);
+  const chutou = new Set([3,4,5,6,7,8,10,11,14,15,21,23,27,35,38,52,56,58,61,62,64,65,66,67,69,86,89,91,93,97,100]);
+  const errouViu = new Set([25,46,73]);
+  const all = new Set(Array.from({ length: 100 }, (_, i) => i + 1));
+  const errouNao = new Set([...all].filter((n) => !soube.has(n) && !chutou.has(n) && !errouViu.has(n)));
+  const cats = { soube: [...soube].sort((a,b) => a-b), chutou: [...chutou].sort((a,b) => a-b), errou_viu: [...errouViu].sort((a,b) => a-b), errou_nao: [...errouNao].sort((a,b) => a-b) };
+  const qDetails = {};
+  for (let n = 1; n <= 100; n++) qDetails[n] = { area: ufcspaArea(n), theme: UFCSPA_THEMES[n] || "" };
+  const areaResults = {};
+  AREAS.forEach((a) => { areaResults[a.id] = { soube: 0, chutou: 0, errou_viu: 0, errou_nao: 0, total: 20 }; });
+  for (let n = 1; n <= 100; n++) {
+    const a = ufcspaArea(n);
+    if (soube.has(n)) areaResults[a].soube++;
+    else if (chutou.has(n)) areaResults[a].chutou++;
+    else if (errouViu.has(n)) areaResults[a].errou_viu++;
+    else areaResults[a].errou_nao++;
+  }
+  return { id: uid(), date: "2026-03-28", name: "UFCSPA 2026 Acesso Direto", total: 100, acertos: soube.size + chutou.size, cats, qDetails, areaResults, pdfAnalyzed: true };
+}
+
 export const SEMANAS = [
   // ── Semanas 01–06 (já estudadas) ──
   { semana: "Sem. 01", aulas: [{ area: "CM", topic: "Síndrome Ictérica I (Hepatites)" }, { area: "PED", topic: "Doenças Exantemáticas" }] },

@@ -37,7 +37,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -266,6 +266,49 @@ function App() {
             return rv;
           });
           if (v9changed) saveKey("rp26_reviews", loadedReviews);
+        }
+        // Migration v10: rebuild review card intervals from revLogs (source of truth)
+        // revLogs are append-only and more reliable than review card history after sync corruption
+        if (!localStorage.getItem("rp26_mig_v10")) {
+          localStorage.setItem("rp26_mig_v10", "1");
+          let v10changed = false;
+          // Group revLogs by key (area__theme)
+          const logsByKey = {};
+          loadedLogs.forEach((l) => {
+            if (l.isSubtopic) return;
+            const k = `${l.area}__${(l.theme || "").toLowerCase().trim()}`;
+            if (!logsByKey[k]) logsByKey[k] = [];
+            logsByKey[k].push(l);
+          });
+          // Sort each group chronologically
+          Object.values(logsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+          // Rebuild each review card
+          loadedReviews = loadedReviews.map((rv) => {
+            if (rv.isSubtopic) return rv;
+            const logs = logsByKey[rv.key];
+            if (!logs || logs.length === 0) return rv;
+            // Replay all logs to get correct intervalIndex
+            let idx = 0;
+            for (const log of logs) {
+              const pctVal = log.pct != null ? log.pct : (log.acertos != null && log.total ? perc(log.acertos, log.total) : 75);
+              idx = nxtIdx(idx, pctVal);
+            }
+            const lastLog = logs[logs.length - 1];
+            const correctLastStudied = lastLog.date;
+            const correctLastPerf = lastLog.pct != null ? lastLog.pct : (lastLog.acertos != null && lastLog.total ? perc(lastLog.acertos, lastLog.total) : rv.lastPerf);
+            const correctNextDue = addDays(correctLastStudied, INTERVALS[idx]);
+            // Rebuild history from logs
+            const correctHistory = logs.map((l) => ({
+              date: l.date,
+              pct: l.pct != null ? l.pct : (l.acertos != null && l.total ? perc(l.acertos, l.total) : 75),
+            }));
+            if (rv.intervalIndex !== idx || rv.nextDue !== correctNextDue || rv.lastStudied !== correctLastStudied) {
+              v10changed = true;
+              return { ...rv, intervalIndex: idx, nextDue: correctNextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: correctHistory };
+            }
+            return rv;
+          });
+          if (v10changed) saveKey("rp26_reviews", loadedReviews);
         }
         // Restore seed exam if all exams were deleted
         if (loadedExams.length === 0) {

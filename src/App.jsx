@@ -220,12 +220,26 @@ function App() {
           const lastLog = logs.length > 0 ? logs[logs.length - 1] : null;
           const correctLastStudied = lastLog ? lastLog.date : seed.lastStudied;
           const correctLastPerf = lastLog ? (lastLog.pct != null ? lastLog.pct : seed.lastPerf) : seed.lastPerf;
+          // Build history from SEED_LOGS if review has fewer history entries than seed logs
+          const seedHistory = logs.map((l) => ({ date: l.date, pct: l.pct }));
+          let updatedHistory = rv.history || [];
+          if (seedHistory.length > 0 && updatedHistory.length < seedHistory.length) {
+            // Keep seed history + any app-recorded entries after last seed log
+            const lastSeedDate = logs[logs.length - 1].date;
+            const appEntries = updatedHistory.filter((h) => h.date > lastSeedDate);
+            updatedHistory = [...seedHistory, ...appEntries];
+          }
           // Only restore if the review has no recent activity beyond seed data
           if (!rv.lastStudied || rv.lastStudied <= correctLastStudied) {
-            if (rv.intervalIndex !== seed.intervalIndex || rv.nextDue !== seed.nextDue || rv.lastStudied !== correctLastStudied) {
+            if (rv.intervalIndex !== seed.intervalIndex || rv.nextDue !== seed.nextDue || rv.lastStudied !== correctLastStudied || updatedHistory.length !== (rv.history || []).length) {
               seedRestored = true;
-              return { ...rv, intervalIndex: seed.intervalIndex, nextDue: seed.nextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf };
+              return { ...rv, intervalIndex: seed.intervalIndex, nextDue: seed.nextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: updatedHistory };
             }
+          }
+          // Even if intervals are fine, fix history if needed
+          if (updatedHistory.length !== (rv.history || []).length) {
+            seedRestored = true;
+            return { ...rv, history: updatedHistory };
           }
           return rv;
         });
@@ -258,47 +272,28 @@ function App() {
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
       }
-      // Migration v3: fix all intervalIndex by real gap, restore HAS correctly
-      const migKey3 = "rp26_mig_v3_fix_intervals";
-      if (seeded && !localStorage.getItem(migKey3)) {
-        localStorage.setItem(migKey3, "1");
-        let revs = [...loadedReviews];
-        const td3 = today();
-        const IVALS = [7, 14, 30, 60, 90, 120, 180];
-        // 1) Recalculate intervalIndex from real gap (nextDue - lastStudied)
-        revs = revs.map((rv) => {
-          if (!rv.lastStudied || !rv.nextDue) return rv;
-          const gap = Math.round((new Date(rv.nextDue) - new Date(rv.lastStudied)) / 86400000);
-          let bestIdx = 0;
-          for (let i = 0; i < IVALS.length; i++) {
-            if (Math.abs(gap - IVALS[i]) <= Math.abs(gap - IVALS[bestIdx])) bestIdx = i;
+      // One-time dedup: remove duplicate reviews by key, keeping the one with most history/most recent lastStudied
+      const dedupKey = "rp26_mig_dedup_v1";
+      if (seeded && !localStorage.getItem(dedupKey)) {
+        localStorage.setItem(dedupKey, "1");
+        const seen = new Map();
+        loadedReviews.forEach((rv) => {
+          const k = rv.key || `${rv.area}__${(rv.theme || "").toLowerCase().trim()}`;
+          const existing = seen.get(k);
+          if (!existing) { seen.set(k, rv); return; }
+          // Keep the one with more history, or more recent lastStudied
+          const existH = (existing.history || []).length;
+          const rvH = (rv.history || []).length;
+          if (rvH > existH || (rvH === existH && (rv.lastStudied || "") > (existing.lastStudied || ""))) {
+            seen.set(k, rv);
           }
-          return { ...rv, intervalIndex: bestIdx };
         });
-        // 2) Fix HAS card (old theme had "Dislipidemia" or "Metabólica")
-        const hasNewTheme = "HAS — Hipertensão Arterial (Sem. 08)";
-        const hasNewKey = `clinica__${hasNewTheme.toLowerCase().trim()}`;
-        const oldIdx = revs.findIndex((rv) => rv.area === "clinica" && (rv.key.includes("metabólica") || rv.key.includes("metabolica") || rv.key.includes("dislipidemia") || rv.key.includes("has e")));
-        if (oldIdx >= 0) {
-          revs[oldIdx] = { ...revs[oldIdx], theme: hasNewTheme, key: hasNewKey, nextDue: td3 };
-        } else {
-          const migLogs = Array.isArray(rl) ? rl : [];
-          const hasLogs = migLogs.filter((l) => l.area === "clinica" && l.theme && (l.theme.toLowerCase().includes("has") || l.theme.toLowerCase().includes("hipertens")));
-          const lastLog = hasLogs.sort((a, b) => b.date.localeCompare(a.date))[0];
-          revs.unshift({
-            id: uid(), key: hasNewKey, area: "clinica", theme: hasNewTheme,
-            intervalIndex: 1, nextDue: td3, lastPerf: lastLog?.pct || 78,
-            lastStudied: lastLog?.date || "2026-03-10",
-            history: hasLogs.length > 0 ? hasLogs.map((l) => ({ date: l.date, pct: l.pct })) : [{ date: "2026-03-10", pct: 78 }]
-          });
+        const deduped = Array.from(seen.values());
+        if (deduped.length < loadedReviews.length) {
+          console.log(`Dedup: removed ${loadedReviews.length - deduped.length} duplicate reviews`);
+          loadedReviews = deduped;
+          saveKey("rp26_reviews", loadedReviews);
         }
-        // 3) Remove any standalone Dislipidemia card
-        revs = revs.filter((rv) => {
-          const k = rv.key.toLowerCase();
-          return !(k.includes("dislipidemia") && !k.includes("has"));
-        });
-        loadedReviews = revs;
-        setReviews(revs); saveKey("rp26_reviews", revs);
       }
       setDataLoaded(true);
       setReady(true);

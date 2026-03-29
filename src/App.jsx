@@ -37,7 +37,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -112,7 +112,7 @@ function App() {
         setFlashcardDecks(seedFc); saveKey("rp26_flashcards", seedFc);
         saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se]); saveKey("rp26_subtopics", {}); saveKey("rp26_seeded12", true);
       } else {
-        const loadedSessions = Array.isArray(s) ? s : [];
+        let loadedSessions = Array.isArray(s) ? s : [];
         let loadedReviews = Array.isArray(r) ? r : [];
         let loadedExams = Array.isArray(e) ? e : [];
         const loadedFc = Array.isArray(fc) ? fc : [];
@@ -268,8 +268,8 @@ function App() {
           if (v9changed) saveKey("rp26_reviews", loadedReviews);
         }
         // Migration v12: aggressive dedup + rebuild review intervals
-        if (!localStorage.getItem("rp26_mig_v12")) {
-          localStorage.setItem("rp26_mig_v12", "1");
+        if (!localStorage.getItem("rp26_mig_v12b")) {
+          localStorage.setItem("rp26_mig_v12b", "1");
 
           // --- 1) DEDUPLICATE REVLOGS (by date+area+theme ONLY — ignore pct differences) ---
           const logSeen = new Set();

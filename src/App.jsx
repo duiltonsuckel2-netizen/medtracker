@@ -263,6 +263,19 @@ function App() {
         });
         if (seedRestored) saveKey("rp26_reviews", loadedReviews);
 
+        // Ensure SEED_LOGS subtopicScores are present in revLogs (fills missing data, never overwrites)
+        const seedLogsWithSt = SEED_LOGS.filter((sl) => sl.subtopicScores);
+        if (seedLogsWithSt.length > 0) {
+          let logsPatched = false;
+          loadedLogs = loadedLogs.map((l) => {
+            if (l.subtopicScores) return l; // already has scores, skip
+            const match = seedLogsWithSt.find((sl) => sl.date === l.date && sl.area === l.area && sl.pct === l.pct && sl.total === l.total);
+            if (match) { logsPatched = true; return { ...l, subtopicScores: match.subtopicScores }; }
+            return l;
+          });
+          if (logsPatched) saveKey("rp26_revlogs", loadedLogs);
+        }
+
         // Ensure SEED_SUBTOPICS are always present (merge, never overwrite user additions)
         let loadedSt = st && typeof st === "object" && !Array.isArray(st) ? st : {};
         let stChanged = false;

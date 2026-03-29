@@ -173,6 +173,28 @@ function App() {
           if (prev2) localStorage.setItem("rp26_auto_backup_2", prev2);
           localStorage.setItem("rp26_auto_backup_1", JSON.stringify(snapshot));
         } catch (e) { /* storage full — skip backup silently */ }
+
+        // Normalize theme names via LOG_NAME_MAP (safe — only renames, never deletes)
+        let logsRenamed = false, revsRenamed = false;
+        loadedLogs = loadedLogs.map((l) => {
+          if (l.isSubtopic) return l;
+          const mapped = LOG_NAME_MAP[l.theme];
+          if (mapped && mapped !== l.theme) { logsRenamed = true; return { ...l, theme: mapped }; }
+          return l;
+        });
+        if (logsRenamed) saveKey("rp26_revlogs", loadedLogs);
+        loadedReviews = loadedReviews.map((rv) => {
+          if (rv.isSubtopic) return rv;
+          const mapped = LOG_NAME_MAP[rv.theme];
+          if (mapped && mapped !== rv.theme) {
+            revsRenamed = true;
+            const newKey = `${rv.area}__${mapped.toLowerCase().trim()}`;
+            return { ...rv, theme: mapped, key: newKey };
+          }
+          return rv;
+        });
+        if (revsRenamed) saveKey("rp26_reviews", loadedReviews);
+
         // Recover subtopics from review cards if rp26_subtopics was lost/empty
         let loadedSt = st && typeof st === "object" && !Array.isArray(st) ? st : {};
         if (Object.keys(loadedSt).length === 0) {

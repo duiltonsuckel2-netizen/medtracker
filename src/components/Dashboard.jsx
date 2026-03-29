@@ -213,14 +213,16 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         const prev = q.prev || (ex.name ? (() => { const key = Object.keys(EXAM_THEMES_DB).find((k) => ex.name.toLowerCase().includes(k)); return key && EXAM_THEMES_DB[key]?.[n]?.prev; })() : null);
         if (!prev || (prev !== "muito alta" && prev !== "alta")) return;
         const tLow = q.theme.toLowerCase().trim();
-        const seenInCursinho = studiedThemes.has(tLow) || matchesCursinho(q.theme) || (ex.cats.errou_viu || []).includes(n);
+        const sched = mapThemeToSchedule(q.theme);
+        const schedLabel = sched ? ` · ${sched.semana}` : "";
+        const satDate = sched ? SEM_SAT[sched.semana] : null;
+        const weekIsPast = satDate && satDate <= today();
+        // Show if: (1) prevalência muito alta (always), or (2) prevalência alta + semana já passou no cursinho
+        if (prev === "alta" && !weekIsPast) return;
         const key = `${q.area}__${tLow}`;
         if (examAlertsSeen.has(key)) return;
         examAlertsSeen.add(key);
         const erType = (ex.cats.errou_viu || []).includes(n) ? "já vi" : "nunca vi";
-        const sched = mapThemeToSchedule(q.theme);
-        const schedLabel = sched ? ` · ${sched.semana}` : "";
-        if (!seenInCursinho) return;
         res.push({ type: "danger", icon: "🎯", title: `Erro em prova: ${q.theme}`, msg: `Prevalência ${prev} · ${ex.name} · errei (${erType})${schedLabel}`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: prev, erType });
       });
     });

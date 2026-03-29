@@ -88,12 +88,10 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
     return items;
   }, [cronograma, filterArea, search]);
 
-  // Stats — count only past weeks for progress
-  const pastWeeks = cronograma.filter((w) => w.isPast);
-  const totalStudied = pastWeeks.reduce((s, w) => s + w.studiedCount, 0);
+  // Stats — count weeks with at least 1 studied aula
+  const weeksStudied = cronograma.filter((w) => w.studiedCount > 0).length;
+  const totalWeeks = cronograma.length;
   const totalOverdue = cronograma.reduce((s, w) => s + w.overdueCount, 0);
-  const pastAulas = pastWeeks.reduce((s, w) => s + w.totalAulas, 0);
-  const totalAulas = cronograma.reduce((s, w) => s + w.totalAulas, 0);
   const stCount = subtopicReviews.length;
 
   function toggleWeek(wk) { setCollapsedWeeks((p) => ({ ...p, [wk]: !p[wk] })); }
@@ -161,9 +159,9 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
 
       {/* ── Summary ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: C.card, borderRadius: R.lg, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-        <span style={{ ...TY.caption, color: C.text2 }}>{totalStudied}/{pastAulas} estudadas</span>
+        <span style={{ ...TY.caption, color: C.text2 }}>{weeksStudied}/{totalWeeks} semanas</span>
         <div style={{ flex: "1 1 60px", display: "flex", height: 6, borderRadius: R.pill, overflow: "hidden", background: C.border, minWidth: 60 }}>
-          <div style={{ width: `${pastAulas > 0 ? (totalStudied / pastAulas) * 100 : 0}%`, background: C.green, transition: "width 0.3s" }} />
+          <div style={{ width: `${totalWeeks > 0 ? (weeksStudied / totalWeeks) * 100 : 0}%`, background: C.green, transition: "width 0.3s" }} />
         </div>
         {totalOverdue > 0
           ? <span style={{ ...TY.caption, color: C.red, fontWeight: 600 }}>{totalOverdue} vencida{totalOverdue > 1 ? "s" : ""}</span>

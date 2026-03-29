@@ -195,6 +195,35 @@ function App() {
         });
         if (revsRenamed) saveKey("rp26_reviews", loadedReviews);
 
+        // Recalculate review intervals from revLogs (safe — only updates intervals, never deletes)
+        const logsByKey = {};
+        loadedLogs.forEach((l) => {
+          if (l.isSubtopic) return;
+          const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
+          const k = `${l.area}__${(mapped || "").toLowerCase().trim()}`;
+          if (!logsByKey[k]) logsByKey[k] = [];
+          logsByKey[k].push(l);
+        });
+        Object.values(logsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+        let intervalsFixed = false;
+        loadedReviews = loadedReviews.map((rv) => {
+          if (rv.isSubtopic) return rv;
+          const logs = logsByKey[rv.key];
+          if (!logs || logs.length === 0) return rv;
+          let idx = 0;
+          for (const log of logs) {
+            const pctVal = log.pct != null ? log.pct : (log.acertos != null && log.total ? perc(log.acertos, log.total) : 75);
+            idx = nxtIdx(idx, pctVal);
+          }
+          const lastLog = logs[logs.length - 1];
+          const correctNextDue = addDays(lastLog.date, INTERVALS[idx]);
+          const correctHistory = logs.map((l) => ({ date: l.date, pct: l.pct != null ? l.pct : (l.acertos != null && l.total ? perc(l.acertos, l.total) : 75) }));
+          const correctLastPerf = lastLog.pct != null ? lastLog.pct : (lastLog.acertos != null && lastLog.total ? perc(lastLog.acertos, lastLog.total) : rv.lastPerf);
+          if (rv.intervalIndex !== idx || rv.nextDue !== correctNextDue) intervalsFixed = true;
+          return { ...rv, intervalIndex: idx, nextDue: correctNextDue, lastStudied: lastLog.date, lastPerf: correctLastPerf, history: correctHistory };
+        });
+        if (intervalsFixed) saveKey("rp26_reviews", loadedReviews);
+
         // Recover subtopics from review cards if rp26_subtopics was lost/empty
         let loadedSt = st && typeof st === "object" && !Array.isArray(st) ? st : {};
         if (Object.keys(loadedSt).length === 0) {

@@ -235,7 +235,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                             const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
                             return (
                               <div key={si} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                <span style={{ fontSize: 12, flex: 1, color: C.text2 }}>{s.name}</span>
+                                <span style={{ fontSize: 12, flex: 1, color: C.text2 }}>{s.name}{s.lastPct !== null && s.lastPct !== undefined && <span style={{ fontSize: 10, color: s.lastPct >= 85 ? "#22C55E" : s.lastPct >= 60 ? "#EAB308" : "#EF4444", fontWeight: 600, marginLeft: 4 }}>({s.lastPct}%)</span>}</span>
                                 <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setMarking((m) => ({ ...m, subtemas: m.subtemas.map((st, i) => i !== si ? st : { ...st, pct: e.target.value }) }))} placeholder="—" style={{ ...inp(), width: 52, padding: "4px 6px", fontSize: 14, textAlign: "center", fontFamily: "SF Mono, monospace", fontWeight: 700, color: pctColor }} />
                                 <span style={{ fontSize: 11, color: C.text3 }}>%</span>
                               </div>
@@ -247,7 +247,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                   </div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {!isM && <button onClick={() => { const st = getSubtopicsForReview(r); setMarking({ id: r.id, total: "", acertos: "", subtemas: st.length > 0 ? st.map((s) => ({ name: s, pct: "" })) : null }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
+                  {!isM && <button onClick={() => { const st = getSubtopicsForReview(r); const stSorted = st.length > 0 ? st.map((s) => { const sKey = `${r.area}__${r.theme.toLowerCase().trim()}::${s.toLowerCase().trim()}`; const sub = reviews.find((rv) => rv.key === sKey && rv.isSubtopic); return { name: s, pct: "", lastPct: sub?.lastPerf ?? null }; }).sort((a, b) => { if (a.lastPct === null && b.lastPct === null) return 0; if (a.lastPct === null) return 1; if (b.lastPct === null) return -1; return a.lastPct - b.lastPct; }) : null; setMarking({ id: r.id, total: "", acertos: "", subtemas: stSorted }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
                 </div>
               </div>
             </div>

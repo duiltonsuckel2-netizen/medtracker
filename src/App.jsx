@@ -201,6 +201,21 @@ function App() {
         });
         if (revsRenamed) saveKey("rp26_reviews", loadedReviews);
 
+        // One-time fix: Hipertensão Porta 2026-02-02 was logged as clinica, should be cirurgia
+        const areaFixKey = "rp26_mig_area_fix_v1";
+        if (!localStorage.getItem(areaFixKey)) {
+          localStorage.setItem(areaFixKey, "1");
+          let areaFixed = false;
+          loadedLogs = loadedLogs.map((l) => {
+            if (l.date === "2026-02-02" && l.area === "clinica" && l.theme && l.theme.toLowerCase().includes("hipertens")) {
+              areaFixed = true;
+              return { ...l, area: "cirurgia" };
+            }
+            return l;
+          });
+          if (areaFixed) saveKey("rp26_revlogs", loadedLogs);
+        }
+
         // Restore correct intervals from SEED_REVIEWS for reviews that lost their data
         // Use SEED_REVIEWS for intervalIndex/nextDue (from Notion), SEED_LOGS for lastStudied/lastPerf
         const seedByKey = {};

@@ -190,14 +190,15 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     const consecSeen = new Set();
     Object.values(byThemeAllLogs).forEach((t) => {
       if (t.logs.length < 2) return;
-      const lastN = t.logs.slice(-3);
-      const badCount = lastN.filter((l) => l.pct < 75).length;
-      if (badCount >= 2) {
+      const allBad = t.logs.filter((l) => l.pct < 75);
+      const lastEntry = t.logs[t.logs.length - 1];
+      // Alert if last entry is <75% AND at least one other entry is also <75%
+      if (lastEntry.pct < 75 && allBad.length >= 2) {
         const k = `${t.area}__${t.theme.toLowerCase().trim()}`;
         if (consecSeen.has(k)) return;
         consecSeen.add(k);
-        const badEntries = lastN.filter((l) => l.pct < 75).slice(-2);
-        res.push({ type: "danger", icon: "📊", title: `2 revisões <75%: ${t.theme}`, msg: `Últimas: ${badEntries[0].pct}% e ${badEntries[1].pct}% — reforçar teoria`, area: t.area, theme: t.theme, history: t.logs.map((l) => ({ date: l.date, pct: l.pct, total: l.total || 0 })) });
+        const showBad = allBad.slice(-2);
+        res.push({ type: "danger", icon: "📊", title: `2 revisões <75%: ${t.theme}`, msg: `Últimas: ${showBad[0].pct}% e ${showBad[1].pct}% — reforçar teoria`, area: t.area, theme: t.theme, history: t.logs.map((l) => ({ date: l.date, pct: l.pct, total: l.total || 0 })) });
       }
     });
     // Erros em prova: temas do cursinho com prevalência alta/muito alta

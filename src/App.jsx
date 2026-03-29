@@ -196,21 +196,35 @@ function App() {
         if (revsRenamed) saveKey("rp26_reviews", loadedReviews);
 
         // Restore correct intervals from SEED_REVIEWS for reviews that lost their data
+        // Use SEED_REVIEWS for intervalIndex/nextDue (from Notion), SEED_LOGS for lastStudied/lastPerf
         const seedByKey = {};
         SEED_REVIEWS.forEach((sr) => {
           const k = `${sr.area}__${sr.theme.toLowerCase().trim()}`;
           seedByKey[k] = sr;
         });
+        const seedLogsByKey = {};
+        SEED_LOGS.forEach((l) => {
+          if (l.isSubtopic) return;
+          const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
+          const k = `${l.area}__${(mapped || "").toLowerCase().trim()}`;
+          if (!seedLogsByKey[k]) seedLogsByKey[k] = [];
+          seedLogsByKey[k].push(l);
+        });
+        Object.values(seedLogsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
         let seedRestored = false;
         loadedReviews = loadedReviews.map((rv) => {
           if (rv.isSubtopic) return rv;
           const seed = seedByKey[rv.key];
           if (!seed) return rv;
-          // Only restore if the review has no recent activity (lastStudied older than seed's)
-          if (!rv.lastStudied || rv.lastStudied <= seed.lastStudied) {
-            if (rv.intervalIndex !== seed.intervalIndex || rv.nextDue !== seed.nextDue) {
+          const logs = seedLogsByKey[rv.key] || [];
+          const lastLog = logs.length > 0 ? logs[logs.length - 1] : null;
+          const correctLastStudied = lastLog ? lastLog.date : seed.lastStudied;
+          const correctLastPerf = lastLog ? (lastLog.pct != null ? lastLog.pct : seed.lastPerf) : seed.lastPerf;
+          // Only restore if the review has no recent activity beyond seed data
+          if (!rv.lastStudied || rv.lastStudied <= correctLastStudied) {
+            if (rv.intervalIndex !== seed.intervalIndex || rv.nextDue !== seed.nextDue || rv.lastStudied !== correctLastStudied) {
               seedRestored = true;
-              return { ...rv, intervalIndex: seed.intervalIndex, nextDue: seed.nextDue, lastStudied: seed.lastStudied, lastPerf: seed.lastPerf };
+              return { ...rv, intervalIndex: seed.intervalIndex, nextDue: seed.nextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf };
             }
           }
           return rv;

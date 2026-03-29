@@ -95,6 +95,67 @@ function App() {
     else { setSyncStatus("error"); notify("Erro ao receber"); }
   }
 
+  function runDedup() {
+    // Load fresh from localStorage
+    let rl = loadKey("rp26_revlogs", []);
+    let ss = loadKey("rp26_sessions", []);
+    let ex = loadKey("rp26_exams", []);
+    let rv = loadKey("rp26_reviews", []);
+
+    const before = { logs: rl.length, sessions: ss.length, exams: ex.length, reviews: rv.length };
+
+    // 1) Dedup revLogs by date+area+theme
+    const logSeen = new Set();
+    rl = rl.filter((l) => { const sig = `${l.date}|${l.area}|${(l.theme || "").toLowerCase().trim()}`; if (logSeen.has(sig)) return false; logSeen.add(sig); return true; });
+
+    // 2) Dedup sessions by date+area+theme
+    const sesSeen = new Set();
+    ss = ss.filter((s) => { const sig = `${s.createdAt || s.date}|${s.area}|${(s.theme || "").toLowerCase().trim()}`; if (sesSeen.has(sig)) return false; sesSeen.add(sig); return true; });
+
+    // 3) Dedup exams by name
+    const examSeen = new Set();
+    ex = ex.filter((e) => { const sig = (e.name || "").toLowerCase().trim(); if (examSeen.has(sig)) return false; examSeen.add(sig); return true; });
+
+    // 4) Dedup reviews by key (keep one with more history)
+    const revByKey = new Map();
+    rv.forEach((r) => { const existing = revByKey.get(r.key); if (!existing || (r.history || []).length > (existing.history || []).length) revByKey.set(r.key, r); });
+    rv = Array.from(revByKey.values());
+
+    // 5) Rebuild review intervals from revLogs
+    function logToKey(l) {
+      const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
+      return `${l.area}__${(mapped || "").toLowerCase().trim()}`;
+    }
+    const logsByKey = {};
+    rl.forEach((l) => { if (l.isSubtopic) return; const k = logToKey(l); if (!logsByKey[k]) logsByKey[k] = []; logsByKey[k].push(l); });
+    Object.values(logsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+    rv = rv.map((r) => {
+      if (r.isSubtopic) return r;
+      const logs = logsByKey[r.key];
+      if (!logs || logs.length === 0) return r;
+      let idx = 0;
+      for (const log of logs) {
+        const pctVal = log.pct != null ? log.pct : (log.acertos != null && log.total ? perc(log.acertos, log.total) : 75);
+        idx = nxtIdx(idx, pctVal);
+      }
+      const lastLog = logs[logs.length - 1];
+      const correctNextDue = addDays(lastLog.date, INTERVALS[idx]);
+      const correctHistory = logs.map((l) => ({ date: l.date, pct: l.pct != null ? l.pct : (l.acertos != null && l.total ? perc(l.acertos, l.total) : 75) }));
+      return { ...r, intervalIndex: idx, nextDue: correctNextDue, lastStudied: lastLog.date, lastPerf: lastLog.pct != null ? lastLog.pct : (lastLog.acertos != null && lastLog.total ? perc(lastLog.acertos, lastLog.total) : r.lastPerf), history: correctHistory };
+    });
+
+    // Save everything
+    saveKey("rp26_revlogs", rl); saveKey("rp26_sessions", ss); saveKey("rp26_exams", ex); saveKey("rp26_reviews", rv);
+    setRevLogs(rl); setSessions(ss); setExams(ex); setReviews(rv);
+
+    const after = { logs: rl.length, sessions: ss.length, exams: ex.length, reviews: rv.length };
+    const msg = `Dedup: logs ${before.logs}→${after.logs}, sessions ${before.sessions}→${after.sessions}, exams ${before.exams}→${after.exams}, reviews ${before.reviews}→${after.reviews}`;
+    console.log(msg);
+    notify(`Limpo! Questões: ${ss.reduce((a, s) => a + (s.total || 0), 0)}`);
+    // Push clean data to cloud
+    pushToCloud();
+  }
+
   function switchTab(id) {
     if (id !== tab) {
       setTab(id);
@@ -678,6 +739,7 @@ function App() {
                 <button onClick={() => { setShowBackupMenu(false); setShowSyncModal(true); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: syncId ? C.green : C.purple, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{syncId ? "☁️ Sync ativo" : "☁️ Ativar sincronização"}</button>
                 <button onClick={() => { exportBackup(); setShowBackupMenu(false); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.text, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"📤"} Exportar backup</button>
                 <button onClick={() => { importBackup(); setShowBackupMenu(false); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.text, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"📥"} Restaurar backup</button>
+                <button onClick={() => { setShowBackupMenu(false); runDedup(); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.yellow, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"🧹"} Limpar duplicatas</button>
                 <button onClick={() => { setShowBackupMenu(false); caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).then(() => { navigator.serviceWorker?.getRegistrations().then(rs => rs.forEach(r => r.unregister())); setTimeout(() => window.location.reload(true), 300); }).catch(() => window.location.reload(true)); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"🔄"} Forçar atualização</button>
               </div>}
             </div>
@@ -702,6 +764,7 @@ function App() {
                 <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Use este código nos outros dispositivos pra sincronizar automaticamente.</div>
                 <button onClick={handlePushOnly} style={btn(C.blue, { width: "100%", fontSize: 13 })}>Enviar dados daqui → nuvem</button>
                 <button onClick={handlePullOnly} style={btn(C.purple, { width: "100%", fontSize: 13, marginTop: 6 })}>Receber dados da nuvem → aqui</button>
+                <button onClick={() => { runDedup(); setShowSyncModal(false); }} style={btn(C.yellow, { width: "100%", fontSize: 13, marginTop: 6 })}>Limpar duplicatas</button>
                 <button onClick={() => { disconnectSync(); setSyncId(null); setSyncStatus("off"); setShowSyncModal(false); notify("Sync desconectado"); }} style={btn(C.card2, { width: "100%", fontSize: 13, color: C.red })}>Desconectar sync</button>
               </div>
             ) : (

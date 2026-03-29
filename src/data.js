@@ -140,16 +140,16 @@ export const SEED_LOGS = [
   {date:"2026-03-17", area:"preventiva", theme:"SUS - Evolução Histórica, Diretrizes, Propostas e Financiamento (Sem. 09)",       total:60, acertos:48, pct:80},
   {date:"2026-03-17", area:"go",         theme:"Sangramentos da Primeira Metade da Gravidez e Doença Hemolítica Perinatal (Sem. 09)",          total:30, acertos:23, pct:76},
   {date:"2026-03-17", area:"clinica",    theme:"Síndrome Diarreica (Sem. 06)",                                  total:30, acertos:24, pct:80},
-  {date:"2026-03-17", area:"clinica",    theme:"Síndrome Metabólica I - HAS e Dislipidemia (Sem. 08)",          total:30, acertos:25, pct:83},
+  {date:"2026-03-17", area:"clinica",    theme:"Síndrome Metabólica I - HAS e Dislipidemia (Sem. 08)",          total:30, acertos:25, pct:83, subtopicScores:[{name:"Dislipidemia",pct:80},{name:"HAS",pct:75}]},
   {date:"2026-03-19", area:"cirurgia",   theme:"Hemorragia Digestiva II - Proctologia (Sem. 08)",          total:30, acertos:24, pct:80},
   {date:"2026-03-19", area:"cirurgia",   theme:"Síndrome Disfágica (Sem. 04)",                       total:20, acertos:16, pct:80},
   {date:"2026-03-19", area:"cirurgia",   theme:"Hemorragia Digestiva I - Abordagem e Conduta (Sem. 06)",                         total:20, acertos:18, pct:90},
   {date:"2026-03-19", area:"ped",        theme:"Síndromes Respiratórias na Infância - Parte I (Sem. 04)",                            total:20, acertos:15, pct:75},
   {date:"2026-03-22", area:"cirurgia",   theme:"Síndrome Álgica I - Dor Abdominal (Sem. 10)",                  total:60, acertos:48, pct:80},
-  {date:"2026-03-22", area:"go",         theme:"Sangramento da Segunda Metade da Gravidez (Sem. 10)",           total:60, acertos:51, pct:85},
-  {date:"2026-03-23", area:"go",         theme:"Sangramentos da Primeira Metade da Gravidez e Doença Hemolítica Perinatal (Sem. 09)",          total:35, acertos:30, pct:85},
-  {date:"2026-03-23", area:"preventiva", theme:"SUS - Evolução Histórica, Diretrizes, Propostas e Financiamento (Sem. 09)",       total:40, acertos:29, pct:72},
-  {date:"2026-03-24", area:"cirurgia",   theme:"Hemorragia Digestiva II - Proctologia (Sem. 08)",          total:20, acertos:17, pct:85},
+  {date:"2026-03-22", area:"go",         theme:"Sangramento da Segunda Metade da Gravidez (Sem. 10)",           total:60, acertos:51, pct:85, subtopicScores:[{name:"Placenta prévia e acretismo",pct:40},{name:"Descolamento prematuro de placenta",pct:80},{name:"Roturas (uterina, vasa prévia, seio marginal)",pct:100}]},
+  {date:"2026-03-23", area:"go",         theme:"Sangramentos da Primeira Metade da Gravidez e Doença Hemolítica Perinatal (Sem. 09)",          total:35, acertos:30, pct:85, subtopicScores:[{name:"Doença hemolítica",pct:67},{name:"Gestação ectópica",pct:83},{name:"Incompetência istmocervical",pct:83},{name:"Doença trofoblástica",pct:100},{name:"Abortamento",pct:100}]},
+  {date:"2026-03-23", area:"preventiva", theme:"SUS - Evolução Histórica, Diretrizes, Propostas e Financiamento (Sem. 09)",       total:40, acertos:29, pct:72, subtopicScores:[{name:"Leis e emendas do SUS",pct:29},{name:"Programas do governo",pct:50},{name:"Instrumentos - Clínica ampliada, Projeto terapêutico singular, Matriciamento",pct:85},{name:"Atributos da APS",pct:86},{name:"Condutas práticas",pct:86},{name:"Princípios e diretrizes do SUS",pct:100}]},
+  {date:"2026-03-24", area:"cirurgia",   theme:"Hemorragia Digestiva II - Proctologia (Sem. 08)",          total:20, acertos:17, pct:85, subtopicScores:[{name:"Hemorroida e Fissura anal",pct:80},{name:"Abscesso e fístula anorretal",pct:90}]},
 ];
 
 // Subtopics recovered from iPad backup — hardcoded so they're never lost

@@ -9,7 +9,7 @@ export const uid = () => typeof crypto !== "undefined" && crypto.randomUUID ? cr
 export const fmtDate = (s) => s ? new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "";
 export const perfColor = (p) => p >= 85 ? "#22C55E" : p >= 60 ? "#EAB308" : "#EF4444";
 export const perfLabel = (p) => p >= 85 ? "Bom" : p >= 60 ? "Regular" : "Fraco";
-export function nxtIdx(cur, pct) { if (pct >= 85) return Math.min(cur + 1, INTERVALS.length - 1); if (pct >= 75) return cur; return Math.max(0, cur - 1); }
+export function nxtIdx(cur, pct) { if (pct >= 80) return Math.min(cur + 1, INTERVALS.length - 1); if (pct >= 70) return cur; return Math.max(0, cur - 1); }
 
 export function weekDates(satStr) {
   const sat = new Date(satStr + "T12:00:00");

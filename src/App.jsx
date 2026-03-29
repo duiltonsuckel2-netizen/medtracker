@@ -37,7 +37,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -267,40 +267,36 @@ function App() {
           });
           if (v9changed) saveKey("rp26_reviews", loadedReviews);
         }
-        // Migration v11: deduplicate ALL data + rebuild review intervals from revLogs
-        if (!localStorage.getItem("rp26_mig_v11")) {
-          localStorage.setItem("rp26_mig_v11", "1");
+        // Migration v12: aggressive dedup + rebuild review intervals
+        if (!localStorage.getItem("rp26_mig_v12")) {
+          localStorage.setItem("rp26_mig_v12", "1");
 
-          // --- 1) DEDUPLICATE REVLOGS (by date+area+theme+pct) ---
+          // --- 1) DEDUPLICATE REVLOGS (by date+area+theme ONLY — ignore pct differences) ---
           const logSeen = new Set();
           const dedupedLogs = [];
           loadedLogs.forEach((l) => {
-            const sig = `${l.date}|${l.area}|${(l.theme || "").toLowerCase().trim()}|${l.pct}|${l.total}|${l.acertos}`;
+            const sig = `${l.date}|${l.area}|${(l.theme || "").toLowerCase().trim()}`;
             if (!logSeen.has(sig)) {
               logSeen.add(sig);
               dedupedLogs.push(l);
             }
           });
-          if (dedupedLogs.length !== loadedLogs.length) {
-            loadedLogs = dedupedLogs;
-            saveKey("rp26_revlogs", loadedLogs);
-          }
+          loadedLogs = dedupedLogs;
+          saveKey("rp26_revlogs", loadedLogs);
 
-          // --- 2) DEDUPLICATE SESSIONS (by date+area+theme+acertos+total) ---
+          // --- 2) DEDUPLICATE SESSIONS (by date+area+theme ONLY) ---
           const sesSeen = new Set();
           const dedupedSes = [];
-          loadedSessions.forEach((s) => {
-            const sig = `${s.createdAt || s.date}|${s.area}|${(s.theme || "").toLowerCase().trim()}|${s.acertos}|${s.total}`;
+          (Array.isArray(loadedSessions) ? loadedSessions : []).forEach((s) => {
+            const sig = `${s.createdAt || s.date}|${s.area}|${(s.theme || "").toLowerCase().trim()}`;
             if (!sesSeen.has(sig)) {
               sesSeen.add(sig);
               dedupedSes.push(s);
             }
           });
-          if (dedupedSes.length !== loadedSessions.length) {
-            loadedSessions = dedupedSes;
-            setSessions(loadedSessions);
-            saveKey("rp26_sessions", loadedSessions);
-          }
+          loadedSessions = dedupedSes;
+          setSessions(loadedSessions);
+          saveKey("rp26_sessions", loadedSessions);
 
           // --- 3) DEDUPLICATE EXAMS (by name) ---
           const examSeen = new Set();
@@ -312,10 +308,8 @@ function App() {
               dedupedExams.push(e);
             }
           });
-          if (dedupedExams.length !== loadedExams.length) {
-            loadedExams = dedupedExams;
-            saveKey("rp26_exams", loadedExams);
-          }
+          loadedExams = dedupedExams;
+          saveKey("rp26_exams", loadedExams);
 
           // --- 4) DEDUPLICATE REVIEWS (by key — keep the one with more history) ---
           const revByKey = new Map();

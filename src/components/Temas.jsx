@@ -18,7 +18,7 @@ function parseWeekLabel(label) {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
+function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics }) {
   const [filterArea, setFilterArea] = useState("all");
   const [search, setSearch] = useState("");
   const [collapsedWeeks, setCollapsedWeeks] = useState({});
@@ -34,6 +34,18 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
     reviews.forEach((r) => (r.isSubtopic ? subs : parents).push(r));
     return { parentReviews: parents, subtopicReviews: subs };
   }, [reviews]);
+
+  // Index revLogs by area+theme for stats
+  const logsByTheme = useMemo(() => {
+    const map = {};
+    (revLogs || []).forEach((l) => {
+      if (l.isSubtopic) return;
+      const k = `${l.area}__${(l.theme || "").toLowerCase().trim()}`;
+      if (!map[k]) map[k] = [];
+      map[k].push(l);
+    });
+    return map;
+  }, [revLogs]);
 
   // Index reviews by week number
   const reviewsByWeek = useMemo(() => {
@@ -242,6 +254,22 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
                             <span style={{ ...tag(aColor) }}>{aula.area}</span>
                             <span style={{ ...TY.body, fontWeight: 600, flex: 1, minWidth: 0, lineHeight: 1.3 }}>{aula.topic}</span>
                           </div>
+
+                          {/* Review stats for this aula */}
+                          {hasRevs && (() => {
+                            const logs = aula.reviews.flatMap((r) => {
+                              const k = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
+                              return logsByTheme[k] || [];
+                            });
+                            if (logs.length === 0) return null;
+                            const avg = Math.round(logs.reduce((s, l) => s + (l.pct || 0), 0) / logs.length);
+                            return (
+                              <div style={{ display: "flex", gap: 8, alignItems: "center", paddingLeft: 4 }}>
+                                <span style={{ fontSize: 11, color: C.text3 }}>{logs.length}× revisado</span>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: perfColor(avg) }}>média {avg}%</span>
+                              </div>
+                            );
+                          })()}
 
                           {/* Reviews for this aula */}
                           {hasRevs ? aula.reviews.map((r) => {

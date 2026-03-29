@@ -278,8 +278,8 @@ function App() {
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
       }
-      // One-time dedup: remove duplicate reviews by key, keeping the one with most history/most recent lastStudied
-      const dedupKey = "rp26_mig_dedup_v1";
+      // One-time dedup: remove duplicate reviews and revLogs
+      const dedupKey = "rp26_mig_dedup_v2";
       if (seeded && !localStorage.getItem(dedupKey)) {
         localStorage.setItem(dedupKey, "1");
         const seen = new Map();
@@ -299,6 +299,19 @@ function App() {
           console.log(`Dedup: removed ${loadedReviews.length - deduped.length} duplicate reviews`);
           loadedReviews = deduped;
           saveKey("rp26_reviews", loadedReviews);
+        }
+        // Also dedup revLogs by date+area+theme+pct
+        const logSeen = new Set();
+        const dedupedLogs = loadedLogs.filter((l) => {
+          const k = `${l.date}__${l.area}__${(l.theme || "").toLowerCase().trim()}__${l.pct}__${l.total}`;
+          if (logSeen.has(k)) return false;
+          logSeen.add(k);
+          return true;
+        });
+        if (dedupedLogs.length < loadedLogs.length) {
+          console.log(`Dedup: removed ${loadedLogs.length - dedupedLogs.length} duplicate revLogs`);
+          loadedLogs = dedupedLogs;
+          saveKey("rp26_revlogs", loadedLogs);
         }
       }
       setDataLoaded(true);

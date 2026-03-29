@@ -195,38 +195,27 @@ function App() {
         });
         if (revsRenamed) saveKey("rp26_reviews", loadedReviews);
 
-        // Migration v10: restore SEED_REVIEWS intervals destroyed by the log-replay recalculation.
-        // The old code replayed logs from idx=0 which ignored the Notion-sourced intervalIndex.
-        if (!localStorage.getItem("rp26_mig_v10")) {
-          localStorage.setItem("rp26_mig_v10", "1");
-          const seedMap = {};
-          SEED_REVIEWS.forEach((s) => { seedMap[`${s.area}__${s.theme.toLowerCase().trim()}`] = s; });
-          let v10changed = false;
-          loadedReviews = loadedReviews.map((rv) => {
-            if (rv.isSubtopic) return rv;
-            const seed = seedMap[rv.key];
-            if (!seed) return rv;
-            // Restore seed values if the log-replay broke them
+        // Restore correct intervals from SEED_REVIEWS for reviews that lost their data
+        const seedByKey = {};
+        SEED_REVIEWS.forEach((sr) => {
+          const k = `${sr.area}__${sr.theme.toLowerCase().trim()}`;
+          seedByKey[k] = sr;
+        });
+        let seedRestored = false;
+        loadedReviews = loadedReviews.map((rv) => {
+          if (rv.isSubtopic) return rv;
+          const seed = seedByKey[rv.key];
+          if (!seed) return rv;
+          // Only restore if the review has no recent activity (lastStudied older than seed's)
+          if (!rv.lastStudied || rv.lastStudied <= seed.lastStudied) {
             if (rv.intervalIndex !== seed.intervalIndex || rv.nextDue !== seed.nextDue) {
-              v10changed = true;
+              seedRestored = true;
               return { ...rv, intervalIndex: seed.intervalIndex, nextDue: seed.nextDue, lastStudied: seed.lastStudied, lastPerf: seed.lastPerf };
             }
-            return rv;
-          });
-          if (v10changed) saveKey("rp26_reviews", loadedReviews);
-        }
-
-        // Reschedule reviews that are overdue >7d to today (lost revLogs make them show wrong dates)
-        const td = today();
-        let rescheduled = false;
-        loadedReviews = loadedReviews.map((rv) => {
-          if (rv.nextDue && rv.nextDue < td && diffDays(td, rv.nextDue) > 7) {
-            rescheduled = true;
-            return { ...rv, nextDue: td };
           }
           return rv;
         });
-        if (rescheduled) saveKey("rp26_reviews", loadedReviews);
+        if (seedRestored) saveKey("rp26_reviews", loadedReviews);
 
         // Recover subtopics from review cards if rp26_subtopics was lost/empty
         let loadedSt = st && typeof st === "object" && !Array.isArray(st) ? st : {};

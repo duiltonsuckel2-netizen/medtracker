@@ -65,16 +65,18 @@ function App() {
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [syncInput, setSyncInput] = useState("");
 
-  // Sync initialization
+  // Sync initialization — delayed until after data loads (see dataLoaded state)
   const [syncBanner, setSyncBanner] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   useEffect(() => {
+    if (!dataLoaded) return;
     initSync(
       () => setSyncBanner(true), // on remote update: show banner
       (status) => setSyncStatus(status)
     ).then((active) => {
       if (active) setSyncStatus("synced");
     });
-  }, []);
+  }, [dataLoaded]);
 
   function triggerSync() { debouncedPush(); }
   const [showSyncActions, setShowSyncActions] = useState(false);
@@ -269,6 +271,7 @@ function App() {
         }
         // Migration v13: aggressive dedup + rebuild review intervals
         if (!localStorage.getItem("rp26_mig_v13")) {
+          console.log("[MIG v13] Running dedup — sessions:", loadedSessions.length, "logs:", loadedLogs.length, "exams:", loadedExams.length, "reviews:", loadedReviews.length);
           localStorage.setItem("rp26_mig_v13", "1");
 
           // --- 1) DEDUPLICATE REVLOGS (by date+area+theme ONLY — ignore pct differences) ---
@@ -355,6 +358,9 @@ function App() {
             return { ...rv, intervalIndex: idx, nextDue: correctNextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: correctHistory };
           });
           saveKey("rp26_reviews", loadedReviews);
+          console.log("[MIG v13] After dedup — sessions:", loadedSessions.length, "logs:", loadedLogs.length, "exams:", loadedExams.length, "reviews:", loadedReviews.length);
+          // Push clean deduplicated data to cloud immediately
+          setTimeout(() => pushToCloud(), 500);
         }
         // Restore seed exam if all exams were deleted
         if (loadedExams.length === 0) {
@@ -431,6 +437,7 @@ function App() {
         loadedReviews = revs;
         setReviews(revs); saveKey("rp26_reviews", revs);
       }
+      setDataLoaded(true);
       setReady(true);
     });
   }, []);

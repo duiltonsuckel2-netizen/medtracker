@@ -175,7 +175,13 @@ function App() {
         } catch (e) { /* storage full — skip backup silently */ }
 
         // Normalize theme names via LOG_NAME_MAP (safe — only renames, never deletes)
-        let logsRenamed = false, revsRenamed = false;
+        let logsRenamed = false, revsRenamed = false, sessRenamed = false;
+        loadedSessions = loadedSessions.map((s) => {
+          const mapped = LOG_NAME_MAP[s.theme];
+          if (mapped && mapped !== s.theme) { sessRenamed = true; return { ...s, theme: mapped }; }
+          return s;
+        });
+        if (sessRenamed) saveKey("rp26_sessions", loadedSessions);
         loadedLogs = loadedLogs.map((l) => {
           if (l.isSubtopic) return l;
           const mapped = LOG_NAME_MAP[l.theme];

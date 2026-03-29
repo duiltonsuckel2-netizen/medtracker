@@ -37,7 +37,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -267,17 +267,71 @@ function App() {
           });
           if (v9changed) saveKey("rp26_reviews", loadedReviews);
         }
-        // Migration v10: rebuild review card intervals from revLogs (source of truth)
-        // revLogs are append-only and more reliable than review card history after sync corruption
-        if (!localStorage.getItem("rp26_mig_v10b")) {
-          localStorage.setItem("rp26_mig_v10b", "1");
-          let v10changed = false;
-          // Normalize log theme to canonical review card key
+        // Migration v11: deduplicate ALL data + rebuild review intervals from revLogs
+        if (!localStorage.getItem("rp26_mig_v11")) {
+          localStorage.setItem("rp26_mig_v11", "1");
+
+          // --- 1) DEDUPLICATE REVLOGS (by date+area+theme+pct) ---
+          const logSeen = new Set();
+          const dedupedLogs = [];
+          loadedLogs.forEach((l) => {
+            const sig = `${l.date}|${l.area}|${(l.theme || "").toLowerCase().trim()}|${l.pct}|${l.total}|${l.acertos}`;
+            if (!logSeen.has(sig)) {
+              logSeen.add(sig);
+              dedupedLogs.push(l);
+            }
+          });
+          if (dedupedLogs.length !== loadedLogs.length) {
+            loadedLogs = dedupedLogs;
+            saveKey("rp26_revlogs", loadedLogs);
+          }
+
+          // --- 2) DEDUPLICATE SESSIONS (by date+area+theme+acertos+total) ---
+          const sesSeen = new Set();
+          const dedupedSes = [];
+          loadedSessions.forEach((s) => {
+            const sig = `${s.createdAt || s.date}|${s.area}|${(s.theme || "").toLowerCase().trim()}|${s.acertos}|${s.total}`;
+            if (!sesSeen.has(sig)) {
+              sesSeen.add(sig);
+              dedupedSes.push(s);
+            }
+          });
+          if (dedupedSes.length !== loadedSessions.length) {
+            loadedSessions = dedupedSes;
+            setSessions(loadedSessions);
+            saveKey("rp26_sessions", loadedSessions);
+          }
+
+          // --- 3) DEDUPLICATE EXAMS (by name) ---
+          const examSeen = new Set();
+          const dedupedExams = [];
+          loadedExams.forEach((e) => {
+            const sig = (e.name || "").toLowerCase().trim();
+            if (!examSeen.has(sig)) {
+              examSeen.add(sig);
+              dedupedExams.push(e);
+            }
+          });
+          if (dedupedExams.length !== loadedExams.length) {
+            loadedExams = dedupedExams;
+            saveKey("rp26_exams", loadedExams);
+          }
+
+          // --- 4) DEDUPLICATE REVIEWS (by key — keep the one with more history) ---
+          const revByKey = new Map();
+          loadedReviews.forEach((rv) => {
+            const existing = revByKey.get(rv.key);
+            if (!existing || (rv.history || []).length > (existing.history || []).length) {
+              revByKey.set(rv.key, rv);
+            }
+          });
+          loadedReviews = Array.from(revByKey.values());
+
+          // --- 5) REBUILD REVIEW INTERVALS FROM REVLOGS ---
           function logToKey(l) {
             const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
             return `${l.area}__${(mapped || "").toLowerCase().trim()}`;
           }
-          // Group revLogs by normalized key
           const logsByKey = {};
           loadedLogs.forEach((l) => {
             if (l.isSubtopic) return;
@@ -285,16 +339,12 @@ function App() {
             if (!logsByKey[k]) logsByKey[k] = [];
             logsByKey[k].push(l);
           });
-          // Sort each group chronologically and deduplicate same-day entries (keep latest)
-          Object.keys(logsByKey).forEach((k) => {
-            logsByKey[k].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-          });
-          // Rebuild each review card
+          Object.values(logsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+
           loadedReviews = loadedReviews.map((rv) => {
             if (rv.isSubtopic) return rv;
             const logs = logsByKey[rv.key];
             if (!logs || logs.length === 0) return rv;
-            // Replay all logs to get correct intervalIndex
             let idx = 0;
             for (const log of logs) {
               const pctVal = log.pct != null ? log.pct : (log.acertos != null && log.total ? perc(log.acertos, log.total) : 75);
@@ -304,15 +354,13 @@ function App() {
             const correctLastStudied = lastLog.date;
             const correctLastPerf = lastLog.pct != null ? lastLog.pct : (lastLog.acertos != null && lastLog.total ? perc(lastLog.acertos, lastLog.total) : rv.lastPerf);
             const correctNextDue = addDays(correctLastStudied, INTERVALS[idx]);
-            // Rebuild history from logs
             const correctHistory = logs.map((l) => ({
               date: l.date,
               pct: l.pct != null ? l.pct : (l.acertos != null && l.total ? perc(l.acertos, l.total) : 75),
             }));
-            v10changed = true;
             return { ...rv, intervalIndex: idx, nextDue: correctNextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: correctHistory };
           });
-          if (v10changed) saveKey("rp26_reviews", loadedReviews);
+          saveKey("rp26_reviews", loadedReviews);
         }
         // Restore seed exam if all exams were deleted
         if (loadedExams.length === 0) {

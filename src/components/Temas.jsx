@@ -64,8 +64,8 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
       });
 
       const allRevs = aulas.flatMap((a) => a.reviews);
-      const overdueCount = allRevs.filter((r) => r.nextDue <= today()).length;
-      const studiedCount = allRevs.length;
+      const overdueCount = aulas.filter((a) => a.reviews.some((r) => r.nextDue <= today())).length;
+      const studiedCount = aulas.filter((a) => a.reviews.length > 0).length;
       const totalAulas = aulas.length;
 
       return { sem, wk, aulas, satDate, isPast, overdueCount, studiedCount, totalAulas, allRevs };
@@ -88,9 +88,11 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
     return items;
   }, [cronograma, filterArea, search]);
 
-  // Stats
-  const totalStudied = cronograma.reduce((s, w) => s + w.studiedCount, 0);
+  // Stats — count only past weeks for progress
+  const pastWeeks = cronograma.filter((w) => w.isPast);
+  const totalStudied = pastWeeks.reduce((s, w) => s + w.studiedCount, 0);
   const totalOverdue = cronograma.reduce((s, w) => s + w.overdueCount, 0);
+  const pastAulas = pastWeeks.reduce((s, w) => s + w.totalAulas, 0);
   const totalAulas = cronograma.reduce((s, w) => s + w.totalAulas, 0);
   const stCount = subtopicReviews.length;
 
@@ -159,9 +161,9 @@ function Temas({ reviews, subtopics, onEditInterval, onSaveSubtopics }) {
 
       {/* ── Summary ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: C.card, borderRadius: R.lg, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
-        <span style={{ ...TY.caption, color: C.text2 }}>{totalStudied}/{totalAulas} aulas estudadas</span>
+        <span style={{ ...TY.caption, color: C.text2 }}>{totalStudied}/{pastAulas} estudadas</span>
         <div style={{ flex: "1 1 60px", display: "flex", height: 6, borderRadius: R.pill, overflow: "hidden", background: C.border, minWidth: 60 }}>
-          <div style={{ width: `${(totalStudied / totalAulas) * 100}%`, background: C.green, transition: "width 0.3s" }} />
+          <div style={{ width: `${pastAulas > 0 ? (totalStudied / pastAulas) * 100 : 0}%`, background: C.green, transition: "width 0.3s" }} />
         </div>
         {totalOverdue > 0
           ? <span style={{ ...TY.caption, color: C.red, fontWeight: 600 }}>{totalOverdue} vencida{totalOverdue > 1 ? "s" : ""}</span>

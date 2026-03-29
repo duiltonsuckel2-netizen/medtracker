@@ -315,7 +315,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
           </div>
         ));
       })()}
-      <div style={{ ...card, background: C.surface, border: `1px solid ${C.blue}30` }}><div style={{ fontSize: 13, fontWeight: 600, color: C.blue, marginBottom: S.sm }}>Intervalos</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>{INTERVALS.map((iv, i) => <div key={i} style={{ background: C.card2, borderRadius: R.sm, padding: "5px 12px", fontSize: 11, color: C.text2, fontFamily: FM, fontWeight: 500 }}>{INT_LABELS[i]}</div>)}</div><div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>≥85% → avança · 75–84% → mantém · &lt;75% → volta um</div></div>
+      <div style={{ ...card, background: C.surface, border: `1px solid ${C.blue}30` }}><div style={{ fontSize: 13, fontWeight: 600, color: C.blue, marginBottom: S.sm }}>Intervalos</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>{INTERVALS.map((iv, i) => <div key={i} style={{ background: C.card2, borderRadius: R.sm, padding: "5px 12px", fontSize: 11, color: C.text2, fontFamily: FM, fontWeight: 500 }}>{INT_LABELS[i]}</div>)}</div><div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>≥80% → avança · 75–79% → mantém · &lt;75% → volta um</div></div>
       </>}
       {subTab === "evolucao" && (() => {
         const evoFiltered = themeProgress.filter((t) => (evoArea === "all" || t.area === evoArea) && (!evoSearch || t.theme.toLowerCase().includes(evoSearch.toLowerCase())));
@@ -350,9 +350,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
               <div style={{ display: "flex", gap: S.lg, alignItems: "center", marginBottom: S.xl }}>
                 <div><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>início</div><div style={{ fontSize: 18, fontWeight: 800, color: perfColor(t.first), fontFamily: FN, lineHeight: 1 }}>{t.first}%</div></div>
                 <span style={{ fontSize: 14, color: C.border2 }}>→</span>
-                <div><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>última</div><div style={{ fontSize: 18, fontWeight: 800, color: perfColor(t.sorted[t.sorted.length - 2]?.pct ?? t.first), fontFamily: FN, lineHeight: 1 }}>{t.sorted.length >= 2 ? t.sorted[t.sorted.length - 2].pct : t.first}%</div></div>
-                <span style={{ fontSize: 14, color: C.border2 }}>→</span>
-                <div><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>atual</div><div style={{ fontSize: 18, fontWeight: 800, color: perfColor(t.last), fontFamily: FN, lineHeight: 1 }}>{t.last}%</div></div>
+                <div><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 2 }}>última</div><div style={{ fontSize: 18, fontWeight: 800, color: perfColor(t.last), fontFamily: FN, lineHeight: 1 }}>{t.last}%</div></div>
                 <div style={{ marginLeft: "auto", fontSize: 11, color: trendColor, fontWeight: 700, fontFamily: FN, padding: "4px 10px", borderRadius: R.pill, background: trendColor + "14" }}>{t.trend >= 0 ? "+" : ""}{t.trend}pp</div>
               </div>
               <ResponsiveContainer width="100%" height={64}>

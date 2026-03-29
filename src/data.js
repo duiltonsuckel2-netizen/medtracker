@@ -12,7 +12,7 @@ export const INTERVALS = [7, 14, 30, 60, 90, 120, 180];
 export const INT_LABELS = ["7d", "14d", "1m", "2m", "3m", "4m", "6m"];
 export const BENCHMARKS = { clinica: 85, cirurgia: 85, preventiva: 85, go: 85, ped: 85 };
 export const areaMap = Object.fromEntries(AREAS.map((a) => [a.id, a]));
-export const AREA_SHORT_MAP = { CM: "clinica", CIR: "cirurgia", GO: "go", PED: "ped", PREV: "preventiva" };
+export const AREA_SHORT_MAP = { CM: "clinica", CIR: "cirurgia", GO: "go", PED: "ped", PREV: "preventiva", ESPECIAL: "clinica" };
 
 // Map old abbreviated log names → official names (used in migration)
 export const LOG_NAME_MAP = {
@@ -75,25 +75,25 @@ export const LOG_NAME_MAP = {
 
 // ── SEED DATA — gerado do export Notion fresco (24/03/2026) ──────────────
 export const SEED_REVIEWS = [
-  // ── Dados do Notion MED database — AULA PRINCIPAL confirmada via API 24/03/2026 ──
-  { area: "clinica",    theme: "Síndrome Metabólica I - HAS e Dislipidemia (Sem. 08)",                    lastPerf: 78, intervalIndex: 1, nextDue: "2026-03-24", lastStudied: "2026-03-10" },
-  { area: "cirurgia",   theme: "Hemorragia Digestiva II - Proctologia (Sem. 08)",                    lastPerf: 85, intervalIndex: 2, nextDue: "2026-04-09", lastStudied: "2026-03-24" },
-  { area: "cirurgia",   theme: "Síndrome Dispéptica e Doenças do TGI Superior (Sem. 05)",                 lastPerf: 88, intervalIndex: 2, nextDue: "2026-03-25", lastStudied: "2026-02-23" },
-  { area: "ped",        theme: "Síndromes Respiratórias na Infância - Parte II (Sem. 05)",                                     lastPerf: 92, intervalIndex: 2, nextDue: "2026-03-26", lastStudied: "2026-02-24" },
-  { area: "clinica",    theme: "Síndrome Ictérica I - Hepatites (Sem. 01)",                                           lastPerf: 65, intervalIndex: 3, nextDue: "2026-03-27", lastStudied: "2026-01-26" },
-  { area: "clinica",    theme: "Síndrome Ictérica II - Doença das Vias Biliares (Sem. 02)",                                          lastPerf: 78, intervalIndex: 3, nextDue: "2026-03-28", lastStudied: "2026-01-27" },
-  { area: "cirurgia",   theme: "Síndrome Álgica I - Dor Abdominal (Sem. 10)",                             lastPerf: 80, intervalIndex: 0, nextDue: "2026-03-29", lastStudied: "2026-03-22" },
-  { area: "go",         theme: "Sangramento da Segunda Metade da Gravidez (Sem. 10)",                      lastPerf: 85, intervalIndex: 0, nextDue: "2026-03-29", lastStudied: "2026-03-22" },
-  { area: "go",         theme: "Sangramentos da Primeira Metade da Gravidez e Doença Hemolítica Perinatal (Sem. 09)",                     lastPerf: 77, intervalIndex: 1, nextDue: "2026-03-30", lastStudied: "2026-03-16" },
-  { area: "preventiva", theme: "SUS - Evolução Histórica, Diretrizes, Propostas e Financiamento (Sem. 09)",                  lastPerf: 80, intervalIndex: 2, nextDue: "2026-03-30", lastStudied: "2026-03-16" },
-  { area: "cirurgia",   theme: "Síndrome de Hipertensão Porta (Sem. 02)",                                          lastPerf: 83, intervalIndex: 3, nextDue: "2026-04-03", lastStudied: "2026-02-02" },
-  { area: "cirurgia",   theme: "Hemorragia Digestiva I - Abordagem e Conduta (Sem. 06)",                                   lastPerf: 83, intervalIndex: 2, nextDue: "2026-04-02", lastStudied: "2026-03-03" },
-  { area: "clinica",    theme: "Síndrome Diarreica (Sem. 06)",                                            lastPerf: 75, intervalIndex: 2, nextDue: "2026-04-02", lastStudied: "2026-03-03" },
-  { area: "ped",        theme: "Doenças Exantemáticas (Sem. 01)",                                    lastPerf: 83, intervalIndex: 3, nextDue: "2026-04-02", lastStudied: "2026-02-01" },
-  { area: "cirurgia",   theme: "Síndrome de Insuficiência Hepática (Sem. 03)",                          lastPerf: 70, intervalIndex: 3, nextDue: "2026-04-07", lastStudied: "2026-02-06" },
-  { area: "go",         theme: "Síndrome de Transmissão Sexual (Sem. 03)",                                   lastPerf: 93, intervalIndex: 3, nextDue: "2026-04-11", lastStudied: "2026-02-10" },
-  { area: "cirurgia",   theme: "Síndrome Disfágica (Sem. 04)",                                 lastPerf: 88, intervalIndex: 3, nextDue: "2026-04-15", lastStudied: "2026-02-14" },
-  { area: "ped",        theme: "Síndromes Respiratórias na Infância - Parte I (Sem. 04)",                                      lastPerf: 88, intervalIndex: 3, nextDue: "2026-04-18", lastStudied: "2026-02-17" },
+  // ── Recalculado via nxtIdx a partir de SEED_LOGS (≥80% avança, ≥70% mantém, <70% regride) ──
+  { area: "clinica",    theme: "Síndrome Metabólica I - HAS e Dislipidemia (Sem. 08)",                    lastPerf: 83, intervalIndex: 1, nextDue: "2026-03-31", lastStudied: "2026-03-17" },
+  { area: "cirurgia",   theme: "Hemorragia Digestiva II - Proctologia (Sem. 08)",                    lastPerf: 85, intervalIndex: 3, nextDue: "2026-05-23", lastStudied: "2026-03-24" },
+  { area: "cirurgia",   theme: "Síndrome Dispéptica e Doenças do TGI Superior (Sem. 05)",                 lastPerf: 75, intervalIndex: 2, nextDue: "2026-04-09", lastStudied: "2026-03-10" },
+  { area: "ped",        theme: "Síndromes Respiratórias na Infância - Parte II (Sem. 05)",                                     lastPerf: 96, intervalIndex: 1, nextDue: "2026-03-24", lastStudied: "2026-03-10" },
+  { area: "clinica",    theme: "Síndrome Ictérica I - Hepatites (Sem. 01)",                                           lastPerf: 84, intervalIndex: 2, nextDue: "2026-03-27", lastStudied: "2026-02-25" },
+  { area: "clinica",    theme: "Síndrome Ictérica II - Doença das Vias Biliares (Sem. 02)",                                          lastPerf: 66, intervalIndex: 0, nextDue: "2026-03-04", lastStudied: "2026-02-25" },
+  { area: "cirurgia",   theme: "Síndrome Álgica I - Dor Abdominal (Sem. 10)",                             lastPerf: 80, intervalIndex: 1, nextDue: "2026-04-05", lastStudied: "2026-03-22" },
+  { area: "go",         theme: "Sangramento da Segunda Metade da Gravidez (Sem. 10)",                      lastPerf: 85, intervalIndex: 1, nextDue: "2026-04-05", lastStudied: "2026-03-22" },
+  { area: "go",         theme: "Sangramentos da Primeira Metade da Gravidez e Doença Hemolítica Perinatal (Sem. 09)",                     lastPerf: 85, intervalIndex: 1, nextDue: "2026-04-06", lastStudied: "2026-03-23" },
+  { area: "preventiva", theme: "SUS - Evolução Histórica, Diretrizes, Propostas e Financiamento (Sem. 09)",                  lastPerf: 72, intervalIndex: 0, nextDue: "2026-03-30", lastStudied: "2026-03-23" },
+  { area: "cirurgia",   theme: "Síndrome de Hipertensão Porta (Sem. 02)",                                          lastPerf: 80, intervalIndex: 3, nextDue: "2026-05-05", lastStudied: "2026-03-06" },
+  { area: "cirurgia",   theme: "Hemorragia Digestiva I - Abordagem e Conduta (Sem. 06)",                                   lastPerf: 90, intervalIndex: 1, nextDue: "2026-04-02", lastStudied: "2026-03-19" },
+  { area: "clinica",    theme: "Síndrome Diarreica (Sem. 06)",                                            lastPerf: 80, intervalIndex: 2, nextDue: "2026-04-16", lastStudied: "2026-03-17" },
+  { area: "ped",        theme: "Doenças Exantemáticas (Sem. 01)",                                    lastPerf: 83, intervalIndex: 3, nextDue: "2026-05-02", lastStudied: "2026-03-03" },
+  { area: "cirurgia",   theme: "Síndrome de Insuficiência Hepática (Sem. 03)",                          lastPerf: 82, intervalIndex: 2, nextDue: "2026-03-22", lastStudied: "2026-02-20" },
+  { area: "go",         theme: "Síndrome de Transmissão Sexual (Sem. 03)",                                   lastPerf: 76, intervalIndex: 2, nextDue: "2026-04-12", lastStudied: "2026-03-13" },
+  { area: "cirurgia",   theme: "Síndrome Disfágica (Sem. 04)",                                 lastPerf: 80, intervalIndex: 3, nextDue: "2026-05-18", lastStudied: "2026-03-19" },
+  { area: "ped",        theme: "Síndromes Respiratórias na Infância - Parte I (Sem. 04)",                                      lastPerf: 75, intervalIndex: 2, nextDue: "2026-04-18", lastStudied: "2026-03-19" },
 ];
 
 export const SEED_LOGS = [
@@ -105,7 +105,7 @@ export const SEED_LOGS = [
   {date:"2026-01-28", area:"ped",        theme:"Doenças Exantemáticas (Sem. 01)",                          total:20, acertos:15, pct:75},
   {date:"2026-01-29", area:"clinica",    theme:"Síndrome Ictérica II - Doença das Vias Biliares (Sem. 02)",                               total:20, acertos:13, pct:65},
   {date:"2026-02-01", area:"ped",        theme:"Doenças Exantemáticas (Sem. 01)",                          total:60, acertos:50, pct:83},
-  {date:"2026-02-02", area:"clinica",    theme:"Síndrome de Hipertensão Porta (Sem. 02)",                              total:30, acertos:25, pct:83},
+  {date:"2026-02-02", area:"cirurgia",   theme:"Síndrome de Hipertensão Porta (Sem. 02)",                              total:30, acertos:25, pct:83},
   {date:"2026-02-04", area:"cirurgia",   theme:"Síndrome de Hipertensão Porta (Sem. 02)",                              total:20, acertos:16, pct:80},
   {date:"2026-02-06", area:"cirurgia",   theme:"Síndrome de Insuficiência Hepática (Sem. 03)",                total:30, acertos:21, pct:70},
   {date:"2026-02-08", area:"cirurgia",   theme:"Síndrome de Insuficiência Hepática (Sem. 03)",                total:30, acertos:21, pct:70},

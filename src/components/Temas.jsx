@@ -337,8 +337,22 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                   }}>
                                     {stItems.map((st, i) => {
                                       const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
+                                      // Fallback: get last % from revLog subtopicScores if no review card
+                                      let logPct = null;
+                                      if (!subRev) {
+                                        const k = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
+                                        const themeLogs = logsByTheme[k] || [];
+                                        for (let li = themeLogs.length - 1; li >= 0; li--) {
+                                          const ss = themeLogs[li].subtopicScores;
+                                          if (ss) {
+                                            const match = ss.find((s) => s.name.toLowerCase() === st.toLowerCase());
+                                            if (match) { logPct = match.pct; break; }
+                                          }
+                                        }
+                                      }
                                       const conf = subRev?.history?.slice(-1)[0]?.confidence;
                                       const confObj = conf ? CONFIDENCE_OPTS.find((c) => c.id === conf) : null;
+                                      const displayPct = subRev ? subRev.lastPerf : logPct;
                                       return (
                                         <div key={i} style={{
                                           display: "flex", alignItems: "center", gap: 6,
@@ -349,10 +363,9 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                             ? <span style={{ fontSize: 12 }} title={confObj.label}>{confObj.icon}</span>
                                             : <span style={{ fontSize: 11, color: C.purple }}>›</span>}
                                           <span style={{ ...TY.caption, flex: 1, minWidth: 0 }}>{st}</span>
-                                          {subRev ? (
-                                            <span style={{ fontSize: 11, fontWeight: 700, color: perfColor(subRev.lastPerf), fontFamily: FN, whiteSpace: "nowrap" }}>
-                                              {subRev.lastPerf}% <span style={{ color: C.text3, fontWeight: 500 }}>{INT_LABELS[subRev.intervalIndex]}</span>
-                                              {subRev.nextDue <= today() && <span style={{ color: C.red }}> ●</span>}
+                                          {displayPct !== null ? (
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: perfColor(displayPct), fontFamily: FN, whiteSpace: "nowrap" }}>
+                                              {displayPct}%{subRev && <> <span style={{ color: C.text3, fontWeight: 500 }}>{INT_LABELS[subRev.intervalIndex]}</span>{subRev.nextDue <= today() && <span style={{ color: C.red }}> ●</span>}</>}
                                             </span>
                                           ) : (
                                             <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>

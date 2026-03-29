@@ -2,7 +2,7 @@ import React, { Suspense } from "react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, areaMap, buildUnicamp2024Exam, LOG_NAME_MAP } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
-import { today, addDays, perc, uid, fmtDate, nxtIdx } from "./utils.js";
+import { today, addDays, perc, uid, fmtDate, nxtIdx, diffDays } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
 import { Agenda } from "./components/Agenda.jsx";
 import { SessionModal } from "./components/SessionModal.jsx";
@@ -223,6 +223,18 @@ function App() {
           return { ...rv, intervalIndex: idx, nextDue: correctNextDue, lastStudied: lastLog.date, lastPerf: correctLastPerf, history: correctHistory };
         });
         if (intervalsFixed) saveKey("rp26_reviews", loadedReviews);
+
+        // Reschedule reviews that are overdue >7d to today (lost revLogs make them show wrong dates)
+        const td = today();
+        let rescheduled = false;
+        loadedReviews = loadedReviews.map((rv) => {
+          if (rv.nextDue && rv.nextDue < td && diffDays(td, rv.nextDue) > 7) {
+            rescheduled = true;
+            return { ...rv, nextDue: td };
+          }
+          return rv;
+        });
+        if (rescheduled) saveKey("rp26_reviews", loadedReviews);
 
         // Recover subtopics from review cards if rp26_subtopics was lost/empty
         let loadedSt = st && typeof st === "object" && !Array.isArray(st) ? st : {};

@@ -34,6 +34,12 @@ const SYNC_KEYS = [
   "rp26_subtopics", "rp26_flashcards", "rp26_seeded12", "rp26_dark",
   "rp_agenda_v7", "rp_agenda_history", "rp_streak_start", "rp_max_streak",
   "rp26_mig_v4", "rp26_mig_v5", "rp26_mig_v6", "rp26_mig_v7", "rp26_mig_v8",
+  "rp26_dismissed_alerts",
+];
+
+// Keys that hold arrays — merge by combining unique items instead of overwriting
+const ARRAY_KEYS = [
+  "rp26_sessions", "rp26_reviews", "rp26_revlogs", "rp26_exams", "rp26_flashcards",
 ];
 
 const DEVICE_ID = (() => {
@@ -48,6 +54,7 @@ let _syncId = null;
 let _debounceTimer = null;
 let _onSyncStatus = null;
 let _initialized = false;
+let _lastPushTs = 0;
 
 function getSyncId() {
   return localStorage.getItem("rp26_sync_id") || null;
@@ -84,30 +91,108 @@ function applyData(data) {
   });
 }
 
+// Smart merge: for arrays, combine items by id (remote wins on conflict)
+function mergeArrayById(local, remote) {
+  if (!Array.isArray(local)) return remote;
+  if (!Array.isArray(remote)) return local;
+  const map = new Map();
+  // Local items first
+  local.forEach((item) => {
+    const key = item.id || item.key || JSON.stringify(item);
+    map.set(key, item);
+  });
+  // Remote items overwrite on conflict
+  remote.forEach((item) => {
+    const key = item.id || item.key || JSON.stringify(item);
+    map.set(key, item);
+  });
+  return Array.from(map.values());
+}
+
+// Merge remote data with local data intelligently
+function mergeData(remoteData) {
+  SYNC_KEYS.forEach((k) => {
+    if (remoteData[k] === undefined) return;
+    if (ARRAY_KEYS.includes(k)) {
+      const localRaw = localStorage.getItem(k);
+      let local = [];
+      try { local = localRaw ? JSON.parse(localRaw) : []; } catch { local = []; }
+      const merged = mergeArrayById(local, remoteData[k]);
+      localStorage.setItem(k, JSON.stringify(merged));
+    } else {
+      // For non-array keys, remote wins
+      localStorage.setItem(k, JSON.stringify(remoteData[k]));
+    }
+  });
+}
+
 async function pushToCloud() {
-  if (!_syncId || _pushing) return;
+  if (!_syncId || _pushing) return false;
   const ok = await loadFirebase();
-  if (!ok) return;
+  if (!ok) return false;
   _pushing = true;
   try {
     const data = collectData();
     data._updatedAt = Date.now();
     data._deviceId = DEVICE_ID;
     await _setDoc(_doc(_db, "sync", _syncId), data);
+    _lastPushTs = data._updatedAt;
     if (_onSyncStatus) _onSyncStatus("synced");
+    return true;
   } catch (e) {
     console.warn("Sync push failed:", e);
     if (_onSyncStatus) _onSyncStatus("error");
+    return false;
   } finally {
     _pushing = false;
   }
 }
 
 function debouncedPush() {
-  if (!_syncId || !_initialized) return;
+  if (!_syncId) return;
   if (_debounceTimer) clearTimeout(_debounceTimer);
   if (_onSyncStatus) _onSyncStatus("syncing");
-  _debounceTimer = setTimeout(pushToCloud, 2000);
+  // Push immediately if not initialized yet (first interaction)
+  if (!_initialized) {
+    _initialized = true;
+    _debounceTimer = setTimeout(pushToCloud, 500);
+  } else {
+    _debounceTimer = setTimeout(pushToCloud, 1500);
+  }
+}
+
+// Pull latest from cloud and merge into local
+async function pullFromCloud() {
+  if (!_syncId) return false;
+  const ok = await loadFirebase();
+  if (!ok) return false;
+  try {
+    const snap = await _getDoc(_doc(_db, "sync", _syncId));
+    if (!snap.exists()) return false;
+    const data = snap.data();
+    mergeData(data);
+    if (_onSyncStatus) _onSyncStatus("synced");
+    return true;
+  } catch (e) {
+    console.warn("Sync pull failed:", e);
+    if (_onSyncStatus) _onSyncStatus("error");
+    return false;
+  }
+}
+
+// Force full sync: pull remote → merge → push merged result
+async function forceSync() {
+  if (!_syncId) return false;
+  if (_onSyncStatus) _onSyncStatus("syncing");
+  try {
+    await pullFromCloud();
+    await pushToCloud();
+    return true;
+  } catch (e) {
+    console.warn("Force sync failed:", e);
+    if (_onSyncStatus) _onSyncStatus("error");
+    return false;
+  }
 }
 
 async function startListening(onRemoteUpdate) {
@@ -116,27 +201,26 @@ async function startListening(onRemoteUpdate) {
   const ok = await loadFirebase();
   if (!ok) return;
 
-  let _lastRemoteTs = 0;
-  const RELOAD_COOLDOWN = 10000;
-
   _unsubscribe = _onSnapshot(_doc(_db, "sync", _syncId), (snap) => {
     if (!snap.exists()) return;
     const data = snap.data();
-    if (data._deviceId === DEVICE_ID) return;
-    const now = Date.now();
-    const lastReload = Number(sessionStorage.getItem("rp26_last_sync_reload") || "0");
-    if (now - lastReload < RELOAD_COOLDOWN) return;
-    if (data._updatedAt && data._updatedAt <= _lastRemoteTs) return;
-    _lastRemoteTs = data._updatedAt || now;
-    applyData(data);
+    // Skip our own pushes
+    if (data._deviceId === DEVICE_ID && data._updatedAt === _lastPushTs) return;
+    // Skip if this is clearly our own recent push (within 3 seconds)
+    if (data._deviceId === DEVICE_ID && Math.abs(Date.now() - data._updatedAt) < 3000) return;
+    // Merge remote data into local
+    mergeData(data);
     if (_onSyncStatus) _onSyncStatus("synced");
     if (onRemoteUpdate) {
-      sessionStorage.setItem("rp26_last_sync_reload", String(now));
       onRemoteUpdate();
     }
   }, (err) => {
     console.warn("Sync listen error:", err);
     if (_onSyncStatus) _onSyncStatus("error");
+    // Try to reconnect after 5 seconds
+    setTimeout(() => {
+      if (_syncId) startListening(onRemoteUpdate);
+    }, 5000);
   });
 }
 
@@ -148,8 +232,10 @@ async function initSync(onRemoteUpdate, onStatusChange) {
   _onSyncStatus = onStatusChange || null;
   _syncId = getSyncId();
   if (!_syncId) return false;
+  _initialized = true;
+  // Pull latest on init to catch anything missed while offline
+  await pullFromCloud();
   await startListening(onRemoteUpdate);
-  setTimeout(() => { _initialized = true; }, 5000);
   return true;
 }
 
@@ -157,6 +243,7 @@ async function createSync() {
   const id = generateSyncId();
   setSyncId(id);
   _syncId = id;
+  _initialized = true;
   await pushToCloud();
   return id;
 }
@@ -168,11 +255,14 @@ async function joinSync(code, onRemoteUpdate) {
   const snap = await _getDoc(_doc(_db, "sync", id));
   if (snap.exists()) {
     const data = snap.data();
-    applyData(data);
+    // Merge instead of overwrite — keeps local data + adds remote data
+    mergeData(data);
   }
   setSyncId(id);
   _syncId = id;
+  _initialized = true;
   await startListening(onRemoteUpdate);
+  // Push merged data back so both devices are in sync
   await pushToCloud();
   return id;
 }
@@ -181,9 +271,10 @@ function disconnectSync() {
   stopListening();
   localStorage.removeItem("rp26_sync_id");
   _syncId = null;
+  _initialized = false;
 }
 
 export {
   initSync, createSync, joinSync, disconnectSync,
-  debouncedPush, getSyncId, pushToCloud,
+  debouncedPush, getSyncId, pushToCloud, pullFromCloud, forceSync,
 };

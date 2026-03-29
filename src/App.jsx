@@ -10,7 +10,7 @@ import { Sessoes } from "./components/Sessoes.jsx";
 import { SubtopicModal, SubtopicReviewModal } from "./components/SubtopicModal.jsx";
 import { SkeletonCard } from "./components/UI.jsx";
 import { generateFlashcardDecks, mergeDecks, reviewCard } from "./flashcards.js";
-import { initSync, createSync, joinSync, disconnectSync, debouncedPush, getSyncId, pushToCloud } from "./sync.js";
+import { initSync, createSync, joinSync, disconnectSync, debouncedPush, getSyncId, pushToCloud, pullFromCloud, forceSync } from "./sync.js";
 
 const Dashboard = React.lazy(() => import("./components/Dashboard.jsx").then(m => ({ default: m.Dashboard })));
 const Revisoes = React.lazy(() => import("./components/Revisoes.jsx").then(m => ({ default: m.Revisoes })));
@@ -69,7 +69,7 @@ function App() {
   const [syncBanner, setSyncBanner] = useState(false);
   useEffect(() => {
     initSync(
-      () => setSyncBanner(true), // on remote update: show banner instead of reload
+      () => setSyncBanner(true), // on remote update: show banner
       (status) => setSyncStatus(status)
     ).then((active) => {
       if (active) setSyncStatus("synced");
@@ -77,6 +77,16 @@ function App() {
   }, []);
 
   function triggerSync() { debouncedPush(); }
+  async function handleForceSync() {
+    setSyncStatus("syncing");
+    const ok = await forceSync();
+    if (ok) {
+      setSyncStatus("synced");
+      window.location.reload();
+    } else {
+      setSyncStatus("error");
+    }
+  }
 
   function switchTab(id) {
     if (id !== tab) {
@@ -511,11 +521,17 @@ function App() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0, marginLeft: "auto" }}>
             {flash && (<span className="fade-in" style={{ fontSize: 10, color: C.green, fontFamily: FM, fontWeight: 600, background: `rgba(34,197,94,0.1)`, padding: "4px 10px", borderRadius: R.pill, border: `1px solid rgba(34,197,94,0.2)` }}>{flash}</span>)}
+            {/* Sync button — visible when sync is active */}
+            {syncId && (
+              <button onClick={handleForceSync} title={syncStatus === "synced" ? "Sincronizado" : syncStatus === "syncing" ? "Sincronizando..." : syncStatus === "error" ? "Erro — toque para tentar" : "Sincronizar"} style={{ background: "none", border: "none", width: 28, height: 28, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: syncStatus === "synced" ? C.green : syncStatus === "error" ? C.red : C.yellow, opacity: syncStatus === "syncing" ? 0.6 : 0.8, transition: "all 0.3s", animation: syncStatus === "syncing" ? "spin 1s linear infinite" : "none" }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.2-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.2 4.5"/></svg>
+              </button>
+            )}
             <div style={{ position: "relative" }}>
               <button onClick={() => setShowBackupMenu(v => !v)} style={{ background: "none", border: "none", width: 28, height: 28, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.text3, opacity: 0.35, transition: "opacity 0.2s" }} onMouseEnter={e => e.currentTarget.style.opacity = "0.7"} onMouseLeave={e => e.currentTarget.style.opacity = "0.35"}>{"💾"}</button>
               {showBackupMenu && <div className="fade-in" style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.lg, boxShadow: SH.lg, overflow: "hidden", zIndex: 200, minWidth: 200 }}>
                 <div style={{ padding: "8px 16px", fontSize: 10, color: C.text3, borderBottom: `1px solid ${C.border}`, fontFamily: FM, display: "flex", justifyContent: "space-between" }}>
-                  <span>v2.2 — 28/03</span>
+                  <span>v2.3 — 29/03</span>
                   {syncId && <span style={{ color: syncStatus === "synced" ? C.green : syncStatus === "error" ? C.red : C.yellow }}>{syncStatus === "synced" ? "sincronizado" : syncStatus === "syncing" ? "sincronizando..." : syncStatus === "error" ? "erro sync" : ""}</span>}
                 </div>
                 {syncId ? (
@@ -549,7 +565,7 @@ function App() {
                   <div style={{ fontSize: 11, color: C.green, marginTop: 6 }}>Sincronização ativa</div>
                 </div>
                 <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Use este código nos outros dispositivos pra sincronizar automaticamente.</div>
-                <button onClick={async () => { try { await pushToCloud(); notify("Sync enviado!"); } catch (e) { alert("Erro: " + e.message); } }} style={btn(C.blue, { width: "100%", fontSize: 13 })}>Forçar sync agora</button>
+                <button onClick={async () => { try { await handleForceSync(); } catch (e) { alert("Erro: " + e.message); } }} style={btn(C.blue, { width: "100%", fontSize: 13 })}>Forçar sync agora</button>
                 <button onClick={() => { disconnectSync(); setSyncId(null); setSyncStatus("off"); setShowSyncModal(false); notify("Sync desconectado"); }} style={btn(C.card2, { width: "100%", fontSize: 13, color: C.red })}>Desconectar sync</button>
               </div>
             ) : (
@@ -557,7 +573,7 @@ function App() {
                 <div style={{ background: C.surface, borderRadius: R.md, padding: 12, border: `1px solid ${C.border}`, fontSize: 12, color: C.text3, lineHeight: 1.5 }}>
                   Sincronize seus dados entre iPhone, iPad e computador automaticamente via nuvem.
                 </div>
-                <button onClick={async () => { const id = await createSync(); setSyncId(id); setSyncStatus("synced"); notify("Sync criado!"); initSync(() => window.location.reload(), (s) => setSyncStatus(s)); }} style={btn(C.purple, { width: "100%", fontSize: 13 })}>Criar código de sync (1o dispositivo)</button>
+                <button onClick={async () => { const id = await createSync(); setSyncId(id); setSyncStatus("synced"); notify("Sync criado!"); await initSync(() => setSyncBanner(true), (s) => setSyncStatus(s)); }} style={btn(C.purple, { width: "100%", fontSize: 13 })}>Criar código de sync (1o dispositivo)</button>
                 <div style={{ fontSize: 12, color: C.text3, textAlign: "center" }}>ou</div>
                 <div style={{ fontSize: 12, color: C.text3 }}>Já tem um código? Digite abaixo:</div>
                 <div style={{ display: "flex", gap: 8 }}>

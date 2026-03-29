@@ -47,6 +47,7 @@ function injectKeyframes() {
     .fade-in { animation:fadeSlideIn .25s ease-out }
     .pulse-check { animation:pulseCheck .3s ease-out }
     .skeleton { background:linear-gradient(90deg,transparent 25%,rgba(255,255,255,.06) 50%,transparent 75%); background-size:200% 100%; animation:skeletonShimmer 1.5s infinite }
+    @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
     @media(max-width:640px){ .bottom-nav{display:block!important} .desktop-tabs{display:none!important} }
   `;
   document.head.appendChild(s);

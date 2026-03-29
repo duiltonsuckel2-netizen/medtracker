@@ -59,6 +59,19 @@ function App() {
     } catch { alert("Erro ao ler o arquivo."); } }; reader.readAsText(f); };
     input.click();
   }
+  function restoreAutoBackup(slot) {
+    try {
+      const raw = localStorage.getItem(`rp26_auto_backup_${slot}`);
+      if (!raw) { notify("Nenhum backup automático nesse slot"); return; }
+      const data = JSON.parse(raw);
+      const when = data._savedAt ? new Date(data._savedAt).toLocaleString("pt-BR") : "desconhecido";
+      if (!confirm(`Restaurar backup automático de ${when}? Isso substitui todos os dados atuais.`)) return;
+      const keys = ["rp26_sessions", "rp26_reviews", "rp26_revlogs", "rp26_exams", "rp26_subtopics", "rp26_flashcards"];
+      keys.forEach(k => { if (data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data[k])); });
+      notify("Restaurado! Recarregando..."); setTimeout(() => window.location.reload(), 800);
+    } catch { notify("Erro ao restaurar backup"); }
+  }
+  const [showAutoBackupMenu, setShowAutoBackupMenu] = useState(false);
   const [showBackupMenu, setShowBackupMenu] = useState(false);
   const [syncStatus, setSyncStatus] = useState("off"); // off | syncing | synced | error
   const [syncId, setSyncId] = useState(getSyncId());
@@ -148,8 +161,18 @@ function App() {
         let loadedReviews = Array.isArray(r) ? r : [];
         let loadedExams = Array.isArray(e) ? e : [];
         const loadedFc = Array.isArray(fc) ? fc : [];
-        // All migrations removed — app loads data as-is, never modifies on load
         let loadedLogs = Array.isArray(rl) ? rl : [];
+
+        // AUTO-BACKUP: save snapshot before anything else touches the data
+        // Keeps last 3 backups rotated so user can always restore
+        try {
+          const snapshot = { rp26_sessions: loadedSessions, rp26_reviews: loadedReviews, rp26_revlogs: loadedLogs, rp26_exams: loadedExams, rp26_subtopics: st, rp26_flashcards: fc, _savedAt: new Date().toISOString() };
+          const prev1 = localStorage.getItem("rp26_auto_backup_1");
+          const prev2 = localStorage.getItem("rp26_auto_backup_2");
+          if (prev1) localStorage.setItem("rp26_auto_backup_3", prev1);
+          if (prev2) localStorage.setItem("rp26_auto_backup_2", prev2);
+          localStorage.setItem("rp26_auto_backup_1", JSON.stringify(snapshot));
+        } catch (e) { /* storage full — skip backup silently */ }
         // Recover subtopics from review cards if rp26_subtopics was lost/empty
         let loadedSt = st && typeof st === "object" && !Array.isArray(st) ? st : {};
         if (Object.keys(loadedSt).length === 0) {
@@ -460,6 +483,7 @@ function App() {
                 <button onClick={() => { setShowBackupMenu(false); setShowSyncModal(true); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: syncId ? C.green : C.purple, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{syncId ? "☁️ Sync ativo" : "☁️ Ativar sincronização"}</button>
                 <button onClick={() => { exportBackup(); setShowBackupMenu(false); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.text, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"📤"} Exportar backup</button>
                 <button onClick={() => { importBackup(); setShowBackupMenu(false); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.text, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"📥"} Restaurar backup</button>
+                <button onClick={() => { setShowBackupMenu(false); setShowAutoBackupMenu(true); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.green, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"⏪"} Restaurar backup automático</button>
                 <button onClick={() => { setShowBackupMenu(false); runDedup(); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.yellow, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"🧹"} Limpar duplicatas</button>
                 <button onClick={() => { setShowBackupMenu(false); caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k)))).then(() => { navigator.serviceWorker?.getRegistrations().then(rs => rs.forEach(r => r.unregister())); setTimeout(() => window.location.reload(true), 300); }).catch(() => window.location.reload(true)); }} style={{ width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", color: C.yellow, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"🔄"} Forçar atualização</button>
               </div>}
@@ -502,6 +526,23 @@ function App() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {showAutoBackupMenu && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) setShowAutoBackupMenu(false); }}>
+          <div className="fade-in" style={{ background: C.card, borderRadius: 20, padding: 24, maxWidth: 400, width: "100%", border: `1px solid ${C.border2}`, boxShadow: SH.lg }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 700 }}>Backups automáticos</div>
+              <button onClick={() => setShowAutoBackupMenu(false)} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 18 }}>✕</button>
+            </div>
+            <div style={{ fontSize: 12, color: C.text3, marginBottom: 12 }}>O app salva automaticamente uma cópia dos dados toda vez que carrega. Escolha qual restaurar:</div>
+            {[1, 2, 3].map((slot) => {
+              const raw = localStorage.getItem(`rp26_auto_backup_${slot}`);
+              let info = "Vazio";
+              if (raw) { try { const d = JSON.parse(raw); info = d._savedAt ? new Date(d._savedAt).toLocaleString("pt-BR") : "Data desconhecida"; } catch { info = "Corrompido"; } }
+              return <button key={slot} disabled={!raw} onClick={() => { setShowAutoBackupMenu(false); restoreAutoBackup(slot); }} style={{ ...btn(raw ? C.blue : C.card2, { width: "100%", fontSize: 13, marginBottom: 8, opacity: raw ? 1 : 0.4 }) }}>Backup {slot} — {info}</button>;
+            })}
           </div>
         </div>
       )}

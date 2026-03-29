@@ -177,9 +177,6 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         res.push({ type: "danger", icon: "🔴", title: `Ponto cego: ${t.theme}`, msg: `${badSessions} sessões abaixo de 70% · última: ${t.last}%`, area: t.area, theme: t.theme, history: t.sorted, totalQ: t.sorted.reduce((s, x) => s + x.total, 0), avg: t.avg, trend: t.trend });
       }
     });
-    reviews.filter((r) => diffDays(today(), r.nextDue) > 7).forEach((r) => {
-      res.push({ type: "warning", icon: "🟡", title: `Atrasado ${diffDays(today(), r.nextDue)}d: ${r.theme}`, msg: `Última: ${r.lastPerf}% em ${fmtDate(r.lastStudied)}`, area: r.area, theme: r.theme, overdueDays: diffDays(today(), r.nextDue) });
-    });
     themeProgress.filter((t) => t.last < t.avg - 10 && t.n >= 3).forEach((t) => {
       res.push({ type: "info", icon: "📉", title: `Queda em: ${t.theme}`, msg: `Média ${t.avg}% → última ${t.last}%`, area: t.area, theme: t.theme, history: t.sorted, avg: t.avg, trend: t.trend });
     });

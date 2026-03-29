@@ -42,9 +42,6 @@ const ARRAY_KEYS = [
   "rp26_sessions", "rp26_reviews", "rp26_revlogs", "rp26_exams", "rp26_flashcards",
 ];
 
-// Keys that hold objects — merge by combining keys (remote wins per-key, but local keys are preserved)
-const OBJECT_KEYS = ["rp26_subtopics"];
-
 const DEVICE_ID = (() => {
   let id = localStorage.getItem("rp26_device_id");
   if (!id) { id = crypto.randomUUID(); localStorage.setItem("rp26_device_id", id); }
@@ -94,30 +91,22 @@ function applyData(data) {
   });
 }
 
-// Smart merge: for arrays, combine items by key (remote wins on conflict)
-// Uses item.key FIRST (logical dedup key like "area__theme") before item.id
+// Smart merge: for arrays, combine items by id (remote wins on conflict)
 function mergeArrayById(local, remote) {
   if (!Array.isArray(local)) return remote;
   if (!Array.isArray(remote)) return local;
   const map = new Map();
   // Local items first
   local.forEach((item) => {
-    const key = item.key || item.id || JSON.stringify(item);
+    const key = item.id || item.key || JSON.stringify(item);
     map.set(key, item);
   });
   // Remote items overwrite on conflict
   remote.forEach((item) => {
-    const key = item.key || item.id || JSON.stringify(item);
+    const key = item.id || item.key || JSON.stringify(item);
     map.set(key, item);
   });
   return Array.from(map.values());
-}
-
-// Smart merge for object keys: combine local + remote properties (remote wins per-key)
-function mergeObjects(local, remote) {
-  if (!local || typeof local !== "object" || Array.isArray(local)) return remote;
-  if (!remote || typeof remote !== "object" || Array.isArray(remote)) return local;
-  return { ...local, ...remote };
 }
 
 // Merge remote data with local data intelligently
@@ -129,12 +118,6 @@ function mergeData(remoteData) {
       let local = [];
       try { local = localRaw ? JSON.parse(localRaw) : []; } catch { local = []; }
       const merged = mergeArrayById(local, remoteData[k]);
-      localStorage.setItem(k, JSON.stringify(merged));
-    } else if (OBJECT_KEYS.includes(k)) {
-      const localRaw = localStorage.getItem(k);
-      let local = {};
-      try { local = localRaw ? JSON.parse(localRaw) : {}; } catch { local = {}; }
-      const merged = mergeObjects(local, remoteData[k]);
       localStorage.setItem(k, JSON.stringify(merged));
     } else {
       // For non-array keys, remote wins

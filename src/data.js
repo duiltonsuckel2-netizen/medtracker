@@ -71,7 +71,6 @@ export const LOG_NAME_MAP = {
   "Sangramentos da 1ª Metade da Gravidez (Sem. 09)": "Sangramentos da Primeira Metade da Gravidez e Doença Hemolítica Perinatal (Sem. 09)",
   "Sangramento da 2ª Metade da Gravidez (Sem. 10)": "Sangramento da Segunda Metade da Gravidez (Sem. 10)",
   "Sd. Álgica I — Dor Abdominal (Sem. 10)": "Síndrome Álgica I - Dor Abdominal (Sem. 10)",
-  "Dor Abdominal / Abdome Agudo": "Síndrome Álgica I - Dor Abdominal (Sem. 10)",
 };
 
 // ── SEED DATA — gerado do export Notion fresco (24/03/2026) ──────────────

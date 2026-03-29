@@ -201,7 +201,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         res.push({ type: "danger", icon: "📊", title: `2 revisões <75%: ${t.theme}`, msg: `Últimas: ${showBad[0].pct}% e ${showBad[1].pct}% — reforçar teoria`, area: t.area, theme: t.theme, history: t.logs.map((l) => ({ date: l.date, pct: l.pct, total: l.total || 0 })) });
       }
     });
-    // Erros em prova: separar "já vi" (lista principal) e "nunca vi + muito alta" (seção separada)
+    // Erros em prova: "já vi" (lista principal, qualquer prevalência) e "nunca vi + muito alta" (seção separada)
     const examAlertsSeen = new Set();
     const prevAlerts = [];
     exams.forEach((ex) => {
@@ -210,19 +210,20 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
         const q = ex.qDetails[n];
         if (!q || !q.theme) return;
         const prev = q.prev || (ex.name ? (() => { const key = Object.keys(EXAM_THEMES_DB).find((k) => ex.name.toLowerCase().includes(k)); return key && EXAM_THEMES_DB[key]?.[n]?.prev; })() : null);
-        if (!prev || (prev !== "muito alta" && prev !== "alta")) return;
         const tLow = q.theme.toLowerCase().trim();
         const sched = mapThemeToSchedule(q.theme);
         const schedLabel = sched ? ` · ${sched.semana}` : "";
         const key = `${q.area}__${tLow}`;
         if (examAlertsSeen.has(key)) return;
-        examAlertsSeen.add(key);
         const isJaVi = (ex.cats.errou_viu || []).includes(n);
         const erType = isJaVi ? "já vi" : "nunca vi";
-        const alert = { type: "danger", icon: "🎯", title: `Erro em prova: ${q.theme}`, msg: `Prevalência ${prev} · ${ex.name} · errei (${erType})${schedLabel}`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: prev, erType };
+        const prevLabel = prev ? `Prevalência ${prev} · ` : "";
+        const alert = { type: "danger", icon: "🎯", title: `Erro em prova: ${q.theme}`, msg: `${prevLabel}${ex.name} · errei (${erType})${schedLabel}`, area: q.area, theme: q.theme, examName: ex.name, examQ: n, prevLevel: prev, erType };
         if (isJaVi) {
+          examAlertsSeen.add(key);
           res.push(alert);
         } else if (prev === "muito alta") {
+          examAlertsSeen.add(key);
           prevAlerts.push(alert);
         }
       });
@@ -351,21 +352,25 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
 
 </div>}<div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}><button onClick={(e) => { e.stopPropagation(); const nd = [...dismissedAlerts, alertKey]; setDismissedAlerts(nd); localStorage.setItem("rp26_dismissed_alerts", JSON.stringify(nd)); }} style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: R.pill, padding: "5px 12px", fontSize: 11, color: C.text3, cursor: "pointer", fontFamily: FM }}>Ocultar este alerta</button></div></div></div></div>); })}{alerts.filter((a) => !dismissedAlerts.includes(`${a.area}__${(a.theme||"").toLowerCase().trim()}`)).length > 0 && (<div style={{ ...card, background: C.surface, border: `1px solid ${C.border2}` }}><div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>💡 O que fazer</div><div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{alerts.some((a) => a.icon === "🔴") && <div style={{ fontSize: 12, color: C.text2 }}>🔴 <b>Pontos cegos:</b> refaça questões desses temas e identifique os subtópicos mais cobrados. Considere revisão manual.</div>}{alerts.some((a) => a.icon === "📊") && <div style={{ fontSize: 12, color: C.text2 }}>📊 <b>Revisões consecutivas baixas:</b> reveja a teoria antes de fazer mais questões. Foque nos subtópicos com pior desempenho.</div>}{alerts.some((a) => a.icon === "🎯") && <div style={{ fontSize: 12, color: C.text2 }}>🎯 <b>Erros em prova (cursinho):</b> temas de alta prevalência que você já viu mas errou — priorize revisão ativa e refaça questões do tema.</div>}{alerts.some((a) => a.type === "warning") && <div style={{ fontSize: 12, color: C.text2 }}>🟡 <b>Revisões atrasadas:</b> priorize-as hoje antes de adicionar sessões novas.</div>}{alerts.some((a) => a.type === "info") && <div style={{ fontSize: 12, color: C.text2 }}>📉 <b>Em queda:</b> revise a teoria desses temas — pode ser que o desempenho alto inicial tenha sido sorte.</div>}</div></div>)}
 {/* ── Seção separada: Prevalência muito alta (errei e nunca vi) ── */}
-{prevAlerts.length > 0 && <div style={{ marginTop: 8 }}>
+{prevAlerts.filter((a) => !dismissedAlerts.includes(`${a.area}__${(a.theme||"").toLowerCase().trim()}`)).length > 0 && <div style={{ marginTop: 8 }}>
 <div style={{ fontSize: 14, fontWeight: 700, color: C.red, marginBottom: 8 }}>Prevalência muito alta em prova</div>
 <div style={{ fontSize: 11, color: C.text3, marginBottom: 12 }}>Temas que você errou e nunca viu no cursinho, mas caem muito em prova.</div>
-{prevAlerts.filter((a) => !dismissedAlerts.includes(`${a.area}__${(a.theme||"").toLowerCase().trim()}`)).map((a, i) => { const area = areaMap[a.area]; return (
-<div key={i} style={{ ...card, borderLeft: `4px solid ${C.red}60`, padding: "12px 16px", marginBottom: 8 }}>
-<div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-<span style={{ fontSize: 16, flexShrink: 0 }}>🎯</span>
-<div style={{ flex: 1 }}>
-<div style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{a.title}</div>
-<div style={{ fontSize: 11, color: C.text3, marginTop: 2 }}>{a.msg}</div>
-{area && <span style={{ ...tag(area.color), marginTop: 4, display: "inline-flex" }}>{area.label}</span>}
-</div>
-</div>
-<div style={{ marginTop: 8, display: "flex", justifyContent: "flex-end" }}><button onClick={() => { const alertKey = `${a.area}__${(a.theme||"").toLowerCase().trim()}`; const nd = [...dismissedAlerts, alertKey]; setDismissedAlerts(nd); localStorage.setItem("rp26_dismissed_alerts", JSON.stringify(nd)); }} style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: R.pill, padding: "4px 10px", fontSize: 10, color: C.text3, cursor: "pointer", fontFamily: FM }}>Ocultar</button></div>
-</div>); })}
+{prevAlerts.filter((a) => !dismissedAlerts.includes(`${a.area}__${(a.theme||"").toLowerCase().trim()}`)).map((a, i) => { const alertKey = `${a.area}__${(a.theme||"").toLowerCase().trim()}`; const area = areaMap[a.area]; const borderColor = C.red; const summary = findSummary(a.theme || ""); const isExpanded = expandedAlert === `prev_${i}`; const hist = isExpanded ? (a.history || themeHistory(a.area, a.theme)) : []; const examErrs = isExpanded ? (themeExamErrors(a.area, a.theme)) : []; const nextRev = isExpanded ? themeNextReview(a.area, a.theme) : null; return (<div key={alertKey} style={{ ...card, borderLeft: `4px solid ${borderColor}60`, padding: "14px 18px", cursor: "pointer", transition: "box-shadow 0.15s" }} onClick={() => setExpandedAlert(isExpanded ? null : `prev_${i}`)}>
+<div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}><span style={{ fontSize: 18, flexShrink: 0 }}>{a.icon}</span><div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>{a.title}<span style={{ fontSize: 10, color: C.purple, opacity: 0.7 }}>{isExpanded ? "▲" : "▼ ver detalhes"}</span></div><div style={{ fontSize: 12, color: C.text3, marginTop: 3 }}>{a.msg}</div>
+{area && <span style={{ ...tag(area.color), marginTop: 6, display: "inline-flex" }}>{area.label}</span>}
+{isExpanded && <div className="fade-in" style={{ marginTop: 12, borderRadius: 14, overflow: "hidden", border: `1px solid ${C.border2}` }} onClick={(e) => e.stopPropagation()}>
+{summary && <div style={{ padding: "12px 16px", background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+<div style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>📋 Resumo clínico<span style={{ flex: 1, height: 1, background: C.border }} /></div>
+<div style={{ fontSize: 12, color: C.text, lineHeight: 1.75 }}>{summary.resumo}</div>
+</div>}
+{summary && <div style={{ padding: "12px 16px", background: C.bg }}>
+<div style={{ fontSize: 10, fontWeight: 700, color: C.purple, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.8, display: "flex", alignItems: "center", gap: 6 }}>🎓 Mais cobrados em residência<span style={{ flex: 1, height: 1, background: C.purple + "20" }} /></div>
+<div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{summary.topicos.map((tp, j) => { const topic = typeof tp === "string" ? { t: tp, d: null } : tp; return (<div key={j} style={{ paddingLeft: 12, borderLeft: `3px solid ${C.purple}40`, paddingTop: 2, paddingBottom: 2 }}><div style={{ fontSize: 11, fontWeight: 600, color: C.text, lineHeight: 1.5 }}>{topic.t}</div>{topic.d && <div style={{ fontSize: 11, color: C.text3, lineHeight: 1.6, marginTop: 2 }}>{topic.d}</div>}</div>); })}</div>
+</div>}
+{!summary && <div style={{ padding: "14px 16px", background: C.surface }}><div style={{ fontSize: 12, color: C.text3, fontStyle: "italic" }}>Sem resumo clínico disponível para este tema.</div></div>}
+</div>}
+<div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}><button onClick={(e) => { e.stopPropagation(); const nd = [...dismissedAlerts, alertKey]; setDismissedAlerts(nd); localStorage.setItem("rp26_dismissed_alerts", JSON.stringify(nd)); }} style={{ background: C.card2, border: `1px solid ${C.border}`, borderRadius: R.pill, padding: "5px 12px", fontSize: 11, color: C.text3, cursor: "pointer", fontFamily: FM }}>Ocultar</button></div>
+</div></div></div>); })}
 </div>}
 </>}
       {activeTab === "heatmap" && <><div style={card}><div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Heatmap de estudo</div><div style={{ fontSize: 12, color: C.text3, marginBottom: 16 }}>{new Date(today() + "T12:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })} — completude da agenda por dia</div><div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>{heatmapData.map((d, i) => (<div key={i} title={`${fmtDate(d.date)}: ${d.total > 0 ? `${d.done}/${d.total} (${d.pct}%)` : "sem itens"}`} style={{ aspectRatio: "1", borderRadius: 6, background: heatColors[Math.min(d.intensity, 4)], cursor: "default", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, color: d.intensity >= 3 ? "#fff" : C.text3, fontFamily: FN }}>{d.day}</div>))}</div><div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}><span style={{ fontSize: 10, color: C.text3 }}>menos</span>{heatColors.map((c, i) => <div key={i} style={{ width: 12, height: 12, borderRadius: 3, background: c, border: `1px solid ${C.border}` }} />)}<span style={{ fontSize: 10, color: C.text3 }}>mais</span></div><div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10 }}>{[{ label: "Dias estudados", value: diasEstudados, sub: "desde 02/02" },{ label: "Melhor streak", value: `${maxStreak}d`, sub: "recorde" }].map((s) => (<div key={s.label} style={{ background: C.surface, borderRadius: R.md, padding: S.lg, border: `1px solid ${C.border}`, boxShadow: SH.sm }}><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{s.label}</div><div style={{ fontSize: 22, fontWeight: 800, color: C.text, ...NUM, lineHeight: 1 }}>{s.value}</div><div style={{ fontSize: 10, color: C.text3, fontWeight: 400, marginTop: 3 }}>{s.sub}</div></div>))}<div style={{ background: C.surface, borderRadius: R.md, padding: S.lg, border: `1px solid ${C.yellow}30`, boxShadow: SH.sm, cursor: "pointer", position: "relative" }} onClick={() => setShowStreakReset((v) => !v)}><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Streak atual</div><div style={{ fontSize: 22, fontWeight: 800, color: C.yellow, ...NUM, lineHeight: 1 }}>{streak}d 🔥</div><div style={{ fontSize: 10, color: C.text3, fontWeight: 400, marginTop: 3 }}>consecutivos</div>{showStreakReset && <div className="fade-in" style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, marginTop: 4, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, boxShadow: SH.lg, overflow: "hidden" }}><button onClick={(e) => { e.stopPropagation(); resetStreak(); }} style={{ width: "100%", padding: "12px 14px", background: "none", border: "none", cursor: "pointer", color: C.red, fontSize: 13, fontWeight: 600, fontFamily: F, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={(e) => e.currentTarget.style.background = C.red + "12"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>🔄 Zerar streak</button></div>}</div></div></div></>}

@@ -77,15 +77,20 @@ function App() {
   }, []);
 
   function triggerSync() { debouncedPush(); }
-  async function handleForceSync() {
+  const [showSyncActions, setShowSyncActions] = useState(false);
+  async function handlePushOnly() {
+    setShowSyncActions(false);
     setSyncStatus("syncing");
-    const ok = await forceSync();
-    if (ok) {
-      setSyncStatus("synced");
-      window.location.reload();
-    } else {
-      setSyncStatus("error");
-    }
+    const ok = await pushToCloud();
+    if (ok) { setSyncStatus("synced"); notify("Dados enviados para a nuvem!"); }
+    else { setSyncStatus("error"); notify("Erro ao enviar"); }
+  }
+  async function handlePullOnly() {
+    setShowSyncActions(false);
+    setSyncStatus("syncing");
+    const ok = await pullFromCloud();
+    if (ok) { setSyncStatus("synced"); notify("Dados recebidos! Recarregando..."); setTimeout(() => window.location.reload(), 800); }
+    else { setSyncStatus("error"); notify("Erro ao receber"); }
   }
 
   function switchTab(id) {
@@ -523,9 +528,17 @@ function App() {
             {flash && (<span className="fade-in" style={{ fontSize: 10, color: C.green, fontFamily: FM, fontWeight: 600, background: `rgba(34,197,94,0.1)`, padding: "4px 10px", borderRadius: R.pill, border: `1px solid rgba(34,197,94,0.2)` }}>{flash}</span>)}
             {/* Sync button — visible when sync is active */}
             {syncId && (
-              <button onClick={handleForceSync} title={syncStatus === "synced" ? "Sincronizado" : syncStatus === "syncing" ? "Sincronizando..." : syncStatus === "error" ? "Erro — toque para tentar" : "Sincronizar"} style={{ background: "none", border: "none", width: 28, height: 28, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: syncStatus === "synced" ? C.green : syncStatus === "error" ? C.red : C.yellow, opacity: syncStatus === "syncing" ? 0.6 : 0.8, transition: "all 0.3s", animation: syncStatus === "syncing" ? "spin 1s linear infinite" : "none" }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.2-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.2 4.5"/></svg>
-              </button>
+              <div style={{ position: "relative" }}>
+                <button onClick={() => setShowSyncActions(v => !v)} title={syncStatus === "synced" ? "Sincronizado" : syncStatus === "syncing" ? "Sincronizando..." : syncStatus === "error" ? "Erro — toque para tentar" : "Sincronizar"} style={{ background: "none", border: "none", width: 28, height: 28, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: syncStatus === "synced" ? C.green : syncStatus === "error" ? C.red : C.yellow, opacity: syncStatus === "syncing" ? 0.6 : 0.8, transition: "all 0.3s", animation: syncStatus === "syncing" ? "spin 1s linear infinite" : "none" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21.5 2v6h-6"/><path d="M2.5 22v-6h6"/><path d="M2.5 11.5a10 10 0 0 1 18.2-4.5"/><path d="M21.5 12.5a10 10 0 0 1-18.2 4.5"/></svg>
+                </button>
+                {showSyncActions && <div className="fade-in" style={{ position: "absolute", top: "100%", right: 0, marginTop: 6, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.lg, boxShadow: SH.lg, overflow: "hidden", zIndex: 200, minWidth: 220 }}>
+                  <div style={{ padding: "8px 14px", fontSize: 10, color: C.text3, borderBottom: `1px solid ${C.border}`, fontFamily: FM }}>Sync: {syncId}</div>
+                  <button onClick={handlePushOnly} style={{ width: "100%", padding: "12px 14px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.blue, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"☁️ ⬆"} Enviar daqui → nuvem</button>
+                  <button onClick={handlePullOnly} style={{ width: "100%", padding: "12px 14px", background: "none", border: "none", borderBottom: `1px solid ${C.border}`, cursor: "pointer", color: C.purple, fontSize: 13, fontFamily: F, fontWeight: 500, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={e => e.currentTarget.style.background = C.surface} onMouseLeave={e => e.currentTarget.style.background = "none"}>{"☁️ ⬇"} Receber da nuvem → aqui</button>
+                  <button onClick={() => setShowSyncActions(false)} style={{ width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 12, fontFamily: F, textAlign: "center" }}>Fechar</button>
+                </div>}
+              </div>
             )}
             <div style={{ position: "relative" }}>
               <button onClick={() => setShowBackupMenu(v => !v)} style={{ background: "none", border: "none", width: 28, height: 28, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.text3, opacity: 0.35, transition: "opacity 0.2s" }} onMouseEnter={e => e.currentTarget.style.opacity = "0.7"} onMouseLeave={e => e.currentTarget.style.opacity = "0.35"}>{"💾"}</button>
@@ -565,7 +578,8 @@ function App() {
                   <div style={{ fontSize: 11, color: C.green, marginTop: 6 }}>Sincronização ativa</div>
                 </div>
                 <div style={{ fontSize: 12, color: C.text3, lineHeight: 1.5 }}>Use este código nos outros dispositivos pra sincronizar automaticamente.</div>
-                <button onClick={async () => { try { await handleForceSync(); } catch (e) { alert("Erro: " + e.message); } }} style={btn(C.blue, { width: "100%", fontSize: 13 })}>Forçar sync agora</button>
+                <button onClick={handlePushOnly} style={btn(C.blue, { width: "100%", fontSize: 13 })}>Enviar dados daqui → nuvem</button>
+                <button onClick={handlePullOnly} style={btn(C.purple, { width: "100%", fontSize: 13, marginTop: 6 })}>Receber dados da nuvem → aqui</button>
                 <button onClick={() => { disconnectSync(); setSyncId(null); setSyncStatus("off"); setShowSyncModal(false); notify("Sync desconectado"); }} style={btn(C.card2, { width: "100%", fontSize: 13, color: C.red })}>Desconectar sync</button>
               </div>
             ) : (

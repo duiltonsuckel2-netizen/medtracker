@@ -161,7 +161,7 @@ function debouncedPush() {
   }
 }
 
-// Pull latest from cloud and merge into local
+// Pull latest from cloud — overwrites local data entirely
 async function pullFromCloud() {
   if (!_syncId) return false;
   const ok = await loadFirebase();
@@ -170,7 +170,7 @@ async function pullFromCloud() {
     const snap = await _getDoc(_doc(_db, "sync", _syncId));
     if (!snap.exists()) return false;
     const data = snap.data();
-    mergeData(data);
+    applyData(data);
     if (_onSyncStatus) _onSyncStatus("synced");
     return true;
   } catch (e) {
@@ -233,8 +233,7 @@ async function initSync(onRemoteUpdate, onStatusChange) {
   _syncId = getSyncId();
   if (!_syncId) return false;
   _initialized = true;
-  // Pull latest on init to catch anything missed while offline
-  await pullFromCloud();
+  // Just start listening — don't auto-pull to avoid overwriting local data
   await startListening(onRemoteUpdate);
   return true;
 }

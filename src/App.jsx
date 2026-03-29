@@ -37,7 +37,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -269,19 +269,26 @@ function App() {
         }
         // Migration v10: rebuild review card intervals from revLogs (source of truth)
         // revLogs are append-only and more reliable than review card history after sync corruption
-        if (!localStorage.getItem("rp26_mig_v10")) {
-          localStorage.setItem("rp26_mig_v10", "1");
+        if (!localStorage.getItem("rp26_mig_v10b")) {
+          localStorage.setItem("rp26_mig_v10b", "1");
           let v10changed = false;
-          // Group revLogs by key (area__theme)
+          // Normalize log theme to canonical review card key
+          function logToKey(l) {
+            const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
+            return `${l.area}__${(mapped || "").toLowerCase().trim()}`;
+          }
+          // Group revLogs by normalized key
           const logsByKey = {};
           loadedLogs.forEach((l) => {
             if (l.isSubtopic) return;
-            const k = `${l.area}__${(l.theme || "").toLowerCase().trim()}`;
+            const k = logToKey(l);
             if (!logsByKey[k]) logsByKey[k] = [];
             logsByKey[k].push(l);
           });
-          // Sort each group chronologically
-          Object.values(logsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+          // Sort each group chronologically and deduplicate same-day entries (keep latest)
+          Object.keys(logsByKey).forEach((k) => {
+            logsByKey[k].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+          });
           // Rebuild each review card
           loadedReviews = loadedReviews.map((rv) => {
             if (rv.isSubtopic) return rv;
@@ -302,11 +309,8 @@ function App() {
               date: l.date,
               pct: l.pct != null ? l.pct : (l.acertos != null && l.total ? perc(l.acertos, l.total) : 75),
             }));
-            if (rv.intervalIndex !== idx || rv.nextDue !== correctNextDue || rv.lastStudied !== correctLastStudied) {
-              v10changed = true;
-              return { ...rv, intervalIndex: idx, nextDue: correctNextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: correctHistory };
-            }
-            return rv;
+            v10changed = true;
+            return { ...rv, intervalIndex: idx, nextDue: correctNextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: correctHistory };
           });
           if (v10changed) saveKey("rp26_reviews", loadedReviews);
         }

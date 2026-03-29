@@ -37,7 +37,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   applyTheme(darkMode);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -96,13 +96,12 @@ function App() {
   }
 
   function runDedup() {
-    // Load fresh from localStorage
+    // ONLY dedup sessions, revLogs, exams — NEVER touch reviews
     let rl = loadKey("rp26_revlogs", []);
     let ss = loadKey("rp26_sessions", []);
     let ex = loadKey("rp26_exams", []);
-    let rv = loadKey("rp26_reviews", []);
 
-    const before = { logs: rl.length, sessions: ss.length, exams: ex.length, reviews: rv.length };
+    const before = { logs: rl.length, sessions: ss.length, exams: ex.length };
 
     // 1) Dedup revLogs by date+area+theme
     const logSeen = new Set();
@@ -116,43 +115,13 @@ function App() {
     const examSeen = new Set();
     ex = ex.filter((e) => { const sig = (e.name || "").toLowerCase().trim(); if (examSeen.has(sig)) return false; examSeen.add(sig); return true; });
 
-    // 4) Dedup reviews by key (keep one with more history)
-    const revByKey = new Map();
-    rv.forEach((r) => { const existing = revByKey.get(r.key); if (!existing || (r.history || []).length > (existing.history || []).length) revByKey.set(r.key, r); });
-    rv = Array.from(revByKey.values());
+    // Save (reviews NOT touched)
+    saveKey("rp26_revlogs", rl); saveKey("rp26_sessions", ss); saveKey("rp26_exams", ex);
+    setRevLogs(rl); setSessions(ss); setExams(ex);
 
-    // 5) Rebuild review intervals from revLogs
-    function logToKey(l) {
-      const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
-      return `${l.area}__${(mapped || "").toLowerCase().trim()}`;
-    }
-    const logsByKey = {};
-    rl.forEach((l) => { if (l.isSubtopic) return; const k = logToKey(l); if (!logsByKey[k]) logsByKey[k] = []; logsByKey[k].push(l); });
-    Object.values(logsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
-    rv = rv.map((r) => {
-      if (r.isSubtopic) return r;
-      const logs = logsByKey[r.key];
-      if (!logs || logs.length === 0) return r;
-      let idx = 0;
-      for (const log of logs) {
-        const pctVal = log.pct != null ? log.pct : (log.acertos != null && log.total ? perc(log.acertos, log.total) : 75);
-        idx = nxtIdx(idx, pctVal);
-      }
-      const lastLog = logs[logs.length - 1];
-      const correctNextDue = addDays(lastLog.date, INTERVALS[idx]);
-      const correctHistory = logs.map((l) => ({ date: l.date, pct: l.pct != null ? l.pct : (l.acertos != null && l.total ? perc(l.acertos, l.total) : 75) }));
-      return { ...r, intervalIndex: idx, nextDue: correctNextDue, lastStudied: lastLog.date, lastPerf: lastLog.pct != null ? lastLog.pct : (lastLog.acertos != null && lastLog.total ? perc(lastLog.acertos, lastLog.total) : r.lastPerf), history: correctHistory };
-    });
-
-    // Save everything
-    saveKey("rp26_revlogs", rl); saveKey("rp26_sessions", ss); saveKey("rp26_exams", ex); saveKey("rp26_reviews", rv);
-    setRevLogs(rl); setSessions(ss); setExams(ex); setReviews(rv);
-
-    const after = { logs: rl.length, sessions: ss.length, exams: ex.length, reviews: rv.length };
-    const msg = `Dedup: logs ${before.logs}→${after.logs}, sessions ${before.sessions}→${after.sessions}, exams ${before.exams}→${after.exams}, reviews ${before.reviews}→${after.reviews}`;
-    console.log(msg);
-    notify(`Limpo! Questões: ${ss.reduce((a, s) => a + (s.total || 0), 0)}`);
-    // Push clean data to cloud
+    const after = { logs: rl.length, sessions: ss.length, exams: ex.length };
+    console.log(`Dedup: logs ${before.logs}→${after.logs}, sessions ${before.sessions}→${after.sessions}, exams ${before.exams}→${after.exams}`);
+    notify(`Limpo! Sessões: ${before.sessions}→${after.sessions}, Logs: ${before.logs}→${after.logs}`);
     pushToCloud();
   }
 
@@ -330,98 +299,35 @@ function App() {
           });
           if (v9changed) saveKey("rp26_reviews", loadedReviews);
         }
-        // Migration v13: aggressive dedup + rebuild review intervals
-        if (!localStorage.getItem("rp26_mig_v13")) {
-          console.log("[MIG v13] Running dedup — sessions:", loadedSessions.length, "logs:", loadedLogs.length, "exams:", loadedExams.length, "reviews:", loadedReviews.length);
-          localStorage.setItem("rp26_mig_v13", "1");
+        // Migration v14: dedup sessions/revLogs/exams ONLY — never touch reviews
+        if (!localStorage.getItem("rp26_mig_v14")) {
+          localStorage.setItem("rp26_mig_v14", "1");
 
-          // --- 1) DEDUPLICATE REVLOGS (by date+area+theme ONLY — ignore pct differences) ---
+          // 1) Dedup revLogs by date+area+theme
           const logSeen = new Set();
-          const dedupedLogs = [];
-          loadedLogs.forEach((l) => {
+          loadedLogs = loadedLogs.filter((l) => {
             const sig = `${l.date}|${l.area}|${(l.theme || "").toLowerCase().trim()}`;
-            if (!logSeen.has(sig)) {
-              logSeen.add(sig);
-              dedupedLogs.push(l);
-            }
+            if (logSeen.has(sig)) return false; logSeen.add(sig); return true;
           });
-          loadedLogs = dedupedLogs;
           saveKey("rp26_revlogs", loadedLogs);
 
-          // --- 2) DEDUPLICATE SESSIONS (by date+area+theme ONLY) ---
+          // 2) Dedup sessions by date+area+theme
           const sesSeen = new Set();
-          const dedupedSes = [];
-          (Array.isArray(loadedSessions) ? loadedSessions : []).forEach((s) => {
+          loadedSessions = loadedSessions.filter((s) => {
             const sig = `${s.createdAt || s.date}|${s.area}|${(s.theme || "").toLowerCase().trim()}`;
-            if (!sesSeen.has(sig)) {
-              sesSeen.add(sig);
-              dedupedSes.push(s);
-            }
+            if (sesSeen.has(sig)) return false; sesSeen.add(sig); return true;
           });
-          loadedSessions = dedupedSes;
-          setSessions(loadedSessions);
           saveKey("rp26_sessions", loadedSessions);
 
-          // --- 3) DEDUPLICATE EXAMS (by name) ---
+          // 3) Dedup exams by name
           const examSeen = new Set();
-          const dedupedExams = [];
-          loadedExams.forEach((e) => {
+          loadedExams = loadedExams.filter((e) => {
             const sig = (e.name || "").toLowerCase().trim();
-            if (!examSeen.has(sig)) {
-              examSeen.add(sig);
-              dedupedExams.push(e);
-            }
+            if (examSeen.has(sig)) return false; examSeen.add(sig); return true;
           });
-          loadedExams = dedupedExams;
           saveKey("rp26_exams", loadedExams);
 
-          // --- 4) DEDUPLICATE REVIEWS (by key — keep the one with more history) ---
-          const revByKey = new Map();
-          loadedReviews.forEach((rv) => {
-            const existing = revByKey.get(rv.key);
-            if (!existing || (rv.history || []).length > (existing.history || []).length) {
-              revByKey.set(rv.key, rv);
-            }
-          });
-          loadedReviews = Array.from(revByKey.values());
-
-          // --- 5) REBUILD REVIEW INTERVALS FROM REVLOGS ---
-          function logToKey(l) {
-            const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
-            return `${l.area}__${(mapped || "").toLowerCase().trim()}`;
-          }
-          const logsByKey = {};
-          loadedLogs.forEach((l) => {
-            if (l.isSubtopic) return;
-            const k = logToKey(l);
-            if (!logsByKey[k]) logsByKey[k] = [];
-            logsByKey[k].push(l);
-          });
-          Object.values(logsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
-
-          loadedReviews = loadedReviews.map((rv) => {
-            if (rv.isSubtopic) return rv;
-            const logs = logsByKey[rv.key];
-            if (!logs || logs.length === 0) return rv;
-            let idx = 0;
-            for (const log of logs) {
-              const pctVal = log.pct != null ? log.pct : (log.acertos != null && log.total ? perc(log.acertos, log.total) : 75);
-              idx = nxtIdx(idx, pctVal);
-            }
-            const lastLog = logs[logs.length - 1];
-            const correctLastStudied = lastLog.date;
-            const correctLastPerf = lastLog.pct != null ? lastLog.pct : (lastLog.acertos != null && lastLog.total ? perc(lastLog.acertos, lastLog.total) : rv.lastPerf);
-            const correctNextDue = addDays(correctLastStudied, INTERVALS[idx]);
-            const correctHistory = logs.map((l) => ({
-              date: l.date,
-              pct: l.pct != null ? l.pct : (l.acertos != null && l.total ? perc(l.acertos, l.total) : 75),
-            }));
-            return { ...rv, intervalIndex: idx, nextDue: correctNextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: correctHistory };
-          });
-          saveKey("rp26_reviews", loadedReviews);
-          console.log("[MIG v13] After dedup — sessions:", loadedSessions.length, "logs:", loadedLogs.length, "exams:", loadedExams.length, "reviews:", loadedReviews.length);
-          // Push clean deduplicated data to cloud immediately
-          setTimeout(() => pushToCloud(), 500);
+          console.log("[MIG v14] Dedup done (reviews NOT touched)");
         }
         // Restore seed exam if all exams were deleted
         if (loadedExams.length === 0) {

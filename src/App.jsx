@@ -283,6 +283,41 @@ function App() {
             saveKey("rp26_subtopics", recovered);
           }
         }
+        // One-time dedup: remove duplicate reviews and revLogs (must be inside else block for scope)
+        const dedupKey = "rp26_mig_dedup_v4";
+        if (!localStorage.getItem(dedupKey)) {
+          localStorage.setItem(dedupKey, "1");
+          const seen = new Map();
+          loadedReviews.forEach((rv) => {
+            const k = rv.key || `${rv.area}__${(rv.theme || "").toLowerCase().trim()}`;
+            const existing = seen.get(k);
+            if (!existing) { seen.set(k, rv); return; }
+            const existH = (existing.history || []).length;
+            const rvH = (rv.history || []).length;
+            if (rvH > existH || (rvH === existH && (rv.lastStudied || "") > (existing.lastStudied || ""))) {
+              seen.set(k, rv);
+            }
+          });
+          const deduped = Array.from(seen.values());
+          if (deduped.length < loadedReviews.length) {
+            console.log(`Dedup: removed ${loadedReviews.length - deduped.length} duplicate reviews`);
+            loadedReviews = deduped;
+            saveKey("rp26_reviews", loadedReviews);
+          }
+          const logSeen = new Set();
+          const dedupedLogs = loadedLogs.filter((l) => {
+            const k = `${l.date}__${l.area}__${(l.theme || "").toLowerCase().trim()}__${l.pct}__${l.total}`;
+            if (logSeen.has(k)) return false;
+            logSeen.add(k);
+            return true;
+          });
+          if (dedupedLogs.length < loadedLogs.length) {
+            console.log(`Dedup: removed ${loadedLogs.length - dedupedLogs.length} duplicate revLogs`);
+            loadedLogs = dedupedLogs;
+            saveKey("rp26_revlogs", loadedLogs);
+          }
+        }
+
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(loadedSt);
         // Auto-generate or merge flashcards on every load (picks up new THEME_SUMMARIES)
         if (loadedExams.length > 0) {
@@ -292,42 +327,6 @@ function App() {
             setFlashcardDecks(finalFc); saveKey("rp26_flashcards", finalFc);
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
-      }
-      // One-time dedup: remove duplicate reviews and revLogs
-      const dedupKey = "rp26_mig_dedup_v3";
-      if (seeded && !localStorage.getItem(dedupKey)) {
-        localStorage.setItem(dedupKey, "1");
-        const seen = new Map();
-        loadedReviews.forEach((rv) => {
-          const k = rv.key || `${rv.area}__${(rv.theme || "").toLowerCase().trim()}`;
-          const existing = seen.get(k);
-          if (!existing) { seen.set(k, rv); return; }
-          // Keep the one with more history, or more recent lastStudied
-          const existH = (existing.history || []).length;
-          const rvH = (rv.history || []).length;
-          if (rvH > existH || (rvH === existH && (rv.lastStudied || "") > (existing.lastStudied || ""))) {
-            seen.set(k, rv);
-          }
-        });
-        const deduped = Array.from(seen.values());
-        if (deduped.length < loadedReviews.length) {
-          console.log(`Dedup: removed ${loadedReviews.length - deduped.length} duplicate reviews`);
-          loadedReviews = deduped;
-          saveKey("rp26_reviews", loadedReviews);
-        }
-        // Also dedup revLogs by date+area+theme+pct
-        const logSeen = new Set();
-        const dedupedLogs = loadedLogs.filter((l) => {
-          const k = `${l.date}__${l.area}__${(l.theme || "").toLowerCase().trim()}__${l.pct}__${l.total}`;
-          if (logSeen.has(k)) return false;
-          logSeen.add(k);
-          return true;
-        });
-        if (dedupedLogs.length < loadedLogs.length) {
-          console.log(`Dedup: removed ${loadedLogs.length - dedupedLogs.length} duplicate revLogs`);
-          loadedLogs = dedupedLogs;
-          saveKey("rp26_revlogs", loadedLogs);
-        }
       }
       setDataLoaded(true);
       setReady(true);

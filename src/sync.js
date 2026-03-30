@@ -175,7 +175,7 @@ async function pullFromCloud() {
     const snap = await _getDoc(_doc(_db, "sync", _syncId));
     if (!snap.exists()) return false;
     const data = snap.data();
-    applyData(data);
+    mergeData(data);
     if (_onSyncStatus) _onSyncStatus("synced");
     return true;
   } catch (e) {
@@ -213,8 +213,8 @@ async function startListening(onRemoteUpdate) {
     if (data._deviceId === DEVICE_ID && data._updatedAt === _lastPushTs) return;
     // Skip if this is clearly our own recent push (within 3 seconds)
     if (data._deviceId === DEVICE_ID && Math.abs(Date.now() - data._updatedAt) < 3000) return;
-    // Apply remote data (overwrite — no merge to avoid duplication)
-    applyData(data);
+    // Merge remote data with local (preserves local additions)
+    mergeData(data);
     if (_onSyncStatus) _onSyncStatus("synced");
     if (onRemoteUpdate) {
       onRemoteUpdate();
@@ -259,8 +259,8 @@ async function joinSync(code, onRemoteUpdate) {
   const snap = await _getDoc(_doc(_db, "sync", id));
   if (snap.exists()) {
     const data = snap.data();
-    // Overwrite local with remote data (no merge to avoid duplication)
-    applyData(data);
+    // Merge remote data with local (preserves local additions)
+    mergeData(data);
   }
   setSyncId(id);
   _syncId = id;

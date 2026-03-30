@@ -296,6 +296,30 @@ function App() {
           }
         });
         if (stChanged) saveKey("rp26_subtopics", loadedSt);
+
+        // Dedup reviews by key (keeps the one with more history or more recent lastStudied)
+        const dedupKey = "rp26_mig_dedup_v5";
+        if (!localStorage.getItem(dedupKey)) {
+          localStorage.setItem(dedupKey, "1");
+          const seen = new Map();
+          loadedReviews.forEach((rv) => {
+            const k = rv.key || `${rv.area}__${(rv.theme || "").toLowerCase().trim()}`;
+            const existing = seen.get(k);
+            if (!existing) { seen.set(k, rv); return; }
+            const existH = (existing.history || []).length;
+            const rvH = (rv.history || []).length;
+            if (rvH > existH || (rvH === existH && (rv.lastStudied || "") > (existing.lastStudied || ""))) {
+              seen.set(k, rv);
+            }
+          });
+          const deduped = Array.from(seen.values());
+          if (deduped.length < loadedReviews.length) {
+            console.log(`Dedup: removed ${loadedReviews.length - deduped.length} duplicate reviews`);
+            loadedReviews = deduped;
+            saveKey("rp26_reviews", loadedReviews);
+          }
+        }
+
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(loadedSt);
         // Auto-generate or merge flashcards on every load (picks up new THEME_SUMMARIES)
         if (loadedExams.length > 0) {

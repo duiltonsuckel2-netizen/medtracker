@@ -79,12 +79,11 @@ function App() {
   const [syncInput, setSyncInput] = useState("");
 
   // Sync initialization — delayed until after data loads (see dataLoaded state)
-  const [syncBanner, setSyncBanner] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
   useEffect(() => {
     if (!dataLoaded) return;
     initSync(
-      () => setSyncBanner(true), // on remote update: show banner
+      () => window.location.reload(), // on remote update: auto-reload
       (status) => setSyncStatus(status)
     ).then((active) => {
       if (active) setSyncStatus("synced");
@@ -672,14 +671,6 @@ function App() {
       )}
       {showSessionModal && <SessionModal onSave={(s) => { addSession(s); setShowSessionModal(false); }} onClose={() => setShowSessionModal(false)} />}
       {subtopicModal && <SubtopicModal area={subtopicModal.area} topic={subtopicModal.topic} semana={subtopicModal.semana} existing={getSubtopics(subtopicModal.area, subtopicModal.topic)} onSave={(items) => { saveSubtopics(subtopicModal.area, subtopicModal.topic, items); setSubtopicModal(null); notify(items.length > 0 ? `✓ ${items.length} subtema${items.length > 1 ? "s" : ""} salvo${items.length > 1 ? "s" : ""}` : "✓ Aula marcada"); }} onClose={() => setSubtopicModal(null)} />}
-      {/* SYNC BANNER */}
-      {syncBanner && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 999, padding: "10px 16px", background: C.purple, display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-          <span style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>Dados atualizados de outro dispositivo</span>
-          <button onClick={() => window.location.reload()} style={{ background: "#fff", border: "none", borderRadius: 8, padding: "6px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer", color: C.purple }}>Atualizar</button>
-          <button onClick={() => setSyncBanner(false)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", fontSize: 16 }}>✕</button>
-        </div>
-      )}
       {/* CONTENT */}
       <div style={{ padding: `${S.xl}px`, maxWidth: 1200, margin: "0 auto", paddingBottom: 100 }}>
         <div key={tabKey} className="fade-in">

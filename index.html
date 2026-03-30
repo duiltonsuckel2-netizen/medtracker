@@ -74,9 +74,15 @@
         window.addEventListener('load', async () => {
           try {
             var reg = await navigator.serviceWorker.register('/medtracker/sw.js', { updateViaCache: 'none' });
+            // Force update check immediately on every load
+            reg.update();
             // Check for updates every 30s
             setInterval(function() { reg.update(); }, 30000);
-            // When a new SW is found, activate it and reload immediately
+            // Most reliable way to detect new SW activation (works on iOS PWA)
+            navigator.serviceWorker.addEventListener('controllerchange', function() {
+              window.location.reload();
+            });
+            // Fallback: also listen on the installing SW
             reg.addEventListener('updatefound', function() {
               var newSW = reg.installing;
               if (!newSW) return;
@@ -86,6 +92,10 @@
                 }
               });
             });
+            // If existing SW is waiting (from previous visit), activate it now
+            if (reg.waiting) {
+              reg.waiting.postMessage('skipWaiting');
+            }
           } catch(e) {}
         });
       }

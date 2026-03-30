@@ -91,19 +91,17 @@ function applyData(data) {
   });
 }
 
-// Smart merge: for arrays, combine items by id (remote wins on conflict)
+// Smart merge: for arrays, combine items by key first (logical dedup), then id
 function mergeArrayById(local, remote) {
   if (!Array.isArray(local)) return remote;
   if (!Array.isArray(remote)) return local;
   const map = new Map();
-  // Local items first
   local.forEach((item) => {
-    const key = item.id || item.key || JSON.stringify(item);
+    const key = item.key || item.id || JSON.stringify(item);
     map.set(key, item);
   });
-  // Remote items overwrite on conflict
   remote.forEach((item) => {
-    const key = item.id || item.key || JSON.stringify(item);
+    const key = item.key || item.id || JSON.stringify(item);
     map.set(key, item);
   });
   return Array.from(map.values());
@@ -119,8 +117,15 @@ function mergeData(remoteData) {
       try { local = localRaw ? JSON.parse(localRaw) : []; } catch { local = []; }
       const merged = mergeArrayById(local, remoteData[k]);
       localStorage.setItem(k, JSON.stringify(merged));
+    } else if (k === "rp26_subtopics") {
+      // Object merge: local keys preserved, remote wins per-key
+      const localRaw = localStorage.getItem(k);
+      let local = {};
+      try { local = localRaw ? JSON.parse(localRaw) : {}; } catch { local = {}; }
+      const merged = { ...local, ...remoteData[k] };
+      localStorage.setItem(k, JSON.stringify(merged));
     } else {
-      // For non-array keys, remote wins
+      // For other non-array keys, remote wins
       localStorage.setItem(k, JSON.stringify(remoteData[k]));
     }
   });

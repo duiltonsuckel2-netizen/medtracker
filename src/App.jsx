@@ -88,6 +88,11 @@ function App() {
     ).then((active) => {
       if (active) setSyncStatus("synced");
     });
+    // Re-pull from cloud when app returns from background (iOS kills WebSocket in background)
+    const refreshFromStorage = () => { setReviews(loadKey("rp26_reviews", [])); setRevLogs(loadKey("rp26_revlogs", [])); setSessions(loadKey("rp26_sessions", [])); setExams(loadKey("rp26_exams", [])); setSubtopics(loadKey("rp26_subtopics", {})); };
+    const onVisible = () => { if (document.visibilityState === "visible") { pullFromCloud().then((ok) => { if (ok) refreshFromStorage(); }); } };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [dataLoaded]);
 
   function triggerSync() { debouncedPush(); }

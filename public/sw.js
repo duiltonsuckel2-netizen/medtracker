@@ -1,4 +1,4 @@
-const CACHE_NAME = 'medtracker-v41';
+const CACHE_NAME = 'medtracker-v42';
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -17,8 +17,14 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
+  // For navigation requests (HTML), bypass HTTP cache entirely
+  // This prevents iOS from serving stale HTML from HTTP cache
+  const request = event.request.mode === 'navigate'
+    ? new Request(event.request.url, { cache: 'no-store' })
+    : event.request;
+
   event.respondWith(
-    fetch(event.request)
+    fetch(request)
       .then((response) => {
         if (response.ok) {
           const clone = response.clone();

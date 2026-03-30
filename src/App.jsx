@@ -546,8 +546,10 @@ function App() {
     </div>
   );
 
-  const dueR = reviews.filter((r) => r.nextDue <= today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
-  const upR = reviews.filter((r) => r.nextDue > today()).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+  const parentRevs = reviews.filter((r) => !r.isSubtopic);
+  const getEffDue = (r) => { const subs = reviews.filter((s) => s.isSubtopic && s.key && r.key && s.key.startsWith(r.key + "::")); return subs.length > 0 ? subs.map((s) => s.nextDue).sort()[0] : r.nextDue; };
+  const dueR = parentRevs.filter((r) => getEffDue(r) <= today()).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
+  const upR = parentRevs.filter((r) => getEffDue(r) > today()).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
   const alertThemes = [];
   const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚" };
   const TABS = [

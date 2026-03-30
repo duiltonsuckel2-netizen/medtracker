@@ -202,7 +202,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><div style={{ fontSize: 15, fontWeight: 700, color: C.red }}>Revisões vencidas</div>{due.length > 0 && <span style={tag(C.red)}>{due.length}</span>}</div>
         {due.length === 0 ? <Empty msg="Nenhuma revisão vencida. Ótimo!" green /> : due.map((r) => {
-          const a = areaMap[r.area]; const days = diffDays(r.nextDue, today()); const isM = marking?.id === r.id;
+          const a = areaMap[r.area]; const days = diffDays(r._effDue || r.nextDue, today()); const isM = marking?.id === r.id;
           return (
             <div key={r.id} style={{ ...card, borderLeft: `3px solid ${C.red}`, marginBottom: S.sm, boxShadow: SH.sm }}>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
@@ -214,6 +214,11 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                     <span style={tag(C.text3)}>{INT_LABELS[r.intervalIndex]}</span>
                   </div>
                   <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>Último: <span style={{ color: perfColor(r.lastPerf) }}>{r.lastPerf}%</span> em {fmtDate(r.lastStudied)} · {r.history?.length || 0}× revisado</div>
+                  {(() => { const subRevs = reviews.filter(sr => sr.isSubtopic && sr.key && r.key && sr.key.startsWith(r.key + "::")); const dueSubs = subRevs.filter(sr => sr.nextDue <= today()).sort((a, b) => a.lastPerf - b.lastPerf); return dueSubs.length > 0 ? (
+                    <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      {dueSubs.map(s => <span key={s.id} style={{ fontSize: 10, padding: "2px 8px", borderRadius: R.pill, background: perfColor(s.lastPerf) + "14", border: `1px solid ${perfColor(s.lastPerf)}30`, fontFamily: FM, lineHeight: 1.4 }}>{s.theme} <span style={{ fontWeight: 700, color: perfColor(s.lastPerf) }}>{s.lastPerf}%</span></span>)}
+                    </div>
+                  ) : null; })()}
                   {r.subtemaNote && (
                     <div style={{ marginTop: 6, padding: "5px 10px", background: C.bg, borderRadius: R.sm, fontSize: 11, color: C.text3, border: `1px solid ${C.border}` }}>
                       ⚠️ Pior subtema anterior: <span style={{ color: "#EF4444", fontWeight: 600 }}>{r.subtemaNote.pior?.nome}</span> ({r.subtemaNote.pior?.pct}%)
@@ -247,7 +252,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                   </div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {!isM && <button onClick={() => { const st = getSubtopicsForReview(r); setMarking({ id: r.id, total: "", acertos: "", subtemas: st.length > 0 ? st.map((s) => ({ name: s, pct: "" })) : null }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
+                  {!isM && <button onClick={() => { const subRevs = reviews.filter(sr => sr.isSubtopic && sr.key && r.key && sr.key.startsWith(r.key + "::")); const dueSubs = subRevs.filter(sr => sr.nextDue <= today()).sort((a, b) => a.lastPerf - b.lastPerf); let subtemas = null; if (dueSubs.length > 0) { subtemas = dueSubs.map(s => ({ name: s.theme, pct: "" })); } else { const st = getSubtopicsForReview(r); if (st.length > 0) subtemas = st.map(s => ({ name: s, pct: "" })); } setMarking({ id: r.id, total: "", acertos: "", subtemas }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
                 </div>
               </div>
             </div>
@@ -259,7 +264,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         const groups = [];
         const thisWeek = [], nextWeek = [], later = [];
         upcoming.forEach((r) => {
-          const days = diffDays(r.nextDue, today());
+          const days = diffDays(r._effDue || r.nextDue, today());
           if (days <= 7) thisWeek.push(r);
           else if (days <= 14) nextWeek.push(r);
           else later.push(r);
@@ -279,7 +284,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
               {g.items.map((r) => {
-                const a = areaMap[r.area]; const days = diffDays(r.nextDue, today());
+                const a = areaMap[r.area]; const days = diffDays(r._effDue || r.nextDue, today());
                 const aColor = a?.color || "#6B7280";
                 const urgency = days <= 2 ? 1 : days <= 5 ? 0.6 : 0.35;
                 return (
@@ -295,7 +300,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ ...tag(aColor), borderLeft: `2px solid ${aColor}` }}>{a?.short}</span>
                         <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[r.intervalIndex]}</span>
-                        <span style={{ fontSize: 10, color: C.text3 }}>{fmtDate(r.nextDue)}</span>
+                        <span style={{ fontSize: 10, color: C.text3 }}>{fmtDate(r._effDue || r.nextDue)}</span>
                       </div>
                     </div>
                     {/* Performance indicator + subtemas */}

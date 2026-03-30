@@ -6,6 +6,9 @@
     <meta name="theme-color" content="#0A0A0B" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
     <title>MedTracker</title>
     <link rel="icon" href="/medtracker/favicon.png" type="image/png" />
     <link rel="icon" href="/medtracker/favicon.svg" type="image/svg+xml" />
@@ -69,6 +72,19 @@
     </style>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Purge old SW caches immediately — ensures PWA gets fresh files
+      (function() {
+        var CURRENT = 'medtracker-v41';
+        if ('caches' in window) {
+          caches.keys().then(function(names) {
+            names.forEach(function(name) {
+              if (name !== CURRENT) caches.delete(name);
+            });
+          });
+        }
+      })();
+    </script>
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', async () => {

@@ -212,6 +212,29 @@ function App() {
         });
         if (revsRenamed) saveKey("rp26_reviews", loadedReviews);
 
+        // Merge reviews that ended up with the same key after renaming (rename + sync can create dupes)
+        const _rkm = new Map();
+        let _hadDupeKeys = false;
+        loadedReviews.forEach((rv) => {
+          if (_rkm.has(rv.key)) {
+            _hadDupeKeys = true;
+            const ex = _rkm.get(rv.key);
+            // Merge histories, dedup by date+pct
+            const mh = [...(ex.history || []), ...(rv.history || [])];
+            const hm = new Map(); mh.forEach(h => hm.set(`${h.date}_${h.pct}`, h));
+            const dh = [...hm.values()].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+            // Keep whichever has more recent lastStudied
+            const w = (rv.lastStudied || "") > (ex.lastStudied || "") ? rv : ex;
+            _rkm.set(rv.key, { ...w, history: dh });
+          } else {
+            _rkm.set(rv.key, rv);
+          }
+        });
+        if (_hadDupeKeys) {
+          loadedReviews = [..._rkm.values()];
+          saveKey("rp26_reviews", loadedReviews);
+        }
+
         // Restore correct intervals from SEED_REVIEWS for reviews that lost their data
         // Use SEED_REVIEWS for intervalIndex/nextDue (from Notion), SEED_LOGS for lastStudied/lastPerf
         const seedByKey = {};

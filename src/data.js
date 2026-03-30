@@ -234,6 +234,46 @@ export function buildUfcspa2026Exam() {
   return { id: uid(), date: "2026-03-28", name: "UFCSPA 2026 Acesso Direto", total: 100, acertos: soube.size + chutou.size, cats, qDetails, areaResults, pdfAnalyzed: true };
 }
 
+const USP_SP_2023_THEMES = {
+  1:"Abdome agudo obstrutivo / Diverticulite complicada",2:"Deiscência de anastomose / Antibioticoterapia pós-op",3:"Abdome agudo perfurativo / Imunossupressão",4:"Abscesso perianal / Fístula anal",5:"Apendicectomia / Pós-operatório e alta",6:"Infecção de sítio cirúrgico / Hérnia incisional (onlay)",7:"Seroma pós-hernioplastia / Coleção de subcutâneo",8:"Dreno de Blake / Princípio de funcionamento",9:"Trauma torácico / Pneumotórax / Tubo traqueal",10:"Trauma cranioencefálico / Edema cerebral difuso",11:"Hemorragia digestiva alta / GIST",12:"Malformação adenomatoide cística / Cisto pulmonar congênito",13:"Câncer de cavidade oral / Rastreamento",14:"Queimaduras / Tratamento ambulatorial",15:"Obstrução intestinal pós-bypass gástrico",16:"Doença hemorroidária / Anuscopia",17:"Pé diabético / Neuropatia",18:"Trauma abdominal / Lesão renal",19:"Fratura de fêmur proximal / Idoso",20:"Tumor ósseo / Osteossarcoma",21:"Nódulo mamário / Fibroadenoma / Cisto",22:"Histerectomia / Fio de sutura",23:"Amenorreia secundária / Síndrome de Morris (46 XY)",24:"Síndrome dos ovários policísticos (SOP) / Hiperandrogenismo",25:"Adenocarcinoma de endométrio / Preservação de fertilidade",26:"Prolapso genital / Retocele / Colporrafia",27:"Indução de ovulação / Citrato de clomifeno",28:"Citologia oncótica / Transgênero / Terapia androgênica",29:"Sangramento pós-menopausa / Atrofia endometrial",30:"Sangramento uterino anormal (SUA) / Puberdade / Plaquetopenia",31:"Pré-eclâmpsia / Eclâmpsia / DPP / Hemorragia pós-parto",32:"Anticoagulação na gestação / Prótese valvar metálica",33:"Gestação gemelar / Trabalho de parto prematuro",34:"Translucência nucal / Risco de trissomia",35:"Abortamento / USG transvaginal",36:"Gravidez e gengivite / Granuloma piogênico",37:"Cardiotocografia / Bem-estar fetal",38:"Trabalho de parto prematuro / Conduta",39:"Trabalho de parto / Variedade de posição / Bregma",40:"Cesariana x mortalidade materna / Epidemiologia",41:"SAOS / Apneia obstrutiva do sono",42:"Cuidados paliativos / Comunicação de prognóstico",43:"Urgência oftalmológica / Glaucoma agudo",44:"Hanseníase virchowiana / Baciloscopia",45:"Insuficiência venosa crônica / Dermatite ocre",46:"Tromboembolismo pulmonar (TEP) / Fator de risco",47:"Derrame pleural neoplásico / Tamponamento cardíaco",48:"Delirium / Geriatria / Síndrome demencial",49:"Intoxicação colinérgica / Rivastigmina",50:"Fibrilação atrial / Anticoagulação",51:"Bradicardia sinusal / BAV / ECG",52:"Hipertensão arterial / Hipocalemia / Hipertensão secundária",53:"Anemia ferropriva / Investigação",54:"Insuficiência cardíaca descompensada / IC",55:"Pneumonite por imunoterapia / anti-PD-L1",56:"Bursite pré-patelar / Ortopedia",57:"Meningoencefalite herpética / Líquor",58:"Mielite transversa / Neuroesquistossomose",59:"Episódio maníaco / Transtorno bipolar",60:"Miastenia gravis / Crise miastênica",61:"Cascata de cuidado HIV / Epidemiologia",62:"Variável de confusão / Epidemiologia",63:"Princípios do SUS / Universalidade / Acesso",64:"Gastos em saúde / Financiamento do SUS",65:"Agrotóxicos / ANVISA / Regulação",66:"Saúde suplementar / ANS / Planos de saúde",67:"Monkeypox / Varíola dos macacos / Epidemiologia",68:"CONITEC / Incorporação de tecnologias no SUS",69:"Zolgensma / CONITEC / Judicialização da saúde",70:"Colpocitologia oncótica / Transgênero",71:"Violência sexual / Aborto legal / Gravidez na adolescência",72:"Comunicação médico-paciente / MFC",73:"Sobrediagnóstico / Rastreamento / Câncer de tireoide",74:"Transtorno de ansiedade / Somatização / SOAP",75:"Prevenção quaternária / Níveis de prevenção",76:"Promoção da saúde / Política Nacional",77:"Câncer de mama / Variantes genéticas / Epidemiologia genética",78:"Ivermectina / Ensaio clínico / Análise de resultados",79:"Bullying / Transtornos alimentares / Estudo caso-controle",80:"Câncer colorretal / Integralidade do SUS",81:"Anafilaxia / Picada de inseto / Adrenalina",82:"Corpo estranho esofágico / Ingestão de moeda",83:"Reanimação neonatal / Ventilação com máscara",84:"ALTE / BRUE / Coqueluche / Investigação",85:"Fibrose cística / Exacerbação infecciosa / Pseudomonas",86:"Leucemia linfoblástica aguda (LLA) / Febre neutropênica",87:"Síndrome nefrítica / Glomerulonefrite pós-estreptocócica (GNPE)",88:"Atresia de vias biliares / Kasai / Transplante hepático",89:"Triagem auditiva neonatal / Indicadores de risco",90:"Toxoplasmose congênita / Infecções congênitas",91:"Teste do pezinho / Fenilcetonúria / Triagem neonatal",92:"Icterícia neonatal / Incompatibilidade Rh / G6PD",93:"Crise febril / Convulsão febril",94:"Vacinação / Calendário vacinal / Imunodeprimidos",95:"Obesidade infantil / Hipertensão na infância",96:"Reação vacinal BCG / Puericultura",97:"Bronquiolite viral aguda / Complicações",98:"Impetigo bolhoso / Escarlatina / Infecções cutâneas",99:"Crise vaso-oclusiva / Anemia falciforme",100:"Pneumonias de repetição / Disfagia / Sialorreia",101:"Osteoartrite / Líquido sinovial / Artrite séptica",102:"Choque séptico / Monitorização hemodinâmica",103:"TEP na gestação / AngioTC de tórax",104:"Ventilação mecânica / Modos ventilatórios",105:"Doença inflamatória pélvica (DIP) / Exame especular",106:"Infertilidade tubária / Histerossalpingografia",107:"Plano de parto / CIUR / Gestação de alto risco",108:"Indução do trabalho de parto / Preparo de colo",109:"Sífilis na gestação / Pré-natal / ESF",110:"Sífilis congênita / Tratamento / VDRL",111:"Surto de meningite / Vigilância epidemiológica",112:"Surto de meningite / Confirmação epidemiológica",113:"Cetoacidose diabética pediátrica / DM tipo 1",114:"Edema cerebral / Cetoacidose diabética / Complicação",115:"Pneumonia / Asma / Crise asmática (pediatria)",116:"Ultrassom pulmonar / POCUS pediátrico",117:"Câncer gástrico / Nutrição enteral / Sonda nasoenteral",118:"Pré-operatório / Clopidogrel / Metformina",119:"Trauma abdominal / FAST / Instabilidade pélvica",120:"Trauma hepático / Damage control / Manobra de Pringle",
+};
+
+function uspSp2023Area(n) {
+  // CIR: 1-20, 117-120
+  if (n >= 1 && n <= 20) return "cirurgia";
+  // GO: 21-40, 105-110
+  if (n >= 21 && n <= 40) return "go";
+  // CM: 41-60, 101-104
+  if (n >= 41 && n <= 60) return "clinica";
+  // PREV: 61-80
+  if (n >= 61 && n <= 80) return "preventiva";
+  // PED: 81-100, 113-116
+  if (n >= 81 && n <= 100) return "ped";
+  // Prova II cases
+  if (n === 101 || n === 102) return "clinica";
+  if (n === 103 || n === 104) return "go";
+  if (n === 105 || n === 106) return "go";
+  if (n === 107 || n === 108) return "go";
+  if (n === 109 || n === 110) return "preventiva";
+  if (n === 111 || n === 112) return "preventiva";
+  if (n === 113 || n === 114) return "ped";
+  if (n === 115 || n === 116) return "ped";
+  if (n >= 117 && n <= 120) return "cirurgia";
+  return "clinica";
+}
+
+export function buildUspSp2023Exam() {
+  const qDetails = {};
+  for (let n = 1; n <= 120; n++) qDetails[n] = { area: uspSp2023Area(n), theme: USP_SP_2023_THEMES[n] || "" };
+  // Count per area
+  const areaTotals = {};
+  AREAS.forEach((a) => { areaTotals[a.id] = 0; });
+  for (let n = 1; n <= 120; n++) areaTotals[uspSp2023Area(n)]++;
+  const areaResults = {};
+  AREAS.forEach((a) => { areaResults[a.id] = { soube: 0, chutou: 0, errou_viu: 0, errou_nao: 0, total: areaTotals[a.id] }; });
+  return { id: uid(), date: "2026-03-30", name: "USP-SP 2023 Acesso Direto", total: 120, acertos: 0, cats: { soube: [], chutou: [], errou_viu: [], errou_nao: Array.from({ length: 120 }, (_, i) => i + 1) }, qDetails, areaResults, pdfAnalyzed: true };
+}
+
 export const SEMANAS = [
   // ── Semanas 01–06 (já estudadas) ──
   { semana: "Sem. 01", aulas: [{ area: "CM", topic: "Síndrome Ictérica I (Hepatites)" }, { area: "PED", topic: "Doenças Exantemáticas" }] },

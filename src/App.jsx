@@ -1,6 +1,6 @@
 import React, { Suspense } from "react";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, SEED_SUBTOPICS, areaMap, buildUnicamp2024Exam, buildUfcspa2026Exam, LOG_NAME_MAP } from "./data.js";
+import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, SEED_SUBTOPICS, areaMap, buildUnicamp2024Exam, buildUfcspa2026Exam, buildUspSp2023Exam, LOG_NAME_MAP } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx, diffDays } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
@@ -157,11 +157,12 @@ function App() {
         const logs = SEED_LOGS.map((l) => ({ ...l, id: uid() }));
         const se = buildUnicamp2024Exam();
         const uf = buildUfcspa2026Exam();
+        const usp = buildUspSp2023Exam();
         const seedSt = { ...SEED_SUBTOPICS };
-        setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se, uf]); setSubtopics(seedSt);
-        const seedFc = generateFlashcardDecks([se, uf], revs, []);
+        setSessions([]); setReviews(revs); setRevLogs(logs); setExams([se, uf, usp]); setSubtopics(seedSt);
+        const seedFc = generateFlashcardDecks([se, uf, usp], revs, []);
         setFlashcardDecks(seedFc); saveKey("rp26_flashcards", seedFc);
-        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se, uf]); saveKey("rp26_subtopics", seedSt); saveKey("rp26_seeded12", true);
+        saveKey("rp26_reviews", revs); saveKey("rp26_revlogs", logs); saveKey("rp26_sessions", []); saveKey("rp26_exams", [se, uf, usp]); saveKey("rp26_subtopics", seedSt); saveKey("rp26_seeded12", true);
       } else {
         let loadedSessions = Array.isArray(s) ? s : [];
         let loadedReviews = Array.isArray(r) ? r : [];
@@ -176,6 +177,10 @@ function App() {
         }
         if (!loadedExams.some((ex) => ex.name && ex.name.includes("UNICAMP"))) {
           loadedExams.push(buildUnicamp2024Exam());
+          saveKey("rp26_exams", loadedExams);
+        }
+        if (!loadedExams.some((ex) => ex.name && ex.name.includes("USP-SP"))) {
+          loadedExams.push(buildUspSp2023Exam());
           saveKey("rp26_exams", loadedExams);
         }
 

@@ -277,8 +277,21 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                             const days = diffDays(r.nextDue, today());
                             const { key: stKey, items: stItems } = getSubtopicsForTheme(r);
                             const subRevs = getSubReviewsForTheme(r);
+                            // Merge subtopics from: registered list + review cards + revLog subtopicScores
+                            const _lk = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
+                            const _tl = logsByTheme[_lk] || [];
+                            const _lsm = new Map();
+                            _tl.forEach((l) => { if (l.subtopicScores) l.subtopicScores.forEach((s) => _lsm.set(s.name, s.pct)); });
+                            const _allSet = new Map();
+                            stItems.forEach(s => _allSet.set(s.toLowerCase(), s));
+                            subRevs.forEach(s => { if (s.theme && !_allSet.has(s.theme.toLowerCase())) _allSet.set(s.theme.toLowerCase(), s.theme); });
+                            _lsm.forEach((_, name) => { if (!_allSet.has(name.toLowerCase())) _allSet.set(name.toLowerCase(), name); });
+                            const allStItems = [..._allSet.values()];
+                            // Sort worst → best performance
+                            const _pctOf = (name) => { const sr = subRevs.find(s => s.theme?.toLowerCase() === name.toLowerCase()); if (sr) return sr.lastPerf; for (const [k, v] of _lsm) { if (k.toLowerCase() === name.toLowerCase()) return v; } return 999; };
+                            allStItems.sort((a, b) => _pctOf(a) - _pctOf(b));
                             const isExpanded = expandedThemes[r.id];
-                            const hasSubtopics = stItems.length > 0 || subRevs.length > 0;
+                            const hasSubtopics = allStItems.length > 0;
                             const isEditing = stEditMode[r.id];
 
                             return (
@@ -323,7 +336,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                       fontSize: 10, color: C.purple, fontFamily: FM, fontWeight: 600,
                                       display: "flex", alignItems: "center", gap: 3,
                                     }}>
-                                      {stItems.length} sub {isExpanded ? "▲" : "▼"}
+                                      {allStItems.length} sub {isExpanded ? "▲" : "▼"}
                                     </button>
                                   )}
                                 </div>
@@ -335,7 +348,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                     borderLeft: `3px solid ${C.purple}50`,
                                     padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4,
                                   }}>
-                                    {stItems.map((st, i) => {
+                                    {allStItems.map((st, i) => {
                                       const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
                                       // Fallback: get last % from revLog subtopicScores if no review card
                                       let logPct = null;

@@ -83,7 +83,7 @@ function App() {
   useEffect(() => {
     if (!dataLoaded) return;
     initSync(
-      () => window.location.reload(), // on remote update: auto-reload
+      () => { setReviews(loadKey("rp26_reviews", [])); setRevLogs(loadKey("rp26_revlogs", [])); setSessions(loadKey("rp26_sessions", [])); setExams(loadKey("rp26_exams", [])); setSubtopics(loadKey("rp26_subtopics", {})); }, // on remote update: refresh state from localStorage (no triggerSync)
       (status) => setSyncStatus(status)
     ).then((active) => {
       if (active) setSyncStatus("synced");

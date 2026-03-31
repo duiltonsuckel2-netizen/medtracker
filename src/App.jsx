@@ -574,14 +574,6 @@ function App() {
     persistReviews(existing); notify(`✓ ${newRevs.length} revisões importadas do Notion`);
   }
 
-  if (!ready) return (
-    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: F, padding: S.xl }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: S.lg, paddingTop: 80 }}>
-        <SkeletonCard /><SkeletonCard /><SkeletonCard />
-      </div>
-    </div>
-  );
-
   const { dueR, upR } = useMemo(() => {
     const parentRevs = reviews.filter((r) => !r.isSubtopic);
     const getEffDue = (r) => { const subs = reviews.filter((s) => s.isSubtopic && s.key && r.key && s.key.startsWith(r.key + "::")); return subs.length > 0 ? subs.map((s) => s.nextDue).sort()[0] : r.nextDue; };
@@ -590,6 +582,14 @@ function App() {
     const up = parentRevs.filter((r) => getEffDue(r) > t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
     return { dueR: due, upR: up };
   }, [reviews]);
+
+  if (!ready) return (
+    <div style={{ minHeight: "100vh", background: C.bg, fontFamily: F, padding: S.xl }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: S.lg, paddingTop: 80 }}>
+        <SkeletonCard /><SkeletonCard /><SkeletonCard />
+      </div>
+    </div>
+  );
   const alertThemes = [];
   const TAB_ICONS = { agenda:"📅", dashboard:"📊", revisoes:"🔄", provas:"📝", temas:"📚" };
   const TABS = [

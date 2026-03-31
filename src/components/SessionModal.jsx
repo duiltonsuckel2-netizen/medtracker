@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { AREAS, SEMANAS } from "../data.js";
 import { C, F, FM, R, S, H, SH, card, inp, btn, tag } from "../theme.js";
 import { today } from "../utils.js";

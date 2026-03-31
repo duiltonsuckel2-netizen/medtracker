@@ -17,6 +17,24 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
   const [newItem, setNewItem] = useState("");
   const [semIdx, setSemIdx] = useState(0);
   const [justToggled, setJustToggled] = useState(null);
+  const [ankiInput, setAnkiInput] = useState("");
+  const [ankiData, setAnkiData] = useState(() => loadKey("rp26_anki", { base: 10030, dailyLogs: [] }));
+
+  const ankiToday = (ankiData.dailyLogs || []).find(l => l.date === today());
+  const ankiTotal = ankiData.base + (ankiData.dailyLogs || []).reduce((s, l) => s + (l.count || 0), 0);
+
+  function addAnkiCards() {
+    const n = parseInt(ankiInput);
+    if (!n || n <= 0) return;
+    const logs = [...(ankiData.dailyLogs || [])];
+    const existing = logs.findIndex(l => l.date === today());
+    if (existing >= 0) { logs[existing] = { ...logs[existing], count: logs[existing].count + n }; }
+    else { logs.unshift({ date: today(), count: n }); }
+    const updated = { ...ankiData, dailyLogs: logs };
+    setAnkiData(updated);
+    saveKey("rp26_anki", updated);
+    setAnkiInput("");
+  }
 
   function currentSatKey() {
     const now = new Date(); const dow = now.getDay();
@@ -169,6 +187,23 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
               <span style={{ fontSize: 9, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>streak</span>
             </div>
           )}
+        </div>
+      </div>
+      {/* Anki Flashcards counter */}
+      <div style={{ background: C.card, border: `1px solid ${C.yellow}30`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, boxShadow: SH.sm, display: "flex", alignItems: "center", gap: S.lg, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: S.md }}>
+          <span style={{ fontSize: 20 }}>{"🃏"}</span>
+          <div>
+            <div style={{ fontSize: 11, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Anki total</div>
+            <div style={{ fontSize: 18, fontWeight: 800, fontFamily: FN, color: C.yellow }}>{ankiTotal.toLocaleString("pt-BR")}</div>
+          </div>
+        </div>
+        <div style={{ height: 32, width: 1, background: C.border2 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: S.sm, flex: 1, minWidth: 0 }}>
+          <span style={{ fontSize: 12, color: C.text3, whiteSpace: "nowrap" }}>Hoje:</span>
+          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: FN, color: ankiToday ? C.green : C.text3 }}>{ankiToday?.count || 0}</span>
+          <input value={ankiInput} onChange={(e) => setAnkiInput(e.target.value.replace(/[^0-9]/g, ""))} onKeyDown={(e) => { if (e.key === "Enter") addAnkiCards(); }} placeholder="+ cards" style={{ ...inp(), width: 80, padding: "6px 10px", fontSize: 12, textAlign: "center" }} />
+          <button onClick={addAnkiCards} style={btn(C.yellow, { padding: "6px 14px", fontSize: 12, color: "#000" })}>+</button>
         </div>
       </div>
       <div style={{ display: "flex", gap: S.md, alignItems: "center", flexWrap: "wrap" }}>

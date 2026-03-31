@@ -19,6 +19,8 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   const [notionMsg, setNotionMsg] = useState("");
   const [exportStatus, setExportStatus] = useState("idle");
   const [agendaWeek] = useState(() => loadKey("rp_agenda_v7", null));
+  const ankiData = useMemo(() => loadKey("rp26_anki", { base: 10030, dailyLogs: [] }), []);
+  const ankiTotal = useMemo(() => ankiData.base + (ankiData.dailyLogs || []).reduce((s, l) => s + (l.count || 0), 0), [ankiData]);
   const [agendaHistory] = useState(() => loadKey("rp_agenda_history", []));
   const [streakStart, setStreakStart] = useState(() => loadKey("rp_streak_start", "2026-02-02"));
   const [showStreakReset, setShowStreakReset] = useState(false);
@@ -257,17 +259,20 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.xl }}>
       {!forceTab && <>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.md }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: S.md }}>
         {[
           { label: "Provas", value: exams.length, accent: C.blue },
+          { label: "Anki", value: ankiTotal.toLocaleString("pt-BR"), accent: C.yellow },
           { label: "Revisões", value: totalRevisoes, accent: C.purple },
           { label: "Questões", value: totalQ.toLocaleString("pt-BR"), accent: C.teal },
         ].map((s) => (
           <div key={s.label} style={{ background: C.card, border: `1px solid ${s.accent}25`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, boxShadow: SH.glow(s.accent), display: "flex", flexDirection: "column", justifyContent: "space-between", height: 88, boxSizing: "border-box" }}>
             <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
-            <div style={{ fontSize: 32, fontWeight: 900, color: s.accent, fontFamily: FN, lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: s.accent, fontFamily: FN, lineHeight: 1 }}>{s.value}</div>
           </div>
         ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.md }}>
         <button onClick={onNavigateFlashcards} style={{ background: `linear-gradient(135deg, ${C.yellow}45, ${C.purple}50)`, border: `1px solid ${C.yellow}35`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between", height: 88, boxSizing: "border-box", boxShadow: SH.glow(C.yellow), transition: "all 0.15s ease", textAlign: "left" }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.purple); }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.yellow); }}>
           <div style={{ fontSize: 10, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{flashcardDecks.reduce((s, d) => s + d.cards.filter(c => !c.nextDue || c.nextDue <= today()).length, 0)} pendentes</div>
           <div style={{ fontSize: 32, fontWeight: 900, color: C.yellow, fontFamily: FN, lineHeight: 1 }}>Flash</div>

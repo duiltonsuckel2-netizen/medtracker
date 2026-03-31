@@ -467,6 +467,9 @@ function App() {
       let newReviews = ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
       // Create subtopic review cards if subtopics provided
       if (session.subtopicScores && session.subtopicScores.length > 0) {
+        const subNames = session.subtopicScores.map((st) => st.name);
+        // Store subtopicNames on parent review card so Revisoes can find them
+        newReviews = newReviews.map((r) => r.key === key ? { ...r, subtopicNames: subNames } : r);
         session.subtopicScores.forEach((st) => {
           const sKey = `${session.area}__${session.theme.toLowerCase().trim()}::${st.name.toLowerCase().trim()}`;
           const exSub = newReviews.find((r) => r.key === sKey);
@@ -482,6 +485,10 @@ function App() {
       }
       return newReviews;
     });
+    // Also save subtopic names to the subtopics dictionary
+    if (session.subtopicScores && session.subtopicScores.length > 0) {
+      saveSubtopics(session.area, session.theme, session.subtopicScores.map((st) => st.name));
+    }
   }
   function addRevLog(areaId, theme, total, acertos) {
     if (!theme || !areaId) return;

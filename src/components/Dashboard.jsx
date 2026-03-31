@@ -11,6 +11,7 @@ import { useThemeProgress } from "../hooks/useThemeProgress.js";
 
 function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, onNewSession, onAlerts, forceTab, flashcardDecks, onNavigateFlashcards, onNavigateProvas, onNavigateRevisoes }) {
   const [activeTab, setActiveTab] = useState(forceTab || "overview");
+  const [showQuestoes, setShowQuestoes] = useState(false);
   useEffect(() => { if (forceTab) setActiveTab(forceTab); }, [forceTab]);
   const [dismissedAlerts, setDismissedAlerts] = useState(() => { try { return JSON.parse(localStorage.getItem("rp26_dismissed_alerts") || "[]"); } catch { return []; } });
   const [notionToken, setNotionToken] = useState("");
@@ -264,7 +265,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
           { label: "Provas", value: exams.length, accent: C.blue, onClick: onNavigateProvas },
           { label: "Anki", value: ankiTotal.toLocaleString("pt-BR"), accent: C.yellow },
           { label: "Revisões", value: totalRevisoes, accent: C.purple, onClick: onNavigateRevisoes },
-          { label: "Questões", value: totalQ.toLocaleString("pt-BR"), accent: C.teal },
+          { label: "Questões", value: totalQ.toLocaleString("pt-BR"), accent: C.teal, onClick: () => setShowQuestoes(true) },
         ].map((s) => (
           <div key={s.label} onClick={s.onClick} style={{ background: C.card, border: `1px solid ${s.accent}25`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, boxShadow: SH.glow(s.accent), display: "flex", flexDirection: "column", justifyContent: "space-between", height: 88, boxSizing: "border-box", cursor: s.onClick ? "pointer" : "default" }}>
             <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
@@ -364,6 +365,145 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
 </>}
       {activeTab === "heatmap" && <><div style={card}><div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Heatmap de estudo</div><div style={{ fontSize: 12, color: C.text3, marginBottom: 16 }}>{new Date(today() + "T12:00:00").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })} — completude da agenda por dia</div><div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>{heatmapData.map((d, i) => (<div key={i} title={`${fmtDate(d.date)}: ${d.total > 0 ? `${d.done}/${d.total} (${d.pct}%)` : "sem itens"}`} style={{ aspectRatio: "1", borderRadius: 6, background: heatColors[Math.min(d.intensity, 4)], cursor: "default", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 600, color: d.intensity >= 3 ? "#fff" : C.text3, fontFamily: FN }}>{d.day}</div>))}</div><div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 12 }}><span style={{ fontSize: 10, color: C.text3 }}>menos</span>{heatColors.map((c, i) => <div key={i} style={{ width: 12, height: 12, borderRadius: 3, background: c, border: `1px solid ${C.border}` }} />)}<span style={{ fontSize: 10, color: C.text3 }}>mais</span></div><div style={{ marginTop: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(160px,1fr))", gap: 10 }}>{[{ label: "Dias estudados", value: diasEstudados, sub: "desde 02/02" },{ label: "Melhor streak", value: `${maxStreak}d`, sub: "recorde" }].map((s) => (<div key={s.label} style={{ background: C.surface, borderRadius: R.md, padding: S.lg, border: `1px solid ${C.border}`, boxShadow: SH.sm }}><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{s.label}</div><div style={{ fontSize: 22, fontWeight: 800, color: C.text, ...NUM, lineHeight: 1 }}>{s.value}</div><div style={{ fontSize: 10, color: C.text3, fontWeight: 400, marginTop: 3 }}>{s.sub}</div></div>))}<div style={{ background: C.surface, borderRadius: R.md, padding: S.lg, border: `1px solid ${C.yellow}30`, boxShadow: SH.sm, cursor: "pointer", position: "relative" }} onClick={() => setShowStreakReset((v) => !v)}><div style={{ fontSize: 10, color: C.text3, fontWeight: 500, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Streak atual</div><div style={{ fontSize: 22, fontWeight: 800, color: C.yellow, ...NUM, lineHeight: 1 }}>{streak}d 🔥</div><div style={{ fontSize: 10, color: C.text3, fontWeight: 400, marginTop: 3 }}>consecutivos</div>{showStreakReset && <div className="fade-in" style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 10, marginTop: 4, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, boxShadow: SH.lg, overflow: "hidden" }}><button onClick={(e) => { e.stopPropagation(); resetStreak(); }} style={{ width: "100%", padding: "12px 14px", background: "none", border: "none", cursor: "pointer", color: C.red, fontSize: 13, fontWeight: 600, fontFamily: F, textAlign: "left", display: "flex", alignItems: "center", gap: 8 }} onMouseEnter={(e) => e.currentTarget.style.background = C.red + "12"} onMouseLeave={(e) => e.currentTarget.style.background = "none"}>🔄 Zerar streak</button></div>}</div></div></div></>}
       {activeTab === "notion" && <><div style={{ ...card, border: `1px solid ${C.blue}44` }}><div style={{ fontSize: 15, fontWeight: 700, color: C.blue, marginBottom: 4 }}>🔗 Sincronizar com Notion</div><div style={{ fontSize: 12, color: C.text3, marginBottom: 16, lineHeight: 1.6 }}>A integração usa a IA do Claude como intermediária — ela recebe seu token temporariamente, consulta a API do Notion, e retorna os dados das revisões formatados. O token não é armazenado em nenhum lugar.<br /><b style={{ color: C.text }}>1.</b> Token de integração (Settings → Connections → Create integration)<br /><b style={{ color: C.text }}>2.</b> Database ID (da URL da sua página MED, ex: notion.so/<b style={{ color: C.yellow }}>3098883c3e738...</b>)</div><div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}><Fld label="Notion Integration Token"><input type="password" value={notionToken} onChange={(e) => setNotionToken(e.target.value)} placeholder="secret_xxx..." style={inp({ borderColor: C.blue + "44" })} /></Fld><Fld label="Database ID"><input type="text" value={notionDbId} onChange={(e) => setNotionDbId(e.target.value)} placeholder="3098883c3e73819d85c4..." style={inp({ borderColor: C.blue + "44" })} /></Fld></div><button onClick={doNotionSync} disabled={notionStatus === "loading"} style={btn(C.blue, { width: "100%" })}>{notionStatus === "loading" ? "⏳ Sincronizando…" : "🔗 Sincronizar revisões"}</button>{notionMsg && (<div style={{ marginTop: 10, padding: "10px 14px", borderRadius: R.sm, background: notionStatus === "error" ? C.red + "18" : C.green + "18", border: `1px solid ${notionStatus === "error" ? C.red : C.green}44`, fontSize: 12, color: notionStatus === "error" ? C.red : C.green, fontFamily: FM }}>{notionMsg}</div>)}<div style={{ marginTop: 14, padding: 12, background: C.bg, borderRadius: R.sm, border: `1px solid ${C.border}` }}><div style={{ fontSize: 11, fontWeight: 600, color: C.text3, marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Como funciona</div><div style={{ fontSize: 11, color: C.text3, lineHeight: 1.7 }}>A integração usa a IA do Claude como intermediária — ela recebe seu token temporariamente, consulta a API do Notion, e retorna os dados das revisões formatados. O token não é armazenado em nenhum lugar.<br /><span style={{ color: C.yellow }}>⚠ Para funcionar, você deve compartilhar o database MED com sua integração no Notion.</span></div></div></div></>}
+      {showQuestoes && <QuestoesModal revLogs={revLogs} sessions={sessions} exams={exams} onClose={() => setShowQuestoes(false)} />}
+    </div>
+  );
+}
+
+function QuestoesModal({ revLogs, sessions, exams, onClose }) {
+  const SEED = { "2026-01": 126, "2026-02": 1244 };
+
+  const monthlyData = useMemo(() => {
+    // Count questions from app data per month
+    const appCounts = {};
+    const areaCounts = {};
+    revLogs.forEach(l => {
+      if (!l.date || !l.total) return;
+      const m = l.date.slice(0, 7);
+      appCounts[m] = (appCounts[m] || 0) + l.total;
+      if (l.area) { if (!areaCounts[m]) areaCounts[m] = {}; areaCounts[m][l.area] = (areaCounts[m][l.area] || 0) + l.total; }
+    });
+    sessions.forEach(s => {
+      if (!s.total) return;
+      const m = (s.date || s.createdAt || "").slice(0, 7);
+      if (!m) return;
+      appCounts[m] = (appCounts[m] || 0) + s.total;
+      if (s.area) { if (!areaCounts[m]) areaCounts[m] = {}; areaCounts[m][s.area] = (areaCounts[m][s.area] || 0) + s.total; }
+    });
+    exams.forEach(e => {
+      if (!e.total) return;
+      const m = (e.date || "").slice(0, 7);
+      if (!m) return;
+      appCounts[m] = (appCounts[m] || 0) + e.total;
+      if (e.areaResults) {
+        if (!areaCounts[m]) areaCounts[m] = {};
+        Object.entries(e.areaResults).forEach(([area, r]) => { areaCounts[m][area] = (areaCounts[m][area] || 0) + (r.total || 0); });
+      }
+    });
+
+    // Merge seed with app data (seed takes priority for seeded months if app has less)
+    const allMonths = new Set([...Object.keys(SEED), ...Object.keys(appCounts)]);
+    const sorted = [...allMonths].sort();
+    let cumulative = 0;
+    return sorted.map(m => {
+      const seedVal = SEED[m] || 0;
+      const appVal = appCounts[m] || 0;
+      const count = Math.max(seedVal, appVal);
+      cumulative += count;
+      // Exam list for this month
+      const monthExams = exams.filter(e => (e.date || "").startsWith(m));
+      return { month: m, count, cumulative, areas: areaCounts[m] || {}, exams: monthExams };
+    });
+  }, [revLogs, sessions, exams]);
+
+  const grandTotal = monthlyData.length > 0 ? monthlyData[monthlyData.length - 1].cumulative : 0;
+  const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const fmtMonth = (m) => { const [y, mo] = m.split("-"); return `${monthNames[parseInt(mo) - 1]}/${y.slice(2)}`; };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.65)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: C.bg, borderRadius: R.xl, maxWidth: 520, width: "100%", maxHeight: "85vh", overflow: "auto", border: `1px solid ${C.border}`, boxShadow: SH.lg }}>
+        <div style={{ padding: `${S.xl}px`, borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: -0.3 }}>Questões por mês</div>
+            <div style={{ fontSize: 12, color: C.text3, marginTop: 2 }}>Total acumulado: <span style={{ color: C.teal, fontWeight: 700, fontFamily: FN }}>{grandTotal.toLocaleString("pt-BR")}</span></div>
+          </div>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.text3, fontSize: 20, cursor: "pointer", padding: "4px 8px" }}>{"✕"}</button>
+        </div>
+
+        <div style={{ padding: `${S.xl}px` }}>
+          {/* Bar chart */}
+          <div style={{ marginBottom: S.xl }}>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={monthlyData.map(d => ({ name: fmtMonth(d.month), questoes: d.count }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.text3 }} />
+                <YAxis tick={{ fontSize: 11, fill: C.text3 }} />
+                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="questoes" fill={C.teal} radius={[6, 6, 0, 0]} name="Questões" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Month rows */}
+          <div style={{ display: "flex", flexDirection: "column", gap: S.md }}>
+            {monthlyData.map(d => {
+              const maxCount = Math.max(...monthlyData.map(x => x.count), 1);
+              const pct = Math.round((d.count / maxCount) * 100);
+              return (
+                <div key={d.month} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: R.lg, padding: `${S.lg}px`, boxShadow: SH.sm }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: S.sm }}>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{fmtMonth(d.month)}</span>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: S.sm }}>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: C.teal, fontFamily: FN }}>{d.count.toLocaleString("pt-BR")}</span>
+                      <span style={{ fontSize: 10, color: C.text3 }}>questões</span>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div style={{ height: 6, background: C.border2, borderRadius: 3, overflow: "hidden", marginBottom: S.md }}>
+                    <div style={{ height: "100%", background: C.teal, borderRadius: 3, width: `${pct}%`, transition: "width .4s" }} />
+                  </div>
+                  {/* Area breakdown */}
+                  {Object.keys(d.areas).length > 0 && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: d.exams.length > 0 ? S.sm : 0 }}>
+                      {AREAS.map(a => {
+                        const n = d.areas[a.id];
+                        if (!n) return null;
+                        return <span key={a.id} style={{ ...tag(a.color), fontSize: 10, padding: "2px 8px" }}>{a.short} {n}</span>;
+                      })}
+                    </div>
+                  )}
+                  {/* Exams this month */}
+                  {d.exams.length > 0 && (
+                    <div style={{ marginTop: S.sm, paddingTop: S.sm, borderTop: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{d.exams.length} prova{d.exams.length > 1 ? "s" : ""}</div>
+                      {d.exams.map((e, i) => (
+                        <div key={i} style={{ fontSize: 12, color: C.text2, padding: "2px 0" }}>
+                          {e.name} — <span style={{ color: C.blue, fontWeight: 600, fontFamily: FN }}>{e.acertos}/{e.total}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Cumulative line */}
+          <div style={{ marginTop: S.xl }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: S.md }}>Evolução acumulada</div>
+            <ResponsiveContainer width="100%" height={140}>
+              <LineChart data={monthlyData.map(d => ({ name: fmtMonth(d.month), total: d.cumulative }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: C.text3 }} />
+                <YAxis tick={{ fontSize: 11, fill: C.text3 }} />
+                <Tooltip contentStyle={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 12 }} />
+                <Line type="monotone" dataKey="total" stroke={C.teal} strokeWidth={2.5} dot={{ r: 4, fill: C.teal }} name="Acumulado" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

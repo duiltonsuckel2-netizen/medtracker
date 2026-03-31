@@ -198,9 +198,9 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                     <span style={tag(C.text3)}>{INT_LABELS[r.intervalIndex]}</span>
                   </div>
                   <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>Último: <span style={{ color: perfColor(r.lastPerf) }}>{r.lastPerf}%</span> em {fmtDate(r.lastStudied)} · {r.history?.length || 0}× revisado</div>
-                  {(() => { const subRevs = reviews.filter(sr => sr.isSubtopic && sr.key && r.key && sr.key.startsWith(r.key + "::")); const dueSubs = subRevs.filter(sr => sr.nextDue <= today()).sort((a, b) => a.lastPerf - b.lastPerf); return dueSubs.length > 0 ? (
+                  {(() => { const subRevs = reviews.filter(sr => sr.isSubtopic && sr.key && r.key && sr.key.startsWith(r.key + "::")); const dueSubs = subRevs.filter(sr => sr.nextDue <= today()).sort((a, b) => a.lastPerf - b.lastPerf); const allSubs = subRevs.length > 0 ? subRevs : getSubtopicsForReview(r).map((n, i) => ({ id: `st${i}`, theme: n })); return allSubs.length > 0 ? (
                     <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                      {dueSubs.map(s => <span key={s.id} style={{ fontSize: 10, padding: "2px 8px", borderRadius: R.pill, background: perfColor(s.lastPerf) + "14", border: `1px solid ${perfColor(s.lastPerf)}30`, fontFamily: FM, lineHeight: 1.4 }}>{s.theme} <span style={{ fontWeight: 700, color: perfColor(s.lastPerf) }}>{s.lastPerf}%</span></span>)}
+                      {allSubs.map(s => { const isDue = dueSubs.some(d => d.id === s.id); return <span key={s.id} style={{ fontSize: 10, padding: "2px 8px", borderRadius: R.pill, background: s.lastPerf != null ? perfColor(s.lastPerf) + "14" : C.surface, border: `1px solid ${s.lastPerf != null ? perfColor(s.lastPerf) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4, opacity: isDue || !s.lastPerf ? 1 : 0.6 }}>{s.theme}{s.lastPerf != null && <span style={{ fontWeight: 700, color: perfColor(s.lastPerf), marginLeft: 3 }}>{s.lastPerf}%</span>}</span>; })}
                     </div>
                   ) : null; })()}
                   {r.subtemaNote && (
@@ -286,6 +286,11 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                         <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[r.intervalIndex]}</span>
                         <span style={{ fontSize: 10, color: C.text3 }}>{fmtDate(r._effDue || r.nextDue)}</span>
                       </div>
+                      {(() => { const subRevs = reviews.filter(sr => sr.isSubtopic && sr.key && r.key && sr.key.startsWith(r.key + "::")); const allSubs = subRevs.length > 0 ? subRevs : getSubtopicsForReview(r).map((n, i) => ({ id: `st${i}`, theme: n })); return allSubs.length > 0 ? (
+                        <div style={{ marginTop: 4, display: "flex", gap: 3, flexWrap: "wrap" }}>
+                          {allSubs.map(s => <span key={s.id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: R.pill, background: s.lastPerf != null ? perfColor(s.lastPerf) + "14" : C.surface, border: `1px solid ${s.lastPerf != null ? perfColor(s.lastPerf) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4 }}>{s.theme}{s.lastPerf != null && <span style={{ fontWeight: 700, color: perfColor(s.lastPerf), marginLeft: 2 }}>{s.lastPerf}%</span>}</span>)}
+                        </div>
+                      ) : null; })()}
                     </div>
                     {/* Performance indicator + subtemas */}
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>

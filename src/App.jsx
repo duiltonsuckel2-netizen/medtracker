@@ -502,26 +502,40 @@ function App() {
       return newReviews;
     });
     // Single log entry with inline subtopic scores
-    const logEntry = { id: uid(), date: today(), area: rev.area, theme: rev.theme, total, acertos, pct };
+    const logId = uid();
+    const logEntry = { id: logId, date: today(), area: rev.area, theme: rev.theme, total, acertos, pct };
     if (subtopicScores && subtopicScores.length > 0) logEntry.subtopicScores = subtopicScores;
     persistLogs((prevLogs) => [logEntry, ...prevLogs]);
+    // Store logId on the review's latest history entry so undo can find the exact log
+    persistReviews((prevReviews) => prevReviews.map((r) => {
+      if (r.id !== revId) return r;
+      const hist = r.history || [];
+      if (hist.length === 0) return r;
+      const last = { ...hist[hist.length - 1], _logId: logId };
+      return { ...r, history: [...hist.slice(0, -1), last] };
+    }));
     notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
   }
   function undoMarkReview(revId) {
     const targetRev = reviews.find((r) => r.id === revId);
+    const hist = targetRev?.history || [];
+    const lastEntry = hist.length > 0 ? hist[hist.length - 1] : null;
+    const logId = lastEntry?._logId;
     persistReviews((prevReviews) => {
       const rev = prevReviews.find((r) => r.id === revId); if (!rev) return prevReviews;
-      const hist = rev.history || [];
-      if (hist.length === 0) return prevReviews;
-      const last = hist[hist.length - 1];
+      const h = rev.history || [];
+      if (h.length === 0) return prevReviews;
+      const last = h[h.length - 1];
       const prev = last._prev;
       if (prev) {
-        return prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: hist.slice(0, -1) });
+        return prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: h.slice(0, -1) });
       }
-      const prevEntry = hist.length >= 2 ? hist[hist.length - 2] : null;
-      return prevReviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: hist.slice(0, -1) });
+      const prevEntry = h.length >= 2 ? h[h.length - 2] : null;
+      return prevReviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: h.slice(0, -1) });
     });
     persistLogs((prevLogs) => {
+      if (logId) return prevLogs.filter((l) => l.id !== logId);
+      // Fallback for old data without _logId
       const logIdx = prevLogs.findIndex((l) => l.date === today() && targetRev && l.area === targetRev.area && l.theme === targetRev.theme);
       return logIdx >= 0 ? prevLogs.filter((_, i) => i !== logIdx) : prevLogs;
     });

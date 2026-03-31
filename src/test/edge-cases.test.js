@@ -9,13 +9,12 @@ beforeEach(() => {
 
 describe('Edge Cases — Empty & Boundary Values', () => {
   describe('perc() boundary values', () => {
-    it('acertos > total returns > 100', () => {
-      // This is a bug that should be caught by validation
-      expect(perc(15, 10)).toBe(150);
+    it('acertos > total caps at 100', () => {
+      expect(perc(15, 10)).toBe(100);
     });
 
-    it('negative values', () => {
-      expect(perc(-5, 10)).toBe(-50);
+    it('negative values return 0 (capped)', () => {
+      expect(perc(-5, 10)).toBe(0);
     });
 
     it('very large values', () => {

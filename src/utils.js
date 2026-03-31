@@ -4,7 +4,7 @@ import { C } from "./theme.js";
 export const today = () => new Date().toISOString().slice(0, 10);
 export const addDays = (d, n) => { const x = new Date(d + "T12:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
 export const diffDays = (a, b) => Math.round((new Date(a + "T12:00:00") - new Date(b + "T12:00:00")) / 86400000);
-export const perc = (ac, tot) => tot > 0 ? Math.round((ac / tot) * 100) : 0;
+export const perc = (ac, tot) => tot > 0 ? Math.max(0, Math.min(100, Math.round((ac / tot) * 100))) : 0;
 export const uid = () => typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10);
 export const fmtDate = (s) => s ? new Date(s + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : "";
 export const perfColor = (p) => p >= 85 ? "#22C55E" : p >= 60 ? "#EAB308" : "#EF4444";

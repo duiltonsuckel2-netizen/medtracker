@@ -119,8 +119,7 @@ describe('Accessibility — Button Text Contrast', () => {
       // Normalize #fff to #ffffff for contrast calculation
       const textColor = style.color === '#fff' ? '#ffffff' : style.color === '#1a1a1a' ? '#1a1a1a' : style.color;
       const ratio = contrastRatio(textColor, bg);
-      // Note: green (#22C55E) with white text has ratio ~2.28 — consider using dark text
-      expect(ratio).toBeGreaterThanOrEqual(2.0); // accent buttons, documented low contrast
+      expect(ratio).toBeGreaterThanOrEqual(2.5);
     });
   });
 });

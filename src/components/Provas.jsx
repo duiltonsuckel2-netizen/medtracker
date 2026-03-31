@@ -76,6 +76,17 @@ function Provas({ exams, revLogs, sessions, onAdd, onDel, onUpdate }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {step === 0 && <>
         <button onClick={() => setStep(1)} style={{ ...btn(C.blue), padding: "12px 24px", fontSize: 14, fontWeight: 600, width: "100%", borderRadius: R.lg, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>📝 Registrar prova</button>
+        <div style={{ background: C.surface, borderRadius: R.lg, padding: "10px 14px", border: `1px solid ${C.border}`, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>Prevalência:</span>
+          {[{l:"Muito alta",c:C.green,d:"75%+ das provas"},{l:"Alta",c:"#60A5FA",d:"50%+"},{l:"Média",c:"#FBBF24",d:"25%+"},{l:"Baixa",c:C.text3,d:"raro/inédito"}].map((p,i)=>(
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.c }} />
+              <span style={{ fontSize: 9, color: p.c, fontWeight: 600 }}>{p.l}</span>
+              <span style={{ fontSize: 8, color: C.text3, fontFamily: FM }}>({p.d})</span>
+            </div>
+          ))}
+          <span style={{ fontSize: 8, color: C.text3, fontFamily: FM, marginLeft: "auto" }}>Base: {Object.keys(EXAM_THEMES_DB).length} provas · Diagnóstico conta apenas "soube"</span>
+        </div>
         {exams.length >= 2 && <ExamComparison exams={exams} sortMode={sortMode} setSortMode={setSortMode} />}
         {exams.length === 0 ? <Empty icon="📋" msg="Nenhuma prova registrada ainda. Registre sua primeira prova para acompanhar seu desempenho." /> : exams.map((exam) => <ExamCard key={exam.id} exam={exam} allLogs={allLogs} isOpen={detail === exam.id} onToggle={() => setDetail(detail === exam.id ? null : exam.id)} onDel={onDel} onUpdate={onUpdate} knownThemes={knownThemes} />)}
       </>}

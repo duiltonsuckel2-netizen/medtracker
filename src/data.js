@@ -2080,9 +2080,24 @@ export function generateExamAnalysis(examName) {
 // contain a matching theme. Cached for performance.
 const _globalPrevCache = {};
 export function computeGlobalPrevalence(examKey) {
-  const k = examKey.toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+  let k = examKey.toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
   if(_globalPrevCache[k]) return _globalPrevCache[k];
-  const examData = EXAM_THEMES_RAW[k];
+  // Try direct lookup first, then resolve via aliases (same as generateExamAnalysis)
+  let examData = EXAM_THEMES_RAW[k];
+  if(!examData) {
+    const yearMatch = k.match(/(\d{4})/);
+    if(yearMatch) {
+      const year = yearMatch[1];
+      const prefix = k.replace(/\d{4}.*$/,"").trim();
+      for(const [alias,canon] of _INST_ALIASES) {
+        if(prefix.includes(alias) || alias.includes(prefix)) {
+          const resolved = `${canon} ${year}`;
+          examData = EXAM_THEMES_RAW[resolved];
+          if(examData) { k = resolved; break; }
+        }
+      }
+    }
+  }
   if(!examData) return {};
   const allKeys = Object.keys(EXAM_THEMES_RAW);
   const totalExams = allKeys.length;

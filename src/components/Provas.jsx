@@ -324,52 +324,66 @@ function AnalysisSection({ analysis, exam, globalPrev }) {
   const [activeTab, setActiveTab] = useState("resumo");
   const [expandedArea, setExpandedArea] = useState(null);
   const [showAllRecurring, setShowAllRecurring] = useState(false);
-  const PSTYLE = { "muito alta": { color: C.green, label: "Muito alta", icon: "🔥" }, "alta": { color: "#60A5FA", label: "Alta", icon: "📈" }, "média": { color: "#FBBF24", label: "Média", icon: "📊" }, "baixa": { color: C.text3, label: "Baixa", icon: "—" } };
-  const areaColors = { clinica: "#60A5FA", cirurgia: "#F87171", go: "#F472B6", ped: "#2DD4BF", preventiva: "#A78BFA" };
-  const areaLabels = { clinica: "Clínica", cirurgia: "Cirurgia", go: "GO", ped: "Pediatria", preventiva: "Preventiva" };
+  const PSTYLE = { "muito alta": { color: C.green, label: "Muito alta" }, "alta": { color: "#60A5FA", label: "Alta" }, "média": { color: "#FBBF24", label: "Média" }, "baixa": { color: C.text3, label: "Baixa" } };
+  const PORD = { "muito alta": 0, "alta": 1, "média": 2, "baixa": 3 };
+  const AC = { clinica: "#60A5FA", cirurgia: "#F87171", go: "#F472B6", ped: "#2DD4BF", preventiva: "#A78BFA" };
+  const AL = { clinica: "Clínica", cirurgia: "Cirurgia", go: "GO", ped: "Pediatria", preventiva: "Preventiva" };
+  const AREA_IDS = ["clinica", "cirurgia", "go", "ped", "preventiva"];
 
-  // Compute distribution stats
   const dist = analysis.distribuicao || {};
   const totalQ = Object.values(dist).reduce((a, b) => a + b, 0);
+  const totalDB = Object.keys(EXAM_THEMES_DB).length;
+  const cats = exam.cats || {};
 
-  // Compute global prev distribution for this exam
-  const prevStats = useMemo(() => {
-    const counts = { "muito alta": 0, "alta": 0, "média": 0, "baixa": 0 };
-    if (!exam.qDetails) return counts;
-    const allNums = Object.keys(exam.qDetails).map(Number);
-    allNums.forEach(n => {
-      const p = globalPrev[n] || "baixa";
-      counts[p]++;
-    });
-    return counts;
-  }, [exam.qDetails, globalPrev]);
-  const totalPrev = Object.values(prevStats).reduce((a, b) => a + b, 0);
-
-  // Per-area question details with prevalence
-  const areaQuestions = useMemo(() => {
+  // Per-area question data
+  const areaData = useMemo(() => {
     const out = {};
+    for (const aId of AREA_IDS) { out[aId] = { qs: [], acertos: 0, erros: 0, fortes: [], fracos: [], prioridades: [] }; }
     if (!exam.qDetails) return out;
-    for (const aId of Object.keys(areaLabels)) { out[aId] = []; }
     Object.entries(exam.qDetails).forEach(([n, d]) => {
       if (!d?.area || !out[d.area]) return;
       const nn = Number(n);
-      const cats = exam.cats || {};
       const cat = cats.soube?.includes(nn) ? "soube" : cats.chutou?.includes(nn) ? "chutou" : cats.errou_viu?.includes(nn) ? "errou_viu" : cats.errou_nao?.includes(nn) ? "errou_nao" : null;
       const gp = globalPrev[nn] || "baixa";
-      const ip = analysis.prev?.[nn] || null;
-      out[d.area].push({ n: nn, theme: d.theme || "—", cat, gp, ip });
+      const acertou = cat === "soube" || cat === "chutou";
+      const q = { n: nn, theme: d.theme || "—", cat, gp, acertou };
+      out[d.area].qs.push(q);
+      if (acertou) out[d.area].acertos++; else out[d.area].erros++;
+      // Fortes: acertou + prevalência alta/muito alta
+      if (cat === "soube" && (gp === "muito alta" || gp === "alta")) out[d.area].fortes.push(q);
+      // Fracos: errou + prevalência alta/muito alta — PRIORIDADE máxima
+      if (!acertou && (gp === "muito alta" || gp === "alta")) out[d.area].prioridades.push(q);
+      // Fracos gerais: errou qualquer
+      if (!acertou) out[d.area].fracos.push(q);
     });
-    for (const aId of Object.keys(out)) {
-      out[aId].sort((a, b) => a.n - b.n);
+    for (const aId of AREA_IDS) {
+      out[aId].qs.sort((a, b) => a.n - b.n);
+      out[aId].prioridades.sort((a, b) => (PORD[a.gp] ?? 3) - (PORD[b.gp] ?? 3));
+      out[aId].fracos.sort((a, b) => (PORD[a.gp] ?? 3) - (PORD[b.gp] ?? 3));
     }
     return out;
-  }, [exam, globalPrev, analysis]);
+  }, [exam, globalPrev, cats]);
+
+  // Coach summary per area
+  const coachMsg = (ad) => {
+    const total = ad.acertos + ad.erros;
+    if (!total) return "";
+    const pct = Math.round(ad.acertos / total * 100);
+    const highPrev = ad.qs.filter(q => q.gp === "muito alta" || q.gp === "alta");
+    const highPrevAcertos = highPrev.filter(q => q.cat === "soube").length;
+    const highPrevPct = highPrev.length > 0 ? Math.round(highPrevAcertos / highPrev.length * 100) : 0;
+    if (pct >= 80 && highPrevPct >= 60) return "Excelente domínio! Base sólida nos temas mais cobrados.";
+    if (pct >= 80) return "Bom acerto geral, mas revise os temas clássicos — muitos foram no chute ou erro.";
+    if (highPrevPct >= 50) return "Boa base nos temas frequentes. Foque nos gaps críticos para consolidar.";
+    if (ad.prioridades.length > 3) return `Alerta: ${ad.prioridades.length} temas de alta prevalência errados. Priorize esses.`;
+    if (pct >= 60) return "Desempenho mediano. Veja os gaps críticos — são temas que caem em muitas provas.";
+    return "Área fraca. Concentre esforço aqui — vários temas universais de residência errados.";
+  };
 
   const tabs = [
     { id: "resumo", label: "Visão Geral", icon: "📊" },
-    { id: "areas", label: "Por Área", icon: "🏥" },
+    { id: "coach", label: "Diagnóstico", icon: "🎯" },
     { id: "recorrentes", label: "Recorrentes", icon: "🔄" },
-    { id: "questoes", label: "Todas Questões", icon: "📋" },
   ];
 
   return (
@@ -382,10 +396,9 @@ function AnalysisSection({ analysis, exam, globalPrev }) {
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: C.purple, letterSpacing: -0.3 }}>Análise Comparativa</div>
-            <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{exam.name} · {Object.keys(EXAM_THEMES_DB).length} provas no banco</div>
+            <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{exam.name} · {totalDB} provas no banco</div>
           </div>
         </div>
-        {/* Tabs */}
         <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
           {tabs.map(t => (
             <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
@@ -409,50 +422,67 @@ function AnalysisSection({ analysis, exam, globalPrev }) {
             {analysis.resumo}
           </div>
 
-          {/* Distribution donut-like bars */}
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Distribuição por área ({totalQ} questões)</div>
-          <div style={{ display: "flex", height: 10, borderRadius: R.pill, overflow: "hidden", marginBottom: 6, border: `1px solid ${C.border}` }}>
-            {["clinica", "cirurgia", "go", "ped", "preventiva"].map(aId => {
-              const w = totalQ > 0 ? (dist[aId] || 0) / totalQ * 100 : 0;
-              return w > 0 ? <div key={aId} style={{ width: `${w}%`, background: areaColors[aId], transition: "width 0.4s" }} title={`${areaLabels[aId]}: ${dist[aId]}`} /> : null;
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
-            {["clinica", "cirurgia", "go", "ped", "preventiva"].map(aId => (
-              <div key={aId} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: areaColors[aId] }} />
-                <span style={{ fontSize: 10, color: C.text2, fontFamily: FM }}>{areaLabels[aId]}: {dist[aId] || 0}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Global prevalence summary */}
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Prevalência geral das questões</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 18 }}>
-            {[{ key: "muito alta", label: "Muito alta", icon: "🔥" }, { key: "alta", label: "Alta", icon: "📈" }, { key: "média", label: "Média", icon: "📊" }, { key: "baixa", label: "Baixa/Nova", icon: "✨" }].map(p => {
-              const cnt = prevStats[p.key] || 0;
-              const pct = totalPrev > 0 ? Math.round(cnt / totalPrev * 100) : 0;
-              const st = PSTYLE[p.key];
-              return (
-                <div key={p.key} style={{ background: C.card, borderRadius: R.lg, padding: "10px 8px", textAlign: "center", border: `1px solid ${st.color}25`, position: "relative", overflow: "hidden" }}>
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, background: st.color + "0A", transition: "height 0.4s" }} />
-                  <div style={{ fontSize: 14 }}>{p.icon}</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: st.color, fontFamily: FN, lineHeight: 1.2 }}>{cnt}</div>
-                  <div style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>{pct}%</div>
-                  <div style={{ fontSize: 9, color: st.color, fontWeight: 600, marginTop: 2 }}>{p.label}</div>
+          {/* Prevalence overview - how "standard" this exam is */}
+          {(()=>{
+            const prevC = { ma: 0, a: 0, m: 0, b: 0 };
+            if (exam.qDetails) {
+              Object.keys(exam.qDetails).forEach(n => {
+                const gp = globalPrev[Number(n)] || "baixa";
+                if (gp === "muito alta") prevC.ma++;
+                else if (gp === "alta") prevC.a++;
+                else if (gp === "média") prevC.m++;
+                else prevC.b++;
+              });
+            }
+            const totalP = prevC.ma + prevC.a + prevC.m + prevC.b;
+            const classicPct = totalP > 0 ? Math.round((prevC.ma + prevC.a) / totalP * 100) : 0;
+            // Coverage: of high-prev themes, how many did user get right (soube only)
+            let highTotal = 0, highSoube = 0;
+            if (exam.qDetails) {
+              Object.keys(exam.qDetails).forEach(n => {
+                const nn = Number(n);
+                const gp = globalPrev[nn] || "baixa";
+                if (gp === "muito alta" || gp === "alta") {
+                  highTotal++;
+                  if (cats.soube?.includes(nn)) highSoube++;
+                }
+              });
+            }
+            const covPct = highTotal > 0 ? Math.round(highSoube / highTotal * 100) : 0;
+            return (<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+              <div style={{ background: C.card, borderRadius: R.lg, padding: "12px 14px", border: `1px solid ${C.purple}20` }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Previsibilidade</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: classicPct >= 70 ? C.green : classicPct >= 50 ? "#FBBF24" : C.red, fontFamily: FN }}>{classicPct}%</span>
+                  <span style={{ fontSize: 10, color: C.text3 }}>temas clássicos</span>
                 </div>
-              );
-            })}
-          </div>
+                <div style={{ height: 4, borderRadius: R.pill, background: C.surface, marginTop: 6, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${classicPct}%`, background: classicPct >= 70 ? C.green : classicPct >= 50 ? "#FBBF24" : C.red, borderRadius: R.pill }} />
+                </div>
+                <div style={{ fontSize: 9, color: C.text3, fontFamily: FM, marginTop: 4 }}>🔥 {prevC.ma} muito alta · 📈 {prevC.a} alta · 📊 {prevC.m} média · ✨ {prevC.b} rara</div>
+              </div>
+              <div style={{ background: C.card, borderRadius: R.lg, padding: "12px 14px", border: `1px solid ${C.teal}20` }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Seu domínio (soube)</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  <span style={{ fontSize: 22, fontWeight: 800, color: covPct >= 60 ? C.green : covPct >= 35 ? "#FBBF24" : C.red, fontFamily: FN }}>{covPct}%</span>
+                  <span style={{ fontSize: 10, color: C.text3 }}>dos clássicos</span>
+                </div>
+                <div style={{ height: 4, borderRadius: R.pill, background: C.surface, marginTop: 6, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${covPct}%`, background: covPct >= 60 ? C.green : covPct >= 35 ? "#FBBF24" : C.red, borderRadius: R.pill }} />
+                </div>
+                <div style={{ fontSize: 9, color: C.text3, fontFamily: FM, marginTop: 4 }}>Sabia {highSoube} de {highTotal} temas frequentes</div>
+              </div>
+            </div>);
+          })()}
 
           {/* Key insights */}
           {analysis.destaques && analysis.destaques.length > 0 && <>
             <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Destaques por área</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {analysis.destaques.map((d, i) => {
                 const areaMatch = d.match(/^(Clínica|Cirurgia|GO|Pediatria|Preventiva)/);
-                const aId = areaMatch ? Object.entries(areaLabels).find(([_, v]) => v === areaMatch[1])?.[0] : null;
-                const col = aId ? areaColors[aId] : C.text2;
+                const aId = areaMatch ? Object.entries(AL).find(([_, v]) => v === areaMatch[1])?.[0] : null;
+                const col = aId ? AC[aId] : C.text2;
                 return (
                   <div key={i} style={{ fontSize: 11, color: C.text2, lineHeight: 1.5, padding: "8px 12px", background: C.card, borderRadius: R.md, borderLeft: `3px solid ${col}` }}>
                     {d}
@@ -463,55 +493,115 @@ function AnalysisSection({ analysis, exam, globalPrev }) {
           </>}
         </>}
 
-        {/* ── Tab: Por Área ── */}
-        {activeTab === "areas" && <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {["clinica", "cirurgia", "go", "ped", "preventiva"].map(aId => {
-              const qs = areaQuestions[aId] || [];
-              if (!qs.length) return null;
-              const isExpanded = expandedArea === aId;
-              const prevDist = { m: 0, a: 0, md: 0, b: 0 };
-              qs.forEach(q => { if (q.gp === "muito alta") prevDist.m++; else if (q.gp === "alta") prevDist.a++; else if (q.gp === "média") prevDist.md++; else prevDist.b++; });
-              const catDist = { soube: 0, chutou: 0, errou_viu: 0, errou_nao: 0 };
-              qs.forEach(q => { if (q.cat) catDist[q.cat]++; });
-              const acertosArea = catDist.soube + catDist.chutou;
-              const pctArea = qs.length > 0 ? Math.round(acertosArea / qs.length * 100) : 0;
+        {/* ── Tab: Diagnóstico (Coach) ── */}
+        {activeTab === "coach" && <>
+          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5, marginBottom: 14, padding: "10px 14px", background: C.card, borderRadius: R.lg, borderLeft: `3px solid ${C.teal}` }}>
+            Análise do seu desempenho por área. Identifica pontos fortes, gaps críticos em temas de alta prevalência, e sugere onde focar seus estudos.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {AREA_IDS.map(aId => {
+              const ad = areaData[aId];
+              if (!ad.qs.length) return null;
+              const isExp = expandedArea === aId;
+              const total2 = ad.acertos + ad.erros;
+              const pct = total2 > 0 ? Math.round(ad.acertos / total2 * 100) : 0;
+              const highPrev = ad.qs.filter(q => q.gp === "muito alta" || q.gp === "alta");
+              const highPrevAcertos = highPrev.filter(q => q.cat === "soube").length;
+              const highPrevPct = highPrev.length > 0 ? Math.round(highPrevAcertos / highPrev.length * 100) : 0;
+              const msg = coachMsg(ad);
+              const isGood = pct >= 70;
+              const hasCritical = ad.prioridades.length > 0;
               return (
-                <div key={aId} style={{ background: C.card, borderRadius: R.lg, border: `1px solid ${areaColors[aId]}20`, overflow: "hidden" }}>
-                  <div onClick={() => setExpandedArea(isExpanded ? null : aId)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer", borderLeft: `4px solid ${areaColors[aId]}` }}>
-                    <div style={{ width: 40, height: 40, borderRadius: R.md, background: areaColors[aId] + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      <span style={{ fontSize: 18, fontWeight: 800, color: areaColors[aId], fontFamily: FN }}>{qs.length}</span>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: areaColors[aId] }}>{areaLabels[aId]}</div>
-                      <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
-                        {prevDist.m > 0 && <span style={{ fontSize: 9, fontFamily: FM, color: PSTYLE["muito alta"].color }}>🔥 {prevDist.m}</span>}
-                        {prevDist.a > 0 && <span style={{ fontSize: 9, fontFamily: FM, color: PSTYLE["alta"].color }}>📈 {prevDist.a}</span>}
-                        {prevDist.md > 0 && <span style={{ fontSize: 9, fontFamily: FM, color: PSTYLE["média"].color }}>📊 {prevDist.md}</span>}
-                        {prevDist.b > 0 && <span style={{ fontSize: 9, fontFamily: FM, color: PSTYLE["baixa"].color }}>✨ {prevDist.b}</span>}
+                <div key={aId} style={{ background: C.card, borderRadius: R.xl, border: `1px solid ${AC[aId]}25`, overflow: "hidden" }}>
+                  {/* Header */}
+                  <div onClick={() => setExpandedArea(isExp ? null : aId)} style={{ cursor: "pointer", padding: "14px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: R.lg, background: AC[aId] + "15", border: `2px solid ${AC[aId]}35`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: perfColor(pct), fontFamily: FN, lineHeight: 1 }}>{pct}%</span>
+                        <span style={{ fontSize: 8, color: C.text3, fontFamily: FM }}>{ad.acertos}/{total2}</span>
                       </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: AC[aId] }}>{AL[aId]}</span>
+                          {hasCritical && <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: R.pill, background: C.red + "18", color: C.red, fontWeight: 700 }}>{ad.prioridades.length} gaps críticos</span>}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.text3, marginTop: 2, lineHeight: 1.4 }}>{msg}</div>
+                      </div>
+                      <span style={{ color: C.text3, fontSize: 12, transition: "transform .2s", transform: isExp ? "rotate(180deg)" : "rotate(0)", flexShrink: 0 }}>▼</span>
                     </div>
-                    <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: perfColor(pctArea), fontFamily: FN }}>{pctArea}%</div>
-                      <div style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>{acertosArea}/{qs.length}</div>
+                    {/* Mini prevalence coverage bar */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 9, color: C.text3, fontFamily: FM, flexShrink: 0 }}>Cobertura alta prev.</span>
+                      <div style={{ flex: 1, height: 6, borderRadius: R.pill, background: C.surface, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${highPrevPct}%`, background: highPrevPct >= 70 ? C.green : highPrevPct >= 40 ? "#FBBF24" : C.red, borderRadius: R.pill, transition: "width 0.4s" }} />
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, fontFamily: FM, color: highPrevPct >= 70 ? C.green : highPrevPct >= 40 ? "#FBBF24" : C.red, flexShrink: 0 }}>{highPrevAcertos}/{highPrev.length}</span>
                     </div>
-                    <span style={{ color: C.text3, fontSize: 12, transition: "transform .2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0)", flexShrink: 0 }}>▼</span>
                   </div>
-                  {isExpanded && (
-                    <div style={{ padding: "0 14px 12px", display: "flex", flexDirection: "column", gap: 3, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
-                      {qs.map(q => {
-                        const st = PSTYLE[q.gp] || PSTYLE["baixa"];
-                        const catCol = q.cat ? catColor(q.cat) : C.text3;
+                  {/* Expanded details */}
+                  {isExp && (
+                    <div style={{ borderTop: `1px solid ${C.border}`, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+                      {/* Prioridades (erros em temas frequentes) */}
+                      {ad.prioridades.length > 0 && (
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                            <div style={{ width: 16, height: 16, borderRadius: 4, background: C.red + "20", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 10 }}>🚨</span></div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: C.red, textTransform: "uppercase", letterSpacing: 0.5 }}>Prioridades ({ad.prioridades.length})</span>
+                            <span style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>temas frequentes que você errou</span>
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            {ad.prioridades.map(q => {
+                              const st = PSTYLE[q.gp];
+                              const isEV = cats.errou_viu?.includes(q.n);
+                              return (
+                                <div key={q.n} style={{ display: "flex", gap: 6, alignItems: "center", padding: "6px 10px", background: C.red + "08", borderRadius: R.md, borderLeft: `3px solid ${C.red}40` }}>
+                                  <span style={{ fontSize: 10, fontWeight: 800, fontFamily: FM, color: C.red, minWidth: 28 }}>Q{q.n}</span>
+                                  <span style={{ fontSize: 9, fontWeight: 700, color: st.color, fontFamily: FM, padding: "1px 5px", borderRadius: R.pill, background: st.color + "18", minWidth: 50, textAlign: "center", flexShrink: 0 }}>{st.label}</span>
+                                  <span style={{ fontSize: 11, flex: 1, color: C.text2, lineHeight: 1.3 }}>{q.theme}</span>
+                                  {isEV && <span style={{ fontSize: 8, fontFamily: FM, color: "#F59E0B", background: "#F59E0B18", padding: "1px 5px", borderRadius: R.pill, flexShrink: 0 }}>já estudou</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {/* Pontos fortes (acertos em temas frequentes) */}
+                      {ad.fortes.length > 0 && (
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                            <div style={{ width: 16, height: 16, borderRadius: 4, background: C.green + "20", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 10 }}>💪</span></div>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: C.green, textTransform: "uppercase", letterSpacing: 0.5 }}>Pontos fortes ({ad.fortes.length})</span>
+                            <span style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>temas frequentes que você domina</span>
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {ad.fortes.map(q => (
+                              <div key={q.n} style={{ fontSize: 10, padding: "3px 8px", borderRadius: R.pill, background: C.green + "10", border: `1px solid ${C.green}20`, color: C.green, fontWeight: 600, display: "flex", gap: 3, alignItems: "center" }}>
+                                <span style={{ fontFamily: FM, fontWeight: 800 }}>Q{q.n}</span>
+                                <span>{q.theme.split("/")[0].split("-")[0].trim().slice(0, 30)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {/* Outros erros (baixa/média prevalência) */}
+                      {(()=>{
+                        const others = ad.fracos.filter(q => q.gp !== "muito alta" && q.gp !== "alta");
+                        if (!others.length) return null;
                         return (
-                          <div key={q.n} style={{ display: "flex", gap: 6, alignItems: "center", padding: "5px 8px", background: C.surface, borderRadius: R.sm }}>
-                            <span style={{ fontSize: 10, fontWeight: 800, fontFamily: FM, color: catCol, minWidth: 28 }}>Q{q.n}</span>
-                            <div style={{ width: 7, height: 7, borderRadius: "50%", background: catCol, flexShrink: 0 }} />
-                            <span style={{ fontSize: 9, fontWeight: 700, color: st.color, fontFamily: FM, padding: "1px 5px", borderRadius: R.pill, background: st.color + "18", minWidth: 50, textAlign: "center", flexShrink: 0 }}>{st.label}</span>
-                            <span style={{ fontSize: 11, flex: 1, color: C.text2, lineHeight: 1.3 }}>{q.theme}</span>
-                            {q.ip && <span style={{ fontSize: 8, fontFamily: FM, color: C.purple, background: C.purple + "14", padding: "1px 5px", borderRadius: R.pill, flexShrink: 0, whiteSpace: "nowrap" }}>inst: {q.ip}</span>}
+                          <div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                              <div style={{ width: 16, height: 16, borderRadius: 4, background: "#FBBF24" + "20", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 10 }}>📝</span></div>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#FBBF24", textTransform: "uppercase", letterSpacing: 0.5 }}>Outros erros ({others.length})</span>
+                              <span style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>menor prevalência — estude depois</span>
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
+                              {others.map(q => (
+                                <span key={q.n} style={{ fontSize: 9, padding: "2px 7px", borderRadius: R.pill, background: C.surface, color: C.text3, fontFamily: FM }}>Q{q.n} {q.theme.split("/")[0].split("-")[0].trim().slice(0, 25)}</span>
+                              ))}
+                            </div>
                           </div>
                         );
-                      })}
+                      })()}
                     </div>
                   )}
                 </div>
@@ -535,7 +625,7 @@ function AnalysisSection({ analysis, exam, globalPrev }) {
                 const isAll = freqNum === freqDen;
                 const dd = exam.qDetails?.[s.q];
                 const aId = dd?.area;
-                const col = aId ? areaColors[aId] : C.green;
+                const col = aId ? AC[aId] : C.green;
                 const gp = globalPrev[s.q];
                 const gpSt = gp ? PSTYLE[gp] : null;
                 return (
@@ -543,7 +633,7 @@ function AnalysisSection({ analysis, exam, globalPrev }) {
                     <span style={{ fontSize: 11, fontWeight: 800, fontFamily: FM, color: col, minWidth: 28 }}>Q{s.q}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 12, color: C.text, lineHeight: 1.3 }}>{s.tema}</div>
-                      {aId && <span style={{ fontSize: 9, color: areaColors[aId], fontWeight: 600 }}>{areaLabels[aId]}</span>}
+                      {aId && <span style={{ fontSize: 9, color: AC[aId], fontWeight: 600 }}>{AL[aId]}</span>}
                     </div>
                     {gpSt && <span style={{ fontSize: 8, fontFamily: FM, color: gpSt.color, background: gpSt.color + "14", padding: "2px 6px", borderRadius: R.pill, flexShrink: 0 }}>geral: {gpSt.label}</span>}
                     <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -566,37 +656,6 @@ function AnalysisSection({ analysis, exam, globalPrev }) {
               </button>
             )}
           </> : <div style={{ fontSize: 12, color: C.text3, textAlign: "center", padding: 20 }}>Dados insuficientes para análise de recorrência (necessário 2+ provas da mesma instituição)</div>}
-        </>}
-
-        {/* ── Tab: Todas Questões ── */}
-        {activeTab === "questoes" && <>
-          <div style={{ fontSize: 11, color: C.text3, fontFamily: FM, marginBottom: 10 }}>
-            Todas as {totalQ} questões com prevalência geral ({Object.keys(EXAM_THEMES_DB).length} provas) e institucional
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 500, overflowY: "auto", borderRadius: R.md }}>
-            {Object.entries(exam.qDetails || {}).sort(([a], [b]) => Number(a) - Number(b)).map(([n, d]) => {
-              const nn = Number(n);
-              const gp = globalPrev[nn] || "baixa";
-              const ip = analysis.prev?.[nn];
-              const gpSt = PSTYLE[gp];
-              const ipSt = ip ? PSTYLE[ip] : null;
-              const aId = d?.area;
-              const col = aId ? areaColors[aId] : C.text3;
-              const cats2 = exam.cats || {};
-              const catId = cats2.soube?.includes(nn) ? "soube" : cats2.chutou?.includes(nn) ? "chutou" : cats2.errou_viu?.includes(nn) ? "errou_viu" : cats2.errou_nao?.includes(nn) ? "errou_nao" : null;
-              const catCol2 = catId ? catColor(catId) : C.text3;
-              return (
-                <div key={n} style={{ display: "flex", gap: 6, alignItems: "center", padding: "5px 8px", background: nn % 2 === 0 ? C.card : C.surface, borderRadius: R.sm }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, fontFamily: FM, color: catCol2, minWidth: 28 }}>Q{n}</span>
-                  {catId && <div style={{ width: 7, height: 7, borderRadius: "50%", background: catCol2, flexShrink: 0 }} />}
-                  <span style={{ fontSize: 9, fontWeight: 700, color: gpSt.color, fontFamily: FM, padding: "1px 5px", borderRadius: R.pill, background: gpSt.color + "15", minWidth: 50, textAlign: "center", flexShrink: 0 }}>{gpSt.label}</span>
-                  {aId && <span style={{ fontSize: 9, fontWeight: 600, color: areaColors[aId], fontFamily: FM, minWidth: 30, flexShrink: 0 }}>{areaLabels[aId]?.slice(0, 4)}</span>}
-                  <span style={{ fontSize: 11, flex: 1, color: C.text2, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d?.theme || "—"}</span>
-                  {ipSt && <span style={{ fontSize: 8, fontFamily: FM, color: C.purple, background: C.purple + "12", padding: "1px 5px", borderRadius: R.pill, flexShrink: 0 }}>inst:{ip}</span>}
-                </div>
-              );
-            })}
-          </div>
         </>}
       </div>
     </div>

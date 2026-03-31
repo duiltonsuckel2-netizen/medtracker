@@ -1905,7 +1905,54 @@ function _norm(t) {
   return (t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
 }
-function _kw(t) { return _norm(t).split(" ").filter(w=>w.length>3); }
+// Medical abbreviation expansion dictionary
+const _MED_ABBREV = {
+  dpoc:"doenca pulmonar obstrutiva cronica",iam:"infarto agudo miocardio",
+  avc:"acidente vascular cerebral",itu:"infeccao trato urinario",
+  has:"hipertensao arterial sistemica",pac:"pneumonia adquirida comunidade",
+  cad:"cetoacidose diabetica",tep:"tromboembolismo pulmonar",icc:"insuficiencia cardiaca congestiva",
+  ic:"insuficiencia cardiaca",tce:"traumatismo cranioencefalico",tpp:"trabalho parto prematuro",
+  dheg:"doenca hipertensiva especifica gestacao",sca:"sindrome coronariana aguda",
+  dpp:"descolamento prematuro placenta",ira:"insuficiencia renal aguda",
+  lra:"lesao renal aguda",irc:"insuficiencia renal cronica",drc:"doenca renal cronica",
+  hpv:"papilomavirus humano",hiv:"virus imunodeficiencia humana",
+  bvs:"bronquiolite viral aguda",bva:"bronquiolite viral aguda",
+  les:"lupus eritematoso sistemico",sop:"sindrome ovarios policisticos",
+  tvp:"trombose venosa profunda",sua:"sangramento uterino anormal",
+  pcr:"parada cardiorrespiratoria",rcp:"reanimacao cardiopulmonar",
+  pbe:"peritonite bacteriana espontanea",hda:"hemorragia digestiva alta",
+  hdb:"hemorragia digestiva baixa",rge:"refluxo gastroesofagico",
+  drge:"doenca refluxo gastroesofagico",dm:"diabetes mellitus",
+  ecg:"eletrocardiograma",sus:"sistema unico saude",aps:"atencao primaria saude",
+  esf:"estrategia saude familia",nasf:"nucleo ampliado saude familia",
+  pts:"projeto terapeutico singular",pnab:"politica nacional atencao basica",
+  ist:"infeccao sexualmente transmissivel",dst:"doenca sexualmente transmissivel",
+  prep:"profilaxia pre exposicao",pep:"profilaxia pos exposicao",
+  nic:"neoplasia intraepitelial cervical",
+};
+function _kw(t) {
+  const n = _norm(t);
+  const words = n.split(" ").filter(w=>w.length>3);
+  // If too few keywords, try expanding abbreviations
+  if(words.length<=1) {
+    const allW = n.split(" ");
+    for(const w of allW) {
+      if(_MED_ABBREV[w]) {
+        const expanded = _MED_ABBREV[w].split(" ").filter(x=>x.length>3);
+        words.push(...expanded);
+      }
+    }
+  }
+  return [...new Set(words)];
+}
+// Check if two words share a common prefix of >= minLen chars
+function _prefixMatch(w1,w2,minLen=6) {
+  const len = Math.min(w1.length,w2.length,minLen+4);
+  for(let i=minLen;i<=len;i++) {
+    if(w1.slice(0,i)===w2.slice(0,i)) return i;
+  }
+  return 0;
+}
 function _themesMatch(t1,t2) {
   const a=_kw(t1), b=_kw(t2);
   if(!a.length||!b.length) return false;
@@ -1914,13 +1961,20 @@ function _themesMatch(t1,t2) {
   for(const w1 of a) for(let j=0;j<b.length;j++) {
     if(used.has(j)) continue;
     const w2=b[j];
-    if(w1===w2 || (w1.length>=5 && w2.length>=5 && (w1.includes(w2)||w2.includes(w1)))) {
+    // Exact match
+    if(w1===w2) { score+=w1.length; matched++; used.add(j); break; }
+    // Substring match (both >= 5 chars)
+    if(w1.length>=5 && w2.length>=5 && (w1.includes(w2)||w2.includes(w1))) {
       score+=Math.max(w1.length,w2.length); matched++; used.add(j); break;
     }
+    // Stem/prefix match (e.g. "prematuro"↔"prematuridade", "colecistite"↔"colecistectomia")
+    if(w1.length>=6 && w2.length>=6) {
+      const pLen = _prefixMatch(w1,w2,6);
+      if(pLen>=6) { score+=pLen; matched++; used.add(j); break; }
+    }
   }
-  // Require at least 2 matching keywords AND total score >= 8
-  // OR 1 very specific keyword match (>= 10 chars)
-  return (matched>=2 && score>=8) || (matched>=1 && score>=10);
+  // 2+ keyword matches with score>=8, OR 1 specific match with score>=6
+  return (matched>=2 && score>=8) || (matched>=1 && score>=6);
 }
 function _parseKey(key) {
   const m = key.match(/^(.+?)\s*(\d{4})$/);
@@ -2042,11 +2096,12 @@ export function computeGlobalPrevalence(examKey) {
         if(_themesMatch(qData.t,oq.t)) { matchCount++; break; }
       }
     }
-    // Thresholds for 45 exams: muito alta=25%+(~11), alta=15%+(~7), média=7%+(~3)
+    // Thresholds calibrated for improved matching (~45 exams, median ~30 matches)
+    // muito alta: 75%+ (universal themes), alta: 50%+, média: 25%+, baixa: <25%
     const ratio = matchCount / (totalExams - 1);
-    if(ratio>=0.25) prev[qNum]="muito alta";
-    else if(ratio>=0.15) prev[qNum]="alta";
-    else if(ratio>=0.07) prev[qNum]="média";
+    if(ratio>=0.75) prev[qNum]="muito alta";
+    else if(ratio>=0.50) prev[qNum]="alta";
+    else if(ratio>=0.25) prev[qNum]="média";
   }
   _globalPrevCache[k] = prev;
   return prev;

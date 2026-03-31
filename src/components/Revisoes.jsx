@@ -90,6 +90,27 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     }
     return bestScore >= 0.5 ? bestMatch : [];
   }
+
+  // Centralized: returns [{ name, pct, isDue }] combining all sources
+  function resolveSubtopicsWithScores(r) {
+    // 1) Subtopic review cards (by parentTheme — most reliable)
+    const subRevs = reviews.filter(sr => sr.isSubtopic && sr.parentTheme && r.theme && sr.area === r.area && sr.parentTheme.toLowerCase().trim() === r.theme.toLowerCase().trim());
+    // 2) Last revLog with subtopicScores
+    const lastLog = revLogs.find(l => l.area === r.area && l.theme === r.theme && l.subtopicScores?.length > 0);
+    // 3) Subtopic names from dictionary
+    const stNames = getSubtopicsForReview(r);
+
+    // Merge all sources: name → { pct, isDue }
+    const map = new Map();
+    // Priority 1: review cards (have live pct + due dates)
+    subRevs.forEach(sr => map.set(sr.theme.toLowerCase(), { name: sr.theme, pct: sr.lastPerf, isDue: sr.nextDue <= today() }));
+    // Priority 2: revLog scores (fallback pct)
+    if (lastLog) lastLog.subtopicScores.forEach(s => { if (!map.has(s.name.toLowerCase())) map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: false }); });
+    // Priority 3: dictionary names (no pct)
+    stNames.forEach(n => { if (!map.has(n.toLowerCase())) map.set(n.toLowerCase(), { name: n, pct: null, isDue: false }); });
+
+    return [...map.values()];
+  }
   function handleSubtopicReviewSave(entries) {
     if (!stReviewModal || !onSubtopicReview) return;
     entries.forEach((e) => {
@@ -198,9 +219,9 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                     <span style={tag(C.text3)}>{INT_LABELS[r.intervalIndex]}</span>
                   </div>
                   <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>Último: <span style={{ color: perfColor(r.lastPerf) }}>{r.lastPerf}%</span> em {fmtDate(r.lastStudied)} · {r.history?.length || 0}× revisado</div>
-                  {(() => { const subRevs = reviews.filter(sr => sr.isSubtopic && sr.parentTheme && r.theme && sr.area === r.area && sr.parentTheme.toLowerCase().trim() === r.theme.toLowerCase().trim()); let allSubs = subRevs.length > 0 ? subRevs.map(s => ({ id: s.id, theme: s.theme, pct: s.lastPerf })) : []; if (allSubs.length === 0) { const lastLog = revLogs.find(l => l.area === r.area && l.theme === r.theme && l.subtopicScores?.length > 0); if (lastLog) allSubs = lastLog.subtopicScores.map((s, i) => ({ id: `log${i}`, theme: s.name, pct: s.pct })); } if (allSubs.length === 0) { const stNames = getSubtopicsForReview(r); allSubs = stNames.map((n, i) => ({ id: `st${i}`, theme: n, pct: null })); } return allSubs.length > 0 ? (
+                  {(() => { const allSubs = resolveSubtopicsWithScores(r); return allSubs.length > 0 ? (
                     <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                      {allSubs.map(s => <span key={s.id} style={{ fontSize: 10, padding: "2px 8px", borderRadius: R.pill, background: s.pct != null ? perfColor(s.pct) + "14" : C.surface, border: `1px solid ${s.pct != null ? perfColor(s.pct) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4 }}>{s.theme}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 3 }}>{s.pct}%</span>}</span>)}
+                      {allSubs.map((s, i) => <span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: R.pill, background: s.pct != null ? perfColor(s.pct) + "14" : C.surface, border: `1px solid ${s.pct != null ? perfColor(s.pct) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4 }}>{s.name}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 3 }}>{s.pct}%</span>}</span>)}
                     </div>
                   ) : null; })()}
                   {r.subtemaNote && (
@@ -215,10 +236,10 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                       {mPct !== null && <div style={{ textAlign: "center", paddingBottom: 2, fontSize: 16, fontWeight: 700, color: perfColor(mPct), ...NUM }}>{mPct}%</div>}
                       <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}><button onClick={submitMark} style={btn("#34D399", { padding: "9px 12px" })}>✓</button><button onClick={() => setMarking(null)} style={btn(C.card2, { padding: "9px 10px" })}>✕</button></div>
                     </div>
-                    {marking.subtemas && marking.subtemas.length > 0 && (
-                      <div style={{ marginTop: 10, padding: 10, background: C.surface, borderRadius: R.md, border: `1px solid ${C.purple}25` }}>
-                        <div style={{ fontSize: 11, color: C.purple, fontWeight: 600, marginBottom: 8, fontFamily: FM }}>Subtemas — % de acertos</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ marginTop: 10, padding: 10, background: C.surface, borderRadius: R.md, border: `1px solid ${C.purple}25` }}>
+                      <div style={{ fontSize: 11, color: C.purple, fontWeight: 600, marginBottom: 8, fontFamily: FM }}>Subtemas — % de acertos</div>
+                      {marking.subtemas && marking.subtemas.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                           {marking.subtemas.map((s, si) => {
                             const val = s.pct !== "" ? Number(s.pct) : null;
                             const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
@@ -227,16 +248,21 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                                 <span style={{ fontSize: 12, flex: 1, color: C.text2 }}>{s.name}</span>
                                 <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setMarking((m) => ({ ...m, subtemas: m.subtemas.map((st, i) => i !== si ? st : { ...st, pct: e.target.value }) }))} placeholder="—" style={{ ...inp(), width: 52, padding: "4px 6px", fontSize: 14, textAlign: "center", fontFamily: "SF Mono, monospace", fontWeight: 700, color: pctColor }} />
                                 <span style={{ fontSize: 11, color: C.text3 }}>%</span>
+                                <button onClick={() => setMarking((m) => ({ ...m, subtemas: m.subtemas.filter((_, i) => i !== si) }))} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 12, padding: "0 4px", opacity: 0.5 }}>✕</button>
                               </div>
                             );
                           })}
                         </div>
+                      )}
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <input value={marking._newSub || ""} onChange={(e) => setMarking((m) => ({ ...m, _newSub: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter" && marking._newSub?.trim()) { e.preventDefault(); setMarking((m) => ({ ...m, subtemas: [...(m.subtemas || []), { name: m._newSub.trim(), pct: "" }], _newSub: "" })); } }} placeholder="Novo subtema…" style={{ ...inp(), flex: 1, padding: "5px 8px", fontSize: 11 }} />
+                        <button onClick={() => { if (marking._newSub?.trim()) setMarking((m) => ({ ...m, subtemas: [...(m.subtemas || []), { name: m._newSub.trim(), pct: "" }], _newSub: "" })); }} style={btn(C.purple, { padding: "5px 10px", fontSize: 11, opacity: marking._newSub?.trim() ? 1 : 0.4 })}>+</button>
                       </div>
-                    )}
+                    </div>
                   </div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {!isM && <button onClick={() => { const subRevs = reviews.filter(sr => sr.isSubtopic && sr.key && r.key && sr.key.startsWith(r.key + "::")); const dueSubs = subRevs.filter(sr => sr.nextDue <= today()).sort((a, b) => a.lastPerf - b.lastPerf); let subtemas = null; if (dueSubs.length > 0) { subtemas = dueSubs.map(s => ({ name: s.theme, pct: "" })); } else { const st = getSubtopicsForReview(r); if (st.length > 0) subtemas = st.map(s => ({ name: s, pct: "" })); } setMarking({ id: r.id, total: "", acertos: "", subtemas }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
+                  {!isM && <button onClick={() => { const allSt = resolveSubtopicsWithScores(r); const subtemas = allSt.length > 0 ? allSt.map(s => ({ name: s.name, pct: "" })) : null; setMarking({ id: r.id, total: "", acertos: "", subtemas }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
                 </div>
               </div>
             </div>
@@ -286,9 +312,9 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                         <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[r.intervalIndex]}</span>
                         <span style={{ fontSize: 10, color: C.text3 }}>{fmtDate(r._effDue || r.nextDue)}</span>
                       </div>
-                      {(() => { const subRevs = reviews.filter(sr => sr.isSubtopic && sr.parentTheme && r.theme && sr.area === r.area && sr.parentTheme.toLowerCase().trim() === r.theme.toLowerCase().trim()); let allSubs = subRevs.length > 0 ? subRevs.map(s => ({ id: s.id, theme: s.theme, pct: s.lastPerf })) : []; if (allSubs.length === 0) { const lastLog = revLogs.find(l => l.area === r.area && l.theme === r.theme && l.subtopicScores?.length > 0); if (lastLog) allSubs = lastLog.subtopicScores.map((s, i) => ({ id: `log${i}`, theme: s.name, pct: s.pct })); } if (allSubs.length === 0) { const stNames = getSubtopicsForReview(r); allSubs = stNames.map((n, i) => ({ id: `st${i}`, theme: n, pct: null })); } return allSubs.length > 0 ? (
+                      {(() => { const allSubs = resolveSubtopicsWithScores(r); return allSubs.length > 0 ? (
                         <div style={{ marginTop: 4, display: "flex", gap: 3, flexWrap: "wrap" }}>
-                          {allSubs.map(s => <span key={s.id} style={{ fontSize: 9, padding: "1px 6px", borderRadius: R.pill, background: s.pct != null ? perfColor(s.pct) + "14" : C.surface, border: `1px solid ${s.pct != null ? perfColor(s.pct) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4 }}>{s.theme}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 2 }}>{s.pct}%</span>}</span>)}
+                          {allSubs.map((s, i) => <span key={i} style={{ fontSize: 9, padding: "1px 6px", borderRadius: R.pill, background: s.pct != null ? perfColor(s.pct) + "14" : C.surface, border: `1px solid ${s.pct != null ? perfColor(s.pct) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4 }}>{s.name}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 2 }}>{s.pct}%</span>}</span>)}
                         </div>
                       ) : null; })()}
                     </div>

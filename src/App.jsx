@@ -455,11 +455,31 @@ function App() {
     const s = { ...session, id: uid(), createdAt: today() }; persistSessions((prev) => [s, ...prev]);
     const key = `${session.area}__${session.theme.toLowerCase().trim()}`;
     const pct = perc(session.acertos, session.total);
+    // D0 revLog entry — makes session appear in "revisões passadas"
+    const logEntry = { id: uid(), date: session.date || today(), area: session.area, theme: session.theme, total: session.total, acertos: session.acertos, pct };
+    if (session.subtopicScores && session.subtopicScores.length > 0) logEntry.subtopicScores = session.subtopicScores;
+    persistLogs((prevLogs) => [logEntry, ...prevLogs]);
     persistReviews((prevReviews) => {
       const ex = prevReviews.find((r) => r.key === key);
       const ni = nxtIdx(ex?.intervalIndex || 0, pct);
       const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
-      return ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
+      let newReviews = ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
+      // Create subtopic review cards if subtopics provided
+      if (session.subtopicScores && session.subtopicScores.length > 0) {
+        session.subtopicScores.forEach((st) => {
+          const sKey = `${session.area}__${session.theme.toLowerCase().trim()}::${st.name.toLowerCase().trim()}`;
+          const exSub = newReviews.find((r) => r.key === sKey);
+          const sni = nxtIdx(exSub?.intervalIndex || 0, st.pct);
+          const sRev = {
+            id: exSub?.id || uid(), key: sKey, area: session.area, theme: st.name, parentTheme: session.theme,
+            isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
+            lastPerf: st.pct, lastStudied: today(),
+            history: [...(exSub?.history || []), { date: today(), pct: st.pct }]
+          };
+          newReviews = exSub ? newReviews.map((r) => r.key === sKey ? sRev : r) : [sRev, ...newReviews];
+        });
+      }
+      return newReviews;
     });
   }
   function addRevLog(areaId, theme, total, acertos) {

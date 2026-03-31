@@ -16,6 +16,9 @@ function SessionModal({ onSave, onClose }) {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [subtopics, setSubtopics] = useState([]);
+  const [newSub, setNewSub] = useState("");
+  const [showSubtopics, setShowSubtopics] = useState(false);
   const themeRef = useRef(null);
   const sugRef = useRef(null);
 
@@ -43,7 +46,24 @@ function SessionModal({ onSave, onClose }) {
     if (semIdx != null && !/\(Sem\.\s*\d+\)/i.test(finalTheme)) {
       finalTheme += ` (${SEMANAS[semIdx].semana})`;
     }
-    onSave({ area, theme: finalTheme, total: t, acertos: a, date, semIdx });
+    const subtopicScores = subtopics.filter((s) => s.name.trim() && s.pct !== "").map((s) => ({ name: s.name.trim(), pct: Number(s.pct) }));
+    onSave({ area, theme: finalTheme, total: t, acertos: a, date, semIdx, subtopicScores: subtopicScores.length > 0 ? subtopicScores : undefined });
+  }
+
+  function addSubtopic() {
+    const n = newSub.trim();
+    if (!n || subtopics.some((s) => s.name.toLowerCase() === n.toLowerCase())) return;
+    setSubtopics([...subtopics, { name: n, pct: "" }]);
+    setNewSub("");
+  }
+
+  function removeSubtopic(idx) {
+    setSubtopics(subtopics.filter((_, i) => i !== idx));
+  }
+
+  function setSubPct(idx, val) {
+    if (val !== "" && (Number(val) < 0 || Number(val) > 100)) return;
+    setSubtopics(subtopics.map((s, i) => i !== idx ? s : { ...s, pct: val }));
   }
 
   // Auto-complete: collect theme names from semanas for current area
@@ -139,6 +159,40 @@ function SessionModal({ onSave, onClose }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Fld label="Total questões" error={touched.total && errors.total}><input type="number" min="0" value={total} onChange={(e) => { setTotal(e.target.value); if (errors.total) setErrors((er) => ({ ...er, total: null })); }} onBlur={() => { touch("total"); validate("total"); }} style={inp(errStyle("total"))} /></Fld>
             <Fld label="Acertos" error={touched.acertos && errors.acertos}><input type="number" min="0" value={acertos} onChange={(e) => { setAcertos(e.target.value); if (errors.acertos) setErrors((er) => ({ ...er, acertos: null })); }} onBlur={() => { touch("acertos"); validate("acertos"); }} style={inp({ borderColor: "#34D39944", ...errStyle("acertos") })} /></Fld>
+          </div>
+          {/* Subtopics section */}
+          <div>
+            <button onClick={() => setShowSubtopics(!showSubtopics)} style={{ background: "none", border: `1px solid ${C.border}`, borderRadius: R.md, padding: "8px 14px", cursor: "pointer", fontSize: 12, color: C.text2, fontFamily: F, width: "100%", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>{subtopics.length > 0 ? `${subtopics.length} subtema${subtopics.length > 1 ? "s" : ""}` : "Adicionar subtemas (opcional)"}</span>
+              <span style={{ fontSize: 10, transform: showSubtopics ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s" }}>▼</span>
+            </button>
+            {showSubtopics && (
+              <div style={{ marginTop: 8, padding: 12, background: C.surface, borderRadius: R.md, border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 11, color: C.text3, marginBottom: 8, lineHeight: 1.4 }}>
+                  Subtemas entram no sistema de revisão espaçada individualmente.
+                </div>
+                {subtopics.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                    {subtopics.map((s, i) => {
+                      const val = s.pct !== "" ? Number(s.pct) : null;
+                      const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
+                      return (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: C.card2, borderRadius: R.md, border: `1px solid ${val !== null ? pctColor + "40" : C.border}` }}>
+                          <span style={{ fontSize: 12, flex: 1 }}>{s.name}</span>
+                          <input type="number" min="0" max="100" value={s.pct} onChange={(e) => setSubPct(i, e.target.value)} placeholder="%" style={{ ...inp(), width: 52, padding: "4px 6px", fontSize: 13, textAlign: "center", fontWeight: 700, color: pctColor }} />
+                          <span style={{ fontSize: 11, color: C.text3 }}>%</span>
+                          <button onClick={() => removeSubtopic(i)} style={{ background: "none", border: "none", cursor: "pointer", color: C.text3, fontSize: 13, padding: "2px 4px", opacity: 0.5 }} onMouseEnter={(e) => e.currentTarget.style.opacity = "1"} onMouseLeave={(e) => e.currentTarget.style.opacity = "0.5"}>✕</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input value={newSub} onChange={(e) => setNewSub(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtopic(); } }} placeholder="Ex: Pneumonia viral, Asma…" style={{ ...inp(), flex: 1, padding: "8px 12px", fontSize: 12 }} />
+                  <button onClick={addSubtopic} disabled={!newSub.trim()} style={btn(C.blue, { padding: "8px 12px", fontSize: 12, opacity: newSub.trim() ? 1 : 0.4 })}>+</button>
+                </div>
+              </div>
+            )}
           </div>
           <button onClick={submit} style={btn("#34D399", { width: "100%", marginTop: 4 })}>✓ Salvar sessão</button>
         </div>

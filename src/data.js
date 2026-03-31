@@ -2021,6 +2021,37 @@ export function generateExamAnalysis(examName) {
   return { resumo, distribuicao, destaques, sempreCAI, prev };
 }
 
+// ── Global prevalence: cross-institution analysis ───────────────────────────
+// For each question in an exam, checks how many OTHER exams (any institution)
+// contain a matching theme. Cached for performance.
+const _globalPrevCache = {};
+export function computeGlobalPrevalence(examKey) {
+  const k = examKey.toLowerCase().replace(/[^a-z0-9 ]/g,"").replace(/\s+/g," ").trim();
+  if(_globalPrevCache[k]) return _globalPrevCache[k];
+  const examData = EXAM_THEMES_RAW[k];
+  if(!examData) return {};
+  const allKeys = Object.keys(EXAM_THEMES_RAW);
+  const totalExams = allKeys.length;
+  const prev = {};
+  for(const [qNum,qData] of Object.entries(examData)) {
+    let matchCount = 0;
+    for(const otherKey of allKeys) {
+      if(otherKey===k) continue;
+      const otherData = EXAM_THEMES_RAW[otherKey];
+      for(const oq of Object.values(otherData)) {
+        if(_themesMatch(qData.t,oq.t)) { matchCount++; break; }
+      }
+    }
+    // Thresholds for 45 exams: muito alta=25%+(~11), alta=15%+(~7), média=7%+(~3)
+    const ratio = matchCount / (totalExams - 1);
+    if(ratio>=0.25) prev[qNum]="muito alta";
+    else if(ratio>=0.15) prev[qNum]="alta";
+    else if(ratio>=0.07) prev[qNum]="média";
+  }
+  _globalPrevCache[k] = prev;
+  return prev;
+}
+
 // Pre-built analyses map (hand-crafted take priority over auto-generated)
 export const EXAM_ANALYSES = {
   "ufcspa 2026": UFCSPA_2026_ANALYSIS,

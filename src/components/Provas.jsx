@@ -320,6 +320,289 @@ function ExamComparison({ exams, sortMode, setSortMode }) {
   );
 }
 
+function AnalysisSection({ analysis, exam, globalPrev }) {
+  const [activeTab, setActiveTab] = useState("resumo");
+  const [expandedArea, setExpandedArea] = useState(null);
+  const [showAllRecurring, setShowAllRecurring] = useState(false);
+  const PSTYLE = { "muito alta": { color: C.green, label: "Muito alta", icon: "🔥" }, "alta": { color: "#60A5FA", label: "Alta", icon: "📈" }, "média": { color: "#FBBF24", label: "Média", icon: "📊" }, "baixa": { color: C.text3, label: "Baixa", icon: "—" } };
+  const areaColors = { clinica: "#60A5FA", cirurgia: "#F87171", go: "#F472B6", ped: "#2DD4BF", preventiva: "#A78BFA" };
+  const areaLabels = { clinica: "Clínica", cirurgia: "Cirurgia", go: "GO", ped: "Pediatria", preventiva: "Preventiva" };
+
+  // Compute distribution stats
+  const dist = analysis.distribuicao || {};
+  const totalQ = Object.values(dist).reduce((a, b) => a + b, 0);
+
+  // Compute global prev distribution for this exam
+  const prevStats = useMemo(() => {
+    const counts = { "muito alta": 0, "alta": 0, "média": 0, "baixa": 0 };
+    if (!exam.qDetails) return counts;
+    const allNums = Object.keys(exam.qDetails).map(Number);
+    allNums.forEach(n => {
+      const p = globalPrev[n] || "baixa";
+      counts[p]++;
+    });
+    return counts;
+  }, [exam.qDetails, globalPrev]);
+  const totalPrev = Object.values(prevStats).reduce((a, b) => a + b, 0);
+
+  // Per-area question details with prevalence
+  const areaQuestions = useMemo(() => {
+    const out = {};
+    if (!exam.qDetails) return out;
+    for (const aId of Object.keys(areaLabels)) { out[aId] = []; }
+    Object.entries(exam.qDetails).forEach(([n, d]) => {
+      if (!d?.area || !out[d.area]) return;
+      const nn = Number(n);
+      const cats = exam.cats || {};
+      const cat = cats.soube?.includes(nn) ? "soube" : cats.chutou?.includes(nn) ? "chutou" : cats.errou_viu?.includes(nn) ? "errou_viu" : cats.errou_nao?.includes(nn) ? "errou_nao" : null;
+      const gp = globalPrev[nn] || "baixa";
+      const ip = analysis.prev?.[nn] || null;
+      out[d.area].push({ n: nn, theme: d.theme || "—", cat, gp, ip });
+    });
+    for (const aId of Object.keys(out)) {
+      out[aId].sort((a, b) => a.n - b.n);
+    }
+    return out;
+  }, [exam, globalPrev, analysis]);
+
+  const tabs = [
+    { id: "resumo", label: "Visão Geral", icon: "📊" },
+    { id: "areas", label: "Por Área", icon: "🏥" },
+    { id: "recorrentes", label: "Recorrentes", icon: "🔄" },
+    { id: "questoes", label: "Todas Questões", icon: "📋" },
+  ];
+
+  return (
+    <div style={{ background: `linear-gradient(135deg,${C.purple}06,${C.blue}04)`, border: `1px solid ${C.purple}25`, borderRadius: R.xl, overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ background: `linear-gradient(135deg,${C.purple}18,${C.blue}12)`, padding: "14px 16px", borderBottom: `1px solid ${C.purple}20` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <div style={{ width: 38, height: 38, borderRadius: R.lg, background: C.purple + "22", border: `2px solid ${C.purple}50`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 18 }}>📊</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: C.purple, letterSpacing: -0.3 }}>Análise Comparativa</div>
+            <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>{exam.name} · {Object.keys(EXAM_THEMES_DB).length} provas no banco</div>
+          </div>
+        </div>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{
+              background: activeTab === t.id ? C.purple + "30" : "transparent",
+              border: activeTab === t.id ? `1px solid ${C.purple}50` : `1px solid transparent`,
+              borderRadius: R.pill, padding: "5px 12px", cursor: "pointer",
+              color: activeTab === t.id ? C.purple : C.text3,
+              fontSize: 11, fontWeight: 600, fontFamily: F, whiteSpace: "nowrap",
+              transition: "all 0.15s", display: "flex", alignItems: "center", gap: 4
+            }}>
+              <span style={{ fontSize: 12 }}>{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ padding: S.xl }}>
+        {/* ── Tab: Visão Geral ── */}
+        {activeTab === "resumo" && <>
+          <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.6, marginBottom: 16, padding: "10px 14px", background: C.card, borderRadius: R.lg, borderLeft: `3px solid ${C.purple}` }}>
+            {analysis.resumo}
+          </div>
+
+          {/* Distribution donut-like bars */}
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Distribuição por área ({totalQ} questões)</div>
+          <div style={{ display: "flex", height: 10, borderRadius: R.pill, overflow: "hidden", marginBottom: 6, border: `1px solid ${C.border}` }}>
+            {["clinica", "cirurgia", "go", "ped", "preventiva"].map(aId => {
+              const w = totalQ > 0 ? (dist[aId] || 0) / totalQ * 100 : 0;
+              return w > 0 ? <div key={aId} style={{ width: `${w}%`, background: areaColors[aId], transition: "width 0.4s" }} title={`${areaLabels[aId]}: ${dist[aId]}`} /> : null;
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+            {["clinica", "cirurgia", "go", "ped", "preventiva"].map(aId => (
+              <div key={aId} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: areaColors[aId] }} />
+                <span style={{ fontSize: 10, color: C.text2, fontFamily: FM }}>{areaLabels[aId]}: {dist[aId] || 0}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Global prevalence summary */}
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Prevalência geral das questões</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginBottom: 18 }}>
+            {[{ key: "muito alta", label: "Muito alta", icon: "🔥" }, { key: "alta", label: "Alta", icon: "📈" }, { key: "média", label: "Média", icon: "📊" }, { key: "baixa", label: "Baixa/Nova", icon: "✨" }].map(p => {
+              const cnt = prevStats[p.key] || 0;
+              const pct = totalPrev > 0 ? Math.round(cnt / totalPrev * 100) : 0;
+              const st = PSTYLE[p.key];
+              return (
+                <div key={p.key} style={{ background: C.card, borderRadius: R.lg, padding: "10px 8px", textAlign: "center", border: `1px solid ${st.color}25`, position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: `${pct}%`, background: st.color + "0A", transition: "height 0.4s" }} />
+                  <div style={{ fontSize: 14 }}>{p.icon}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: st.color, fontFamily: FN, lineHeight: 1.2 }}>{cnt}</div>
+                  <div style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>{pct}%</div>
+                  <div style={{ fontSize: 9, color: st.color, fontWeight: 600, marginTop: 2 }}>{p.label}</div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Key insights */}
+          {analysis.destaques && analysis.destaques.length > 0 && <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Destaques por área</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
+              {analysis.destaques.map((d, i) => {
+                const areaMatch = d.match(/^(Clínica|Cirurgia|GO|Pediatria|Preventiva)/);
+                const aId = areaMatch ? Object.entries(areaLabels).find(([_, v]) => v === areaMatch[1])?.[0] : null;
+                const col = aId ? areaColors[aId] : C.text2;
+                return (
+                  <div key={i} style={{ fontSize: 11, color: C.text2, lineHeight: 1.5, padding: "8px 12px", background: C.card, borderRadius: R.md, borderLeft: `3px solid ${col}` }}>
+                    {d}
+                  </div>
+                );
+              })}
+            </div>
+          </>}
+        </>}
+
+        {/* ── Tab: Por Área ── */}
+        {activeTab === "areas" && <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {["clinica", "cirurgia", "go", "ped", "preventiva"].map(aId => {
+              const qs = areaQuestions[aId] || [];
+              if (!qs.length) return null;
+              const isExpanded = expandedArea === aId;
+              const prevDist = { m: 0, a: 0, md: 0, b: 0 };
+              qs.forEach(q => { if (q.gp === "muito alta") prevDist.m++; else if (q.gp === "alta") prevDist.a++; else if (q.gp === "média") prevDist.md++; else prevDist.b++; });
+              const catDist = { soube: 0, chutou: 0, errou_viu: 0, errou_nao: 0 };
+              qs.forEach(q => { if (q.cat) catDist[q.cat]++; });
+              const acertosArea = catDist.soube + catDist.chutou;
+              const pctArea = qs.length > 0 ? Math.round(acertosArea / qs.length * 100) : 0;
+              return (
+                <div key={aId} style={{ background: C.card, borderRadius: R.lg, border: `1px solid ${areaColors[aId]}20`, overflow: "hidden" }}>
+                  <div onClick={() => setExpandedArea(isExpanded ? null : aId)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", cursor: "pointer", borderLeft: `4px solid ${areaColors[aId]}` }}>
+                    <div style={{ width: 40, height: 40, borderRadius: R.md, background: areaColors[aId] + "18", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <span style={{ fontSize: 18, fontWeight: 800, color: areaColors[aId], fontFamily: FN }}>{qs.length}</span>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: areaColors[aId] }}>{areaLabels[aId]}</div>
+                      <div style={{ display: "flex", gap: 6, marginTop: 3, flexWrap: "wrap" }}>
+                        {prevDist.m > 0 && <span style={{ fontSize: 9, fontFamily: FM, color: PSTYLE["muito alta"].color }}>🔥 {prevDist.m}</span>}
+                        {prevDist.a > 0 && <span style={{ fontSize: 9, fontFamily: FM, color: PSTYLE["alta"].color }}>📈 {prevDist.a}</span>}
+                        {prevDist.md > 0 && <span style={{ fontSize: 9, fontFamily: FM, color: PSTYLE["média"].color }}>📊 {prevDist.md}</span>}
+                        {prevDist.b > 0 && <span style={{ fontSize: 9, fontFamily: FM, color: PSTYLE["baixa"].color }}>✨ {prevDist.b}</span>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right", flexShrink: 0 }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: perfColor(pctArea), fontFamily: FN }}>{pctArea}%</div>
+                      <div style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>{acertosArea}/{qs.length}</div>
+                    </div>
+                    <span style={{ color: C.text3, fontSize: 12, transition: "transform .2s", transform: isExpanded ? "rotate(180deg)" : "rotate(0)", flexShrink: 0 }}>▼</span>
+                  </div>
+                  {isExpanded && (
+                    <div style={{ padding: "0 14px 12px", display: "flex", flexDirection: "column", gap: 3, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                      {qs.map(q => {
+                        const st = PSTYLE[q.gp] || PSTYLE["baixa"];
+                        const catCol = q.cat ? catColor(q.cat) : C.text3;
+                        return (
+                          <div key={q.n} style={{ display: "flex", gap: 6, alignItems: "center", padding: "5px 8px", background: C.surface, borderRadius: R.sm }}>
+                            <span style={{ fontSize: 10, fontWeight: 800, fontFamily: FM, color: catCol, minWidth: 28 }}>Q{q.n}</span>
+                            <div style={{ width: 7, height: 7, borderRadius: "50%", background: catCol, flexShrink: 0 }} />
+                            <span style={{ fontSize: 9, fontWeight: 700, color: st.color, fontFamily: FM, padding: "1px 5px", borderRadius: R.pill, background: st.color + "18", minWidth: 50, textAlign: "center", flexShrink: 0 }}>{st.label}</span>
+                            <span style={{ fontSize: 11, flex: 1, color: C.text2, lineHeight: 1.3 }}>{q.theme}</span>
+                            {q.ip && <span style={{ fontSize: 8, fontFamily: FM, color: C.purple, background: C.purple + "14", padding: "1px 5px", borderRadius: R.pill, flexShrink: 0, whiteSpace: "nowrap" }}>inst: {q.ip}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>}
+
+        {/* ── Tab: Recorrentes ── */}
+        {activeTab === "recorrentes" && <>
+          {analysis.sempreCAI && analysis.sempreCAI.length > 0 ? <>
+            <div style={{ fontSize: 12, color: C.text2, lineHeight: 1.5, marginBottom: 14, padding: "10px 14px", background: C.card, borderRadius: R.lg, borderLeft: `3px solid ${C.green}` }}>
+              Temas que aparecem com frequência nas provas desta instituição. Estude com prioridade — alta chance de cair novamente.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {(showAllRecurring ? analysis.sempreCAI : analysis.sempreCAI.slice(0, 15)).map((s, i) => {
+                const freqMatch = s.freq.match(/(\d+)\/(\d+)/);
+                const freqNum = freqMatch ? parseInt(freqMatch[1]) : 0;
+                const freqDen = freqMatch ? parseInt(freqMatch[2]) : 1;
+                const freqPct = Math.round(freqNum / freqDen * 100);
+                const isAll = freqNum === freqDen;
+                const dd = exam.qDetails?.[s.q];
+                const aId = dd?.area;
+                const col = aId ? areaColors[aId] : C.green;
+                const gp = globalPrev[s.q];
+                const gpSt = gp ? PSTYLE[gp] : null;
+                return (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 12px", background: C.card, borderRadius: R.md, borderLeft: `3px solid ${isAll ? C.green : C.blue}` }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, fontFamily: FM, color: col, minWidth: 28 }}>Q{s.q}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, color: C.text, lineHeight: 1.3 }}>{s.tema}</div>
+                      {aId && <span style={{ fontSize: 9, color: areaColors[aId], fontWeight: 600 }}>{areaLabels[aId]}</span>}
+                    </div>
+                    {gpSt && <span style={{ fontSize: 8, fontFamily: FM, color: gpSt.color, background: gpSt.color + "14", padding: "2px 6px", borderRadius: R.pill, flexShrink: 0 }}>geral: {gpSt.label}</span>}
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                      <div style={{ width: 40, height: 6, borderRadius: R.pill, background: C.surface, overflow: "hidden" }}>
+                        <div style={{ width: `${freqPct}%`, height: "100%", background: isAll ? C.green : C.blue, borderRadius: R.pill }} />
+                      </div>
+                      <span style={{ fontSize: 10, fontWeight: 700, fontFamily: FM, color: isAll ? C.green : C.blue, minWidth: 48, textAlign: "right" }}>{s.freq}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {analysis.sempreCAI.length > 15 && (
+              <button onClick={() => setShowAllRecurring(!showAllRecurring)} style={{
+                background: "transparent", border: `1px solid ${C.green}30`, borderRadius: R.pill,
+                padding: "6px 14px", color: C.green, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                marginTop: 8, fontFamily: F, width: "100%", textAlign: "center"
+              }}>
+                {showAllRecurring ? "Mostrar menos" : `Ver todos (${analysis.sempreCAI.length} temas)`}
+              </button>
+            )}
+          </> : <div style={{ fontSize: 12, color: C.text3, textAlign: "center", padding: 20 }}>Dados insuficientes para análise de recorrência (necessário 2+ provas da mesma instituição)</div>}
+        </>}
+
+        {/* ── Tab: Todas Questões ── */}
+        {activeTab === "questoes" && <>
+          <div style={{ fontSize: 11, color: C.text3, fontFamily: FM, marginBottom: 10 }}>
+            Todas as {totalQ} questões com prevalência geral ({Object.keys(EXAM_THEMES_DB).length} provas) e institucional
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, maxHeight: 500, overflowY: "auto", borderRadius: R.md }}>
+            {Object.entries(exam.qDetails || {}).sort(([a], [b]) => Number(a) - Number(b)).map(([n, d]) => {
+              const nn = Number(n);
+              const gp = globalPrev[nn] || "baixa";
+              const ip = analysis.prev?.[nn];
+              const gpSt = PSTYLE[gp];
+              const ipSt = ip ? PSTYLE[ip] : null;
+              const aId = d?.area;
+              const col = aId ? areaColors[aId] : C.text3;
+              const cats2 = exam.cats || {};
+              const catId = cats2.soube?.includes(nn) ? "soube" : cats2.chutou?.includes(nn) ? "chutou" : cats2.errou_viu?.includes(nn) ? "errou_viu" : cats2.errou_nao?.includes(nn) ? "errou_nao" : null;
+              const catCol2 = catId ? catColor(catId) : C.text3;
+              return (
+                <div key={n} style={{ display: "flex", gap: 6, alignItems: "center", padding: "5px 8px", background: nn % 2 === 0 ? C.card : C.surface, borderRadius: R.sm }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, fontFamily: FM, color: catCol2, minWidth: 28 }}>Q{n}</span>
+                  {catId && <div style={{ width: 7, height: 7, borderRadius: "50%", background: catCol2, flexShrink: 0 }} />}
+                  <span style={{ fontSize: 9, fontWeight: 700, color: gpSt.color, fontFamily: FM, padding: "1px 5px", borderRadius: R.pill, background: gpSt.color + "15", minWidth: 50, textAlign: "center", flexShrink: 0 }}>{gpSt.label}</span>
+                  {aId && <span style={{ fontSize: 9, fontWeight: 600, color: areaColors[aId], fontFamily: FM, minWidth: 30, flexShrink: 0 }}>{areaLabels[aId]?.slice(0, 4)}</span>}
+                  <span style={{ fontSize: 11, flex: 1, color: C.text2, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d?.theme || "—"}</span>
+                  {ipSt && <span style={{ fontSize: 8, fontFamily: FM, color: C.purple, background: C.purple + "12", padding: "1px 5px", borderRadius: R.pill, flexShrink: 0 }}>inst:{ip}</span>}
+                </div>
+              );
+            })}
+          </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
 function ExamCard({ exam, allLogs, isOpen, onToggle, onDel, onUpdate, knownThemes }) {
   const [editMode, setEditMode] = useState(false);
   const [editDetails, setEditDetails] = useState({});
@@ -390,16 +673,9 @@ function ExamCard({ exam, allLogs, isOpen, onToggle, onDel, onUpdate, knownTheme
               <div style={{fontSize:10,color:C.text3,fontFamily:FM,marginTop:6,display:"flex",gap:8,flexWrap:"wrap"}}>{CATS.map((cat)=><span key={cat.id} style={{color:cat.color,fontWeight:600}}>{cat.short}: {st[cat.id]||0}</span>)}</div>
             </div>
           );})}</div></div>
-        {ev>0&&(()=>{const catEV=CATS.find(c=>c.id==="errou_viu");return(<div style={{background:C.surface,border:`1px solid ${catEV.color}30`,borderRadius:R.lg,padding:S.lg}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}><div style={{width:10,height:10,borderRadius:"50%",background:catEV.color,flexShrink:0}}/><span style={{fontSize:13,fontWeight:600,color:catEV.color}}>Errei mas já estudei — revisar com urgência ({ev})</span></div><div style={{display:"flex",flexDirection:"column",gap:10}}>{AREAS.map((a)=>{const qs=evByArea[a.id];if(!qs.length)return null;return(<div key={a.id}><div style={{fontSize:11,fontWeight:600,color:a.color,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>{a.label}</div><div style={{display:"flex",flexDirection:"column",gap:4}}>{qs.map((q)=>{const dd=exam.qDetails?.[q.n];const pv=globalPrev[q.n]||dd?.prev||(analysis?.prev?.[q.n]);const pvSt=pv&&PSTYLE[pv];return(<div key={q.n} style={{display:"flex",gap:8,alignItems:"center",padding:"6px 10px",background:catEV.color+"0D",borderRadius:8}}><span style={{fontSize:10,fontWeight:700,color:catEV.color,fontFamily:FM,minWidth:24}}>Q{q.n}</span>{pvSt&&<span style={{fontSize:9,fontWeight:700,color:pvSt.color,fontFamily:FM,minWidth:56,flexShrink:0}}>{pvSt.label}</span>}<div style={{width:7,height:7,borderRadius:"50%",background:catEV.color,flexShrink:0}}/><span style={{fontSize:12,flex:1}}>{q.theme}</span>{q.schedule&&<span style={{fontSize:10,color:C.blue,fontFamily:FM,background:C.blue+"14",padding:"1px 6px",borderRadius:4,flexShrink:0}}>📅 {q.schedule.semana}</span>}</div>);})}</div></div>);})}</div></div>);})()}
-        {en>0&&(()=>{const catEN=CATS.find(c=>c.id==="errou_nao");return(<div style={{background:C.surface,border:`1px solid ${catEN.color}30`,borderRadius:R.lg,padding:S.lg}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4}}><div style={{width:10,height:10,borderRadius:"50%",background:catEN.color,flexShrink:0}}/><span style={{fontSize:13,fontWeight:600,color:catEN.color}}>Nunca estudei — {en} gaps a cobrir</span></div><div style={{fontSize:11,color:C.text3,fontFamily:FM,marginBottom:12}}>Prevalência geral baseada em todo o banco de provas ({Object.keys(EXAM_THEMES_DB).length} provas)</div><div style={{display:"flex",flexDirection:"column",gap:14}}>{AREAS.map((a)=>{const qs=enByArea[a.id];if(!qs.length)return null;const sorted=[...qs.map((q)=>{const dd=exam.qDetails?.[q.n]; return {...q,p:globalPrev[q.n]||dd?.prev||(analysis?.prev?.[q.n])||"baixa"};})].sort((x,y)=>(PORD[x.p]??3)-(PORD[y.p]??3));return(<div key={a.id}><div style={{fontSize:11,fontWeight:600,color:a.color,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>{a.label}</div><div style={{display:"flex",flexDirection:"column",gap:3}}>{sorted.map((q)=>{const st2=PSTYLE[q.p]||PSTYLE["baixa"];return(<div key={q.n} style={{display:"flex",gap:8,alignItems:"center",padding:"5px 10px",background:st2.color+"10",borderRadius:8}}><div style={{width:7,height:7,borderRadius:"50%",background:catEN.color,flexShrink:0}}/><span style={{fontSize:10,fontWeight:700,color:st2.color,fontFamily:FM,minWidth:64,flexShrink:0}}>{st2.label}</span><span style={{fontSize:12,flex:1}}>{q.theme}</span>{q.schedule&&<span style={{fontSize:10,color:C.blue,fontFamily:FM,background:C.blue+"14",padding:"1px 6px",borderRadius:4,flexShrink:0}}>📅 {q.schedule.semana}</span>}</div>);})}</div></div>);})}</div></div>);})()}
-        {analysis&&<div style={{background:C.surface,border:`1px solid ${C.purple}30`,borderRadius:R.lg,padding:S.lg}}>
-          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}><span style={{fontSize:16}}>📊</span><span style={{fontSize:14,fontWeight:700,color:C.purple}}>Análise Comparativa — {exam.name}</span></div>
-          <div style={{fontSize:12,color:C.text2,marginBottom:12,lineHeight:1.5}}>{analysis.resumo}</div>
-          {analysis.destaques&&analysis.destaques.length>0&&<><div style={{fontSize:11,fontWeight:600,color:C.text3,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Destaques por área</div>
-          <div style={{display:"flex",flexDirection:"column",gap:4,marginBottom:14}}>{analysis.destaques.map((d,i)=><div key={i} style={{fontSize:11,color:C.text2,lineHeight:1.5,padding:"4px 8px",background:C.bg,borderRadius:6}}>• {d}</div>)}</div></>}
-          {analysis.sempreCAI&&analysis.sempreCAI.length>0&&<><div style={{fontSize:11,fontWeight:600,color:C.green,marginBottom:6,textTransform:"uppercase",letterSpacing:0.5}}>Temas recorrentes na instituição ({analysis.sempreCAI.length})</div>
-          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{analysis.sempreCAI.slice(0,15).map((s,i)=><div key={i} style={{fontSize:10,padding:"4px 10px",borderRadius:R.pill,background:C.green+"14",border:`1px solid ${C.green}25`,color:C.green,fontWeight:600}}>Q{s.q} {s.tema} ({s.freq})</div>)}{analysis.sempreCAI.length>15&&<div style={{fontSize:10,padding:"4px 10px",borderRadius:R.pill,background:C.text3+"14",border:`1px solid ${C.text3}25`,color:C.text3,fontWeight:600}}>…e mais {analysis.sempreCAI.length-15} temas</div>}</div></>}
-        </div>}
+        {ev>0&&(()=>{const catEV=CATS.find(c=>c.id==="errou_viu");return(<div style={{background:`linear-gradient(135deg,${catEV.color}08,${catEV.color}03)`,border:`1px solid ${catEV.color}30`,borderRadius:R.xl,padding:S.xl,position:"relative",overflow:"hidden"}}><div style={{position:"absolute",top:-20,right:-20,width:80,height:80,borderRadius:"50%",background:catEV.color+"08"}}/><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}><div style={{width:36,height:36,borderRadius:R.md,background:catEV.color+"18",border:`2px solid ${catEV.color}40`,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:16}}>🔄</span></div><div><span style={{fontSize:14,fontWeight:700,color:catEV.color}}>Revisar com urgência</span><div style={{fontSize:11,color:C.text3,fontFamily:FM}}>{ev} questões que errei mas já estudei</div></div></div><div style={{display:"flex",flexDirection:"column",gap:12}}>{AREAS.map((a)=>{const qs=evByArea[a.id];if(!qs.length)return null;return(<div key={a.id} style={{background:C.card,borderRadius:R.lg,padding:S.lg,borderLeft:`3px solid ${a.color}`}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><span style={{fontSize:12,fontWeight:700,color:a.color,textTransform:"uppercase",letterSpacing:0.5}}>{a.label}</span><span style={{fontSize:10,fontFamily:FM,color:C.text3,background:C.surface,padding:"1px 6px",borderRadius:R.pill}}>{qs.length}</span></div><div style={{display:"flex",flexDirection:"column",gap:4}}>{qs.map((q)=>{const dd=exam.qDetails?.[q.n];const pv=globalPrev[q.n]||dd?.prev||(analysis?.prev?.[q.n]);const pvSt=pv&&PSTYLE[pv];return(<div key={q.n} style={{display:"flex",gap:8,alignItems:"center",padding:"7px 10px",background:C.surface,borderRadius:R.md,transition:"transform 0.1s"}}><span style={{fontSize:11,fontWeight:800,color:catEV.color,fontFamily:FM,minWidth:28}}>Q{q.n}</span>{pvSt&&<span style={{fontSize:9,fontWeight:700,color:pvSt.color,fontFamily:FM,padding:"2px 6px",borderRadius:R.pill,background:pvSt.color+"18",border:`1px solid ${pvSt.color}30`,minWidth:52,textAlign:"center",flexShrink:0}}>{pvSt.label}</span>}<span style={{fontSize:12,flex:1,lineHeight:1.3}}>{q.theme}</span>{q.schedule&&<span style={{fontSize:9,color:C.blue,fontFamily:FM,background:C.blue+"14",padding:"2px 8px",borderRadius:R.pill,flexShrink:0,whiteSpace:"nowrap"}}>📅 {q.schedule.semana}</span>}</div>);})}</div></div>);})}</div></div>);})()}
+        {en>0&&(()=>{const catEN=CATS.find(c=>c.id==="errou_nao");const totalDB=Object.keys(EXAM_THEMES_DB).length;const prevCounts={m:0,a:0,md:0,b:0};const allEnQ=[];(cats.errou_nao||[]).forEach((n)=>{const dd=exam.qDetails?.[n];if(!dd?.area)return;const p=globalPrev[n]||dd?.prev||(analysis?.prev?.[n])||"baixa";allEnQ.push({n,area:dd.area,theme:dd.theme||"—",p,schedule:mapThemeToSchedule(dd.theme)});if(p==="muito alta")prevCounts.m++;else if(p==="alta")prevCounts.a++;else if(p==="média")prevCounts.md++;else prevCounts.b++;});return(<div style={{background:`linear-gradient(135deg,${catEN.color}08,${catEN.color}03)`,border:`1px solid ${catEN.color}30`,borderRadius:R.xl,padding:S.xl,position:"relative",overflow:"hidden"}}><div style={{position:"absolute",top:-20,right:-20,width:80,height:80,borderRadius:"50%",background:catEN.color+"08"}}/><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:6}}><div style={{width:36,height:36,borderRadius:R.md,background:catEN.color+"18",border:`2px solid ${catEN.color}40`,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:16}}>🎯</span></div><div><span style={{fontSize:14,fontWeight:700,color:catEN.color}}>Gaps de estudo — {en} temas</span><div style={{fontSize:11,color:C.text3,fontFamily:FM}}>Prevalência geral · {totalDB} provas analisadas</div></div></div><div style={{display:"flex",gap:6,flexWrap:"wrap",margin:"10px 0 14px"}}>{[{label:"Muito alta",count:prevCounts.m,color:PSTYLE["muito alta"].color},{label:"Alta",count:prevCounts.a,color:PSTYLE["alta"].color},{label:"Média",count:prevCounts.md,color:PSTYLE["média"].color},{label:"Baixa",count:prevCounts.b,color:PSTYLE["baixa"].color}].filter(x=>x.count>0).map((x,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"4px 10px",borderRadius:R.pill,background:x.color+"14",border:`1px solid ${x.color}30`}}><div style={{width:8,height:8,borderRadius:"50%",background:x.color}}/><span style={{fontSize:11,fontWeight:700,color:x.color,fontFamily:FM}}>{x.count}</span><span style={{fontSize:10,color:C.text3}}>{x.label}</span></div>)}</div><div style={{display:"flex",flexDirection:"column",gap:12}}>{AREAS.map((a)=>{const qs=allEnQ.filter(q=>q.area===a.id);if(!qs.length)return null;const sorted=[...qs].sort((x,y)=>(PORD[x.p]??3)-(PORD[y.p]??3));return(<div key={a.id} style={{background:C.card,borderRadius:R.lg,padding:S.lg,borderLeft:`3px solid ${a.color}`}}><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}><span style={{fontSize:12,fontWeight:700,color:a.color,textTransform:"uppercase",letterSpacing:0.5}}>{a.label}</span><span style={{fontSize:10,fontFamily:FM,color:C.text3,background:C.surface,padding:"1px 6px",borderRadius:R.pill}}>{qs.length}</span></div><div style={{display:"flex",flexDirection:"column",gap:3}}>{sorted.map((q)=>{const st2=PSTYLE[q.p]||PSTYLE["baixa"];return(<div key={q.n} style={{display:"flex",gap:8,alignItems:"center",padding:"6px 10px",background:st2.color+"08",borderRadius:R.md,borderLeft:`3px solid ${st2.color}40`}}><span style={{fontSize:11,fontWeight:800,color:catEN.color,fontFamily:FM,minWidth:28}}>Q{q.n}</span><span style={{fontSize:9,fontWeight:700,color:st2.color,fontFamily:FM,padding:"2px 6px",borderRadius:R.pill,background:st2.color+"18",border:`1px solid ${st2.color}30`,minWidth:52,textAlign:"center",flexShrink:0}}>{st2.label}</span><span style={{fontSize:12,flex:1,lineHeight:1.3}}>{q.theme}</span>{q.schedule&&<span style={{fontSize:9,color:C.blue,fontFamily:FM,background:C.blue+"14",padding:"2px 8px",borderRadius:R.pill,flexShrink:0,whiteSpace:"nowrap"}}>📅 {q.schedule.semana}</span>}</div>);})}</div></div>);})}</div></div>);})()}
+        {analysis&&<AnalysisSection analysis={analysis} exam={exam} globalPrev={globalPrev} />}
       </div>}
     </div>
   );

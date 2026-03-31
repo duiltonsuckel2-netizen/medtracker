@@ -189,23 +189,6 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
           )}
         </div>
       </div>
-      {/* Anki Flashcards counter */}
-      <div style={{ background: C.card, border: `1px solid ${C.yellow}30`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, boxShadow: SH.sm, display: "flex", alignItems: "center", gap: S.lg, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: S.md }}>
-          <span style={{ fontSize: 20 }}>{"🃏"}</span>
-          <div>
-            <div style={{ fontSize: 11, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>Anki total</div>
-            <div style={{ fontSize: 18, fontWeight: 800, fontFamily: FN, color: C.yellow }}>{ankiTotal.toLocaleString("pt-BR")}</div>
-          </div>
-        </div>
-        <div style={{ height: 32, width: 1, background: C.border2 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: S.sm, flex: 1, minWidth: 0 }}>
-          <span style={{ fontSize: 12, color: C.text3, whiteSpace: "nowrap" }}>Hoje:</span>
-          <span style={{ fontSize: 14, fontWeight: 700, fontFamily: FN, color: ankiToday ? C.green : C.text3 }}>{ankiToday?.count || 0}</span>
-          <input value={ankiInput} onChange={(e) => setAnkiInput(e.target.value.replace(/[^0-9]/g, ""))} onKeyDown={(e) => { if (e.key === "Enter") addAnkiCards(); }} placeholder="+ cards" style={{ ...inp(), width: 80, padding: "6px 10px", fontSize: 12, textAlign: "center" }} />
-          <button onClick={addAnkiCards} style={btn(C.yellow, { padding: "6px 14px", fontSize: 12, color: "#000" })}>+</button>
-        </div>
-      </div>
       <div style={{ display: "flex", gap: S.md, alignItems: "center", flexWrap: "wrap" }}>
         <div style={{ display: "flex", background: C.card, border: `1px solid ${C.border}`, borderRadius: R.pill, padding: 3, gap: 2, boxShadow: SH.sm }}>
           {["current", "history"].map((v) => <button key={v} onClick={() => setView(v)} style={{ background: view === v ? C.purple + "20" : "none", border: view === v ? `1px solid ${C.purple}35` : "1px solid transparent", borderRadius: R.pill, padding: "8px 18px", color: view === v ? C.purple : C.text3, fontSize: 12, fontFamily: F, cursor: "pointer", fontWeight: view === v ? 700 : 500, boxShadow: view === v ? SH.glow(C.purple) : "none", minHeight: 36, transition: "all .2s ease" }}>{v === "current" ? "Semana" : "Histórico"}</button>)}
@@ -271,14 +254,16 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
                   {day.items.map((item) => {
                     const isEd = editing?.did === day.id && editing?.iid === item.id;
                     const wasPulsed = justToggled === item.id;
+                    const isFlashcard = item.id && item.id.startsWith("fl_");
                     return (
-                      <div key={item.id} style={{ display: "flex", alignItems: "center", gap: S.md, padding: "12px 14px", background: item.done ? C.card : C.card2, borderRadius: R.md, border: `1px solid ${item.done ? C.green + "15" : C.border}`, transition: "all .2s ease" }}>
+                      <div key={item.id} style={{ display: "flex", flexDirection: isFlashcard ? "column" : "row", gap: isFlashcard ? S.sm : S.md, padding: "12px 14px", background: item.done ? C.card : C.card2, borderRadius: R.md, border: `1px solid ${isFlashcard ? C.yellow + "25" : (item.done ? C.green + "15" : C.border)}`, transition: "all .2s ease" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: S.md }}>
                         <div onClick={() => toggleDone(day.id, item.id)} className={wasPulsed && item.done ? "pulse-check" : ""} style={{ width: 22, height: 22, borderRadius: 7, border: item.done ? `2px solid ${C.green}` : `2px solid ${C.border2}`, background: item.done ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all .2s cubic-bezier(.4,0,.2,1)" }}>
                           {item.done && <span style={{ fontSize: 11, color: "#000", fontWeight: 800 }}>{"✓"}</span>}
                         </div>
                         {isEd ? <input autoFocus value={editText} onChange={(e) => setEditText(e.target.value)} onBlur={commitEdit} onKeyDown={(e) => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditing(null); }} style={{ ...inp(), flex: 1, padding: "4px 8px", fontSize: 13, background: "none", border: "none", borderBottom: `1px solid ${C.border2}`, borderRadius: 0 }} />
                           : <span style={{ flex: 1, fontSize: 13, lineHeight: 1.4, color: item.done ? C.text3 : C.text, textDecoration: item.done ? "line-through" : "none", opacity: item.done ? 0.5 : 1, transition: "opacity .2s, color .2s" }}>{item.text}</span>}
-                        {!isEd && (() => {
+                        {!isEd && !isFlashcard && (() => {
                           const aula = isAulaItem(item) ? findAulaForItem(item) : null;
                           let stCount = 0;
                           if (aula && subtopics) {
@@ -295,6 +280,17 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
                             </div>
                           );
                         })()}
+                        </div>
+                        {isFlashcard && isToday && (
+                          <div style={{ display: "flex", alignItems: "center", gap: S.sm, paddingLeft: 34 }}>
+                            <span style={{ fontSize: 11, color: C.yellow, fontWeight: 700, fontFamily: FN }}>{ankiTotal.toLocaleString("pt-BR")}</span>
+                            <span style={{ fontSize: 10, color: C.text3 }}>total</span>
+                            <div style={{ height: 14, width: 1, background: C.border2, margin: "0 2px" }} />
+                            <span style={{ fontSize: 11, color: ankiToday ? C.green : C.text3, fontWeight: 600, fontFamily: FN }}>+{ankiToday?.count || 0} hoje</span>
+                            <input value={ankiInput} onChange={(e) => setAnkiInput(e.target.value.replace(/[^0-9]/g, ""))} onKeyDown={(e) => { if (e.key === "Enter") addAnkiCards(); }} placeholder="qtd" style={{ ...inp(), width: 56, padding: "4px 8px", fontSize: 11, textAlign: "center" }} />
+                            <button onClick={addAnkiCards} style={btn(C.yellow, { padding: "4px 10px", fontSize: 11, color: "#000" })}>+</button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

@@ -5,7 +5,7 @@ import { today } from "../utils.js";
 import { Fld } from "./UI.jsx";
 import { useEscapeKey } from "../hooks/useEscapeKey.js";
 
-function SessionModal({ onSave, onClose }) {
+function SessionModal({ onSave, onClose, subtopics: subtopicDict, revLogs, reviews }) {
   useEscapeKey(onClose);
   const [area, setArea] = useState("clinica");
   const [theme, setTheme] = useState("");
@@ -19,8 +19,18 @@ function SessionModal({ onSave, onClose }) {
   const [subtopics, setSubtopics] = useState([]);
   const [newSub, setNewSub] = useState("");
   const [showSubtopics, setShowSubtopics] = useState(false);
+  const [subSugFocused, setSubSugFocused] = useState(false);
   const themeRef = useRef(null);
   const sugRef = useRef(null);
+
+  // Collect all known subtopic names for autocomplete
+  const allSubNames = useMemo(() => {
+    const names = new Set();
+    if (subtopicDict) Object.values(subtopicDict).forEach(items => items.forEach(n => names.add(n)));
+    (reviews || []).forEach(r => { if (r.isSubtopic && r.theme) names.add(r.theme); });
+    (revLogs || []).forEach(l => { if (l.subtopicScores) l.subtopicScores.forEach(s => names.add(s.name)); });
+    return [...names].sort();
+  }, [subtopicDict, reviews, revLogs]);
 
   const touch = (k) => setTouched((t) => ({ ...t, [k]: true }));
 
@@ -187,10 +197,31 @@ function SessionModal({ onSave, onClose }) {
                     })}
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input value={newSub} onChange={(e) => setNewSub(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtopic(); } }} placeholder="Ex: Pneumonia viral, Asma…" style={{ ...inp(), flex: 1, padding: "8px 12px", fontSize: 12 }} />
-                  <button onClick={addSubtopic} disabled={!newSub.trim()} style={btn(C.blue, { padding: "8px 12px", fontSize: 12, opacity: newSub.trim() ? 1 : 0.4 })}>+</button>
-                </div>
+                {(() => {
+                  const q = newSub.toLowerCase().trim();
+                  const currentNames = subtopics.map(s => s.name.toLowerCase());
+                  const subSuggestions = q.length >= 2 ? allSubNames.filter(n => n.toLowerCase().includes(q) && !currentNames.includes(n.toLowerCase())).slice(0, 6) : [];
+                  return (
+                  <div style={{ position: "relative" }}>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input value={newSub} onChange={(e) => setNewSub(e.target.value)} onFocus={() => setSubSugFocused(true)} onBlur={() => setTimeout(() => setSubSugFocused(false), 150)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addSubtopic(); } }} placeholder="Ex: Pneumonia viral, Asma…" style={{ ...inp(), flex: 1, padding: "8px 12px", fontSize: 12 }} />
+                      <button onClick={addSubtopic} disabled={!newSub.trim()} style={btn(C.blue, { padding: "8px 12px", fontSize: 12, opacity: newSub.trim() ? 1 : 0.4 })}>+</button>
+                    </div>
+                    {subSugFocused && subSuggestions.length > 0 && (
+                      <div style={{ position: "absolute", top: "100%", left: 0, right: 40, zIndex: 50, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, marginTop: 2, boxShadow: SH.lg, overflow: "hidden", maxHeight: 180, overflowY: "auto" }}>
+                        {subSuggestions.map((s, si) => (
+                          <div key={si} onMouseDown={(e) => { e.preventDefault(); setSubtopics(prev => [...prev, { name: s, pct: "" }]); setNewSub(""); }}
+                            style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", borderBottom: si < subSuggestions.length - 1 ? `1px solid ${C.border}` : "none", color: C.text2 }}
+                            onMouseEnter={(e) => e.currentTarget.style.background = C.surface}
+                            onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                            {s}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  );
+                })()}
               </div>
             )}
           </div>

@@ -27,6 +27,16 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
   const [editingSt, setEditingSt] = useState(null);
   const [newStItem, setNewStItem] = useState("");
   const [weekLimit, setWeekLimit] = useState(12);
+  const [stSugFocused, setStSugFocused] = useState(false);
+
+  // Collect all known subtopic names for autocomplete
+  const allSubNames = useMemo(() => {
+    const names = new Set();
+    if (subtopics) Object.values(subtopics).forEach(items => items.forEach(n => names.add(n)));
+    subtopicReviews.forEach(s => { if (s.theme) names.add(s.theme); });
+    (revLogs || []).forEach(l => { if (l.subtopicScores) l.subtopicScores.forEach(s => names.add(s.name)); });
+    return [...names].sort();
+  }, [subtopics, subtopicReviews, revLogs]);
 
   // Separate parent reviews from subtopic reviews
   const { parentReviews, subtopicReviews } = useMemo(() => {
@@ -395,16 +405,36 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                         {isEditing ? "Fechar" : "Editar"}
                                       </button>
                                     </div>
-                                    {isEditing && stKey && (
-                                      <div style={{ display: "flex", gap: 6 }}>
-                                        <input value={editingSt === r.id ? newStItem : ""} onFocus={() => setEditingSt(r.id)}
-                                          onChange={(e) => { setEditingSt(r.id); setNewStItem(e.target.value); }}
-                                          onKeyDown={(e) => { if (e.key === "Enter") addStItem(stKey, r.area); }}
-                                          placeholder="Adicionar subtema…" style={{ ...inp(), flex: 1, padding: "5px 8px", fontSize: 11 }} />
-                                        <button onClick={() => addStItem(stKey, r.area)}
-                                          style={btn(C.purple, { padding: "5px 10px", fontSize: 11, opacity: (editingSt === r.id && newStItem.trim()) ? 1 : 0.4 })}>+</button>
+                                    {isEditing && stKey && (() => {
+                                      const q = (editingSt === r.id ? newStItem : "").toLowerCase().trim();
+                                      const currentItems = (subtopics[stKey] || []).map(s => s.toLowerCase());
+                                      const suggestions = q.length >= 2 ? allSubNames.filter(n => n.toLowerCase().includes(q) && !currentItems.includes(n.toLowerCase())).slice(0, 6) : [];
+                                      return (
+                                      <div style={{ position: "relative" }}>
+                                        <div style={{ display: "flex", gap: 6 }}>
+                                          <input value={editingSt === r.id ? newStItem : ""} onFocus={() => { setEditingSt(r.id); setStSugFocused(true); }}
+                                            onBlur={() => setTimeout(() => setStSugFocused(false), 150)}
+                                            onChange={(e) => { setEditingSt(r.id); setNewStItem(e.target.value); }}
+                                            onKeyDown={(e) => { if (e.key === "Enter") addStItem(stKey, r.area); }}
+                                            placeholder="Adicionar subtema…" style={{ ...inp(), flex: 1, padding: "5px 8px", fontSize: 11 }} />
+                                          <button onClick={() => addStItem(stKey, r.area)}
+                                            style={btn(C.purple, { padding: "5px 10px", fontSize: 11, opacity: (editingSt === r.id && newStItem.trim()) ? 1 : 0.4 })}>+</button>
+                                        </div>
+                                        {stSugFocused && suggestions.length > 0 && (
+                                          <div style={{ position: "absolute", top: "100%", left: 0, right: 40, zIndex: 50, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, marginTop: 2, boxShadow: SH.lg, overflow: "hidden" }}>
+                                            {suggestions.map((s, si) => (
+                                              <div key={si} onMouseDown={(e) => { e.preventDefault(); const existing = subtopics[stKey] || []; if (!existing.includes(s)) { onSaveSubtopics(r.area, stKey.split("__").slice(1).join("__"), [...existing, s]); } setNewStItem(""); }}
+                                                style={{ padding: "6px 10px", fontSize: 11, cursor: "pointer", borderBottom: si < suggestions.length - 1 ? `1px solid ${C.border}` : "none", color: C.text2 }}
+                                                onMouseEnter={(e) => e.currentTarget.style.background = C.surface}
+                                                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                                                {s}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
+                                      );
+                                    })()}
                                   </div>
                                 )}
                               </div>

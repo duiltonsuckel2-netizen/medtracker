@@ -35,11 +35,11 @@ function App() {
   const [tabKey, setTabKey] = useState(0);
 
   useEffect(() => { injectKeyframes(); }, []);
-  applyTheme(darkMode);
+  useEffect(() => { applyTheme(darkMode); }, [darkMode]);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
   const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14"];
   function exportBackup() {
-    const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) data[k] = JSON.parse(v); });
+    const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) { try { data[k] = JSON.parse(v); } catch { data[k] = v; } } });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = `medtracker-backup-${today()}.json`; a.click(); URL.revokeObjectURL(url);
@@ -190,8 +190,8 @@ function App() {
           const snapshot = { rp26_sessions: loadedSessions, rp26_reviews: loadedReviews, rp26_revlogs: loadedLogs, rp26_exams: loadedExams, rp26_subtopics: st, rp26_flashcards: fc, _savedAt: new Date().toISOString() };
           const prev1 = localStorage.getItem("rp26_auto_backup_1");
           const prev2 = localStorage.getItem("rp26_auto_backup_2");
-          if (prev1) localStorage.setItem("rp26_auto_backup_3", prev1);
-          if (prev2) localStorage.setItem("rp26_auto_backup_2", prev2);
+          if (prev2) localStorage.setItem("rp26_auto_backup_3", prev2);
+          if (prev1) localStorage.setItem("rp26_auto_backup_2", prev1);
           localStorage.setItem("rp26_auto_backup_1", JSON.stringify(snapshot));
         } catch (e) { /* storage full — skip backup silently */ }
 
@@ -361,43 +361,46 @@ function App() {
             setFlashcardDecks(finalFc); saveKey("rp26_flashcards", finalFc);
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
-      }
-      // One-time dedup: remove duplicate reviews and revLogs
-      const dedupKey = "rp26_mig_dedup_v2";
-      if (seeded && !localStorage.getItem(dedupKey)) {
-        localStorage.setItem(dedupKey, "1");
-        const seen = new Map();
-        loadedReviews.forEach((rv) => {
-          const k = rv.key || `${rv.area}__${(rv.theme || "").toLowerCase().trim()}`;
-          const existing = seen.get(k);
-          if (!existing) { seen.set(k, rv); return; }
-          // Keep the one with more history, or more recent lastStudied
-          const existH = (existing.history || []).length;
-          const rvH = (rv.history || []).length;
-          if (rvH > existH || (rvH === existH && (rv.lastStudied || "") > (existing.lastStudied || ""))) {
-            seen.set(k, rv);
+
+        // One-time dedup: remove duplicate reviews and revLogs
+        const dedupKey2 = "rp26_mig_dedup_v2";
+        if (!localStorage.getItem(dedupKey2)) {
+          localStorage.setItem(dedupKey2, "1");
+          const seen2 = new Map();
+          loadedReviews.forEach((rv) => {
+            const k = rv.key || `${rv.area}__${(rv.theme || "").toLowerCase().trim()}`;
+            const existing = seen2.get(k);
+            if (!existing) { seen2.set(k, rv); return; }
+            const existH = (existing.history || []).length;
+            const rvH = (rv.history || []).length;
+            if (rvH > existH || (rvH === existH && (rv.lastStudied || "") > (existing.lastStudied || ""))) {
+              seen2.set(k, rv);
+            }
+          });
+          const deduped2 = Array.from(seen2.values());
+          if (deduped2.length < loadedReviews.length) {
+            console.log(`Dedup: removed ${loadedReviews.length - deduped2.length} duplicate reviews`);
+            loadedReviews = deduped2;
+            saveKey("rp26_reviews", loadedReviews);
           }
-        });
-        const deduped = Array.from(seen.values());
-        if (deduped.length < loadedReviews.length) {
-          console.log(`Dedup: removed ${loadedReviews.length - deduped.length} duplicate reviews`);
-          loadedReviews = deduped;
-          saveKey("rp26_reviews", loadedReviews);
-        }
-        // Also dedup revLogs by date+area+theme+pct
-        const logSeen = new Set();
-        const dedupedLogs = loadedLogs.filter((l) => {
-          const k = `${l.date}__${l.area}__${(l.theme || "").toLowerCase().trim()}__${l.pct}__${l.total}`;
-          if (logSeen.has(k)) return false;
-          logSeen.add(k);
-          return true;
-        });
-        if (dedupedLogs.length < loadedLogs.length) {
-          console.log(`Dedup: removed ${loadedLogs.length - dedupedLogs.length} duplicate revLogs`);
-          loadedLogs = dedupedLogs;
-          saveKey("rp26_revlogs", loadedLogs);
+          const logSeen2 = new Set();
+          const dedupedLogs2 = loadedLogs.filter((l) => {
+            const k = `${l.date}__${l.area}__${(l.theme || "").toLowerCase().trim()}__${l.pct}__${l.total}`;
+            if (logSeen2.has(k)) return false;
+            logSeen2.add(k);
+            return true;
+          });
+          if (dedupedLogs2.length < loadedLogs.length) {
+            console.log(`Dedup: removed ${loadedLogs.length - dedupedLogs2.length} duplicate revLogs`);
+            loadedLogs = dedupedLogs2;
+            saveKey("rp26_revlogs", loadedLogs);
+          }
         }
       }
+      setDataLoaded(true);
+      setReady(true);
+    }).catch((err) => {
+      console.error("App init error:", err);
       setDataLoaded(true);
       setReady(true);
     });
@@ -675,12 +678,12 @@ function App() {
                 <div style={{ background: C.surface, borderRadius: R.md, padding: 12, border: `1px solid ${C.border}`, fontSize: 12, color: C.text3, lineHeight: 1.5 }}>
                   Sincronize seus dados entre iPhone, iPad e computador automaticamente via nuvem.
                 </div>
-                <button onClick={async () => { const id = await createSync(); setSyncId(id); setSyncStatus("synced"); notify("Sync criado!"); await initSync(() => setSyncBanner(true), (s) => setSyncStatus(s)); }} style={btn(C.purple, { width: "100%", fontSize: 13 })}>Criar código de sync (1o dispositivo)</button>
+                <button onClick={async () => { try { const id = await createSync(); setSyncId(id); setSyncStatus("synced"); notify("Sync criado!"); } catch (e) { notify("Erro ao criar sync"); } }} style={btn(C.purple, { width: "100%", fontSize: 13 })}>Criar código de sync (1o dispositivo)</button>
                 <div style={{ fontSize: 12, color: C.text3, textAlign: "center" }}>ou</div>
                 <div style={{ fontSize: 12, color: C.text3 }}>Já tem um código? Digite abaixo:</div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <input value={syncInput} onChange={(e) => setSyncInput(e.target.value.toUpperCase())} placeholder="Ex: ABC123" maxLength={6} style={{ ...inp(), flex: 1, fontSize: 18, textAlign: "center", fontFamily: FM, fontWeight: 700, letterSpacing: 3 }} />
-                  <button disabled={syncInput.length < 6} onClick={async () => { try { const id = await joinSync(syncInput, () => setSyncBanner(true)); setSyncId(id); setSyncStatus("synced"); setShowSyncModal(false); notify("Conectado! Recarregando..."); setTimeout(() => window.location.reload(), 1500); } catch (e) { alert("Código não encontrado."); } }} style={btn(C.blue, { padding: "10px 20px", fontSize: 13, opacity: syncInput.length < 6 ? 0.4 : 1 })}>Entrar</button>
+                  <button disabled={syncInput.length < 6} onClick={async () => { try { const id = await joinSync(syncInput, () => { setReviews(loadKey("rp26_reviews", [])); setRevLogs(loadKey("rp26_revlogs", [])); setSessions(loadKey("rp26_sessions", [])); setExams(loadKey("rp26_exams", [])); setSubtopics(loadKey("rp26_subtopics", {})); }); setSyncId(id); setSyncStatus("synced"); setShowSyncModal(false); notify("Conectado! Recarregando..."); setTimeout(() => window.location.reload(), 1500); } catch (e) { alert("Código não encontrado."); } }} style={btn(C.blue, { padding: "10px 20px", fontSize: 13, opacity: syncInput.length < 6 ? 0.4 : 1 })}>Entrar</button>
                 </div>
               </div>
             )}

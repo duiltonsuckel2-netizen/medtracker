@@ -461,7 +461,8 @@ function App() {
     persistLogs((prevLogs) => [logEntry, ...prevLogs]);
     persistReviews((prevReviews) => {
       const ex = prevReviews.find((r) => r.key === key);
-      const ni = nxtIdx(ex?.intervalIndex || 0, pct);
+      // D0 session: always start from intervalIndex 0 (7d) — it's a fresh study
+      const ni = nxtIdx(0, pct);
       const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
       let newReviews = ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
       // Create subtopic review cards if subtopics provided

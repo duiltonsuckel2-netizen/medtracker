@@ -53,4 +53,4 @@ function injectKeyframes() {
   document.head.appendChild(s);
 }
 
-export { C, DARK, LIGHT, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit, applyTheme, TY, perfIcon, perfIconColor, injectKeyframes };
+export { C, DARK, LIGHT, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit, applyTheme, TY, perfIcon, perfIconColor, injectKeyframes, isLightColor };

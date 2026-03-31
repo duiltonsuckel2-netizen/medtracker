@@ -1,14 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { C, F, FM, R, S, SH, inp, btn, tag } from "../theme.js";
 import { areaMap } from "../data.js";
-
-function useEscapeKey(onClose) {
-  useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-}
+import { useEscapeKey } from "../hooks/useEscapeKey.js";
 
 const CONFIDENCE_OPTS = [
   { id: "domino", label: "Domino", icon: "💪", color: "#22C55E" },

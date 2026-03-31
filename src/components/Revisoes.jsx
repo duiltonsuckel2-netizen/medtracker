@@ -6,6 +6,7 @@ import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js
 import { today, diffDays, fmtDate, perc, perfColor } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
 import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
+import { useThemeProgress } from "../hooks/useThemeProgress.js";
 
 function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics, onUndoMark }) {
   const [subTab, setSubTab] = useState("proximas");
@@ -24,29 +25,12 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
   const [evoFocused, setEvoFocused] = useState(false);
   const [logSort, setLogSort] = useState("newest");
   const setQ = (k, v) => setQForm((f) => ({ ...f, [k]: v }));
-  const themeProgress = useMemo(() => {
-    const byTheme = {};
-    [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))].forEach((l) => {
-      if (!l.theme || !l.area) return;
-      const k = `${l.area}__${l.theme}`;
-      if (!byTheme[k]) byTheme[k] = { area: l.area, theme: l.theme, sessions: [] };
-      byTheme[k].sessions.push({ date: l.date, pct: l.pct, total: l.total || 0 });
-    });
-    return Object.values(byTheme)
-      .filter((t) => t.sessions.length >= 2)
-      .map((t) => {
-        const sorted = [...t.sessions].sort((a, b) => a.date.localeCompare(b.date));
-        const first = sorted[0].pct; const last = sorted[sorted.length - 1].pct;
-        const trend = last - first;
-        const avg = Math.round(sorted.reduce((s, x) => s + x.pct, 0) / sorted.length);
-        return { ...t, sorted, first, last, trend, avg, n: sorted.length };
-      })
-      .sort((a, b) => {
-        const semA = parseInt((a.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
-        const semB = parseInt((b.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
-        return semA !== semB ? semA - semB : a.theme.localeCompare(b.theme);
-      });
-  }, [revLogs, sessions]);
+  const semSort = useMemo(() => (a, b) => {
+    const semA = parseInt((a.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
+    const semB = parseInt((b.theme.match(/Sem\.\s*(\d+)/) || [])[1]) || 99;
+    return semA !== semB ? semA - semB : a.theme.localeCompare(b.theme);
+  }, []);
+  const themeProgress = useThemeProgress(revLogs, sessions, semSort);
   function submitQ() { const tot = Number(qForm.total), ac = Number(qForm.acertos); const th = qForm.freeTheme ? qForm.theme : (qForm.theme || ""); if (!th.trim()) return alert("Informe o tema."); if (!tot) return alert("Informe o total."); if (ac > tot) return alert("Acertos > total."); onQuick(qForm.area, th, tot, ac); setQForm(emptyQ); setShowQ(false); }
   function submitMark() {
     const tot = Number(marking.total), ac = Number(marking.acertos);

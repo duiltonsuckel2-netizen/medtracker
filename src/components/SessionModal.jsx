@@ -1,16 +1,9 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useRef, useCallback } from "react";
 import { AREAS, SEMANAS } from "../data.js";
 import { C, F, FM, R, S, H, SH, card, inp, btn, tag } from "../theme.js";
 import { today } from "../utils.js";
 import { Fld } from "./UI.jsx";
-
-function useEscapeKey(onClose) {
-  useEffect(() => {
-    const handler = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
-}
+import { useEscapeKey } from "../hooks/useEscapeKey.js";
 
 function SessionModal({ onSave, onClose }) {
   useEscapeKey(onClose);

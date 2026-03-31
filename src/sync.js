@@ -67,8 +67,10 @@ function setSyncId(id) {
 
 function generateSyncId() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
   let code = "";
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 8; i++) code += chars[bytes[i] % chars.length];
   return code;
 }
 
@@ -81,6 +83,23 @@ function collectData() {
     }
   });
   return data;
+}
+
+// Validate incoming sync data — only allow known keys with expected types
+function validateSyncData(data) {
+  if (!data || typeof data !== "object") return {};
+  const clean = {};
+  SYNC_KEYS.forEach((k) => {
+    if (data[k] === undefined) return;
+    if (ARRAY_KEYS.includes(k)) {
+      if (Array.isArray(data[k])) clean[k] = data[k];
+    } else if (k === "rp26_subtopics") {
+      if (data[k] && typeof data[k] === "object" && !Array.isArray(data[k])) clean[k] = data[k];
+    } else {
+      clean[k] = data[k];
+    }
+  });
+  return clean;
 }
 
 function applyData(data) {
@@ -108,7 +127,8 @@ function mergeArrayById(local, remote) {
 }
 
 // Merge remote data with local data intelligently
-function mergeData(remoteData) {
+function mergeData(rawRemoteData) {
+  const remoteData = validateSyncData(rawRemoteData);
   SYNC_KEYS.forEach((k) => {
     if (remoteData[k] === undefined) return;
     if (ARRAY_KEYS.includes(k)) {

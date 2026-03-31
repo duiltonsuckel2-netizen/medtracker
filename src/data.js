@@ -1784,6 +1784,80 @@ export const EXAM_THEMES_RAW = {"ufcspa 2022":{1:{a:"ped",t:"Reanimação neonat
 
 export const EXAM_THEMES_DB = EXAM_THEMES_RAW;
 
+// ── ANÁLISE USP-SP 2026 — prevalência baseada em USP-SP 2022-2025 ──
+export const USP_SP_2026_ANALYSIS = {
+  resumo: "Apenas 24% dos temas foram novos na USP-SP 2026 — a prova mais previsível entre as grandes instituições de SP. Com 39 temas recorrentes em 5 anos, a USP-SP mantém um padrão altamente estável. Cirurgia teve apenas 19% de temas inéditos; GO 25%. Quem estuda as últimas 3-4 provas cobre ~76% dos temas.",
+  distribuicao: { clinica: 24, go: 24, ped: 21, preventiva: 24, cirurgia: 27 },
+  destaques: [
+    "Clínica (24q): IC é o tema mais cobrado (Q1+Q13 em 2026, presente em 4/5 provas). Cetoacidose diabética cai TODO ano (5/5). Hiponatremia, hipertensão portal, artrite séptica e derrame pleural são recorrentes. 33% temas novos.",
+    "Cirurgia (27q): A área MAIS cobrada e MAIS previsível (19% novos). Trauma domina: abdominal (Q27,Q45), TCE (Q49-51). Obstrução intestinal cai TODO ano (Q30,Q33). Complicações pós-op de bypass gástrico e colecistectomia são frequentes.",
+    "GO (24q): Trabalho de parto/parto é tema central — distocia (Q100), TPP (Q112), TH na menopausa (Q113) caem todo ano. Hemorragia pós-parto e sífilis congênita em 4/5. Contracepção e SUA são recorrentes.",
+    "Pediatria (21q): Reanimação neonatal cai TODO ano (Q72). TCE pediátrico/maus-tratos (Q49-51) é tema constante. Icterícia neonatal (Q71) em 4/5. Asma grave e bronquiolite são clássicos. 24% novos.",
+    "Preventiva (24q): Indicadores de mortalidade/saúde caem TODO ano (Q73). Ensaio clínico/epidemiologia (Q79) em 4/5. Notificação compulsória, tuberculose e sífilis congênita são recorrentes. Financiamento do SUS aparece com frequência."
+  ],
+  sempreCAI: [
+    { q: 12, tema: "Cetoacidose diabética", freq: "5/5 provas" },
+    { q: 27, tema: "Trauma abdominal", freq: "5/5 provas" },
+    { q: 30, tema: "Obstrução intestinal por neoplasia", freq: "5/5 provas" },
+    { q: 33, tema: "Obstrução intestinal por bridas", freq: "5/5 provas" },
+    { q: 45, tema: "Trauma abdominal por cinto de segurança", freq: "5/5 provas" },
+    { q: 49, tema: "TCE pediátrico - via aérea", freq: "5/5 provas" },
+    { q: 72, tema: "Reanimação neonatal", freq: "5/5 provas" },
+    { q: 86, tema: "PrEP e investigação de diarreia", freq: "5/5 provas" },
+    { q: 100, tema: "Distocia de trabalho de parto", freq: "5/5 provas" },
+    { q: 112, tema: "Trabalho de parto prematuro", freq: "5/5 provas" },
+    { q: 113, tema: "Menopausa - terapia hormonal", freq: "5/5 provas" },
+    { q: 1, tema: "Insuficiência cardíaca", freq: "4/5 provas" },
+    { q: 25, tema: "Carcinoma espinocelular anal", freq: "4/5 provas" },
+    { q: 37, tema: "Diverticulite aguda complicada", freq: "4/5 provas" },
+    { q: 66, tema: "ITU pediátrica - investigação", freq: "4/5 provas" }
+  ],
+  prev: {
+    1:"muito alta",2:"média",3:"alta",5:"muito alta",8:"alta",12:"muito alta",13:"muito alta",14:"alta",15:"alta",16:"muito alta",
+    17:"média",18:"alta",19:"média",20:"média",21:"alta",24:"muito alta",25:"muito alta",26:"muito alta",27:"muito alta",28:"muito alta",
+    29:"muito alta",30:"muito alta",31:"média",33:"muito alta",34:"média",35:"alta",36:"média",37:"muito alta",40:"média",41:"alta",
+    42:"muito alta",43:"média",44:"alta",45:"muito alta",48:"média",49:"muito alta",50:"muito alta",51:"muito alta",52:"média",53:"alta",
+    54:"alta",56:"alta",57:"alta",58:"alta",59:"média",61:"alta",63:"alta",65:"alta",66:"muito alta",67:"alta",68:"alta",
+    70:"muito alta",71:"muito alta",72:"muito alta",73:"muito alta",75:"média",76:"alta",79:"muito alta",81:"média",82:"média",
+    83:"alta",84:"muito alta",85:"muito alta",86:"muito alta",87:"muito alta",88:"muito alta",89:"muito alta",90:"média",91:"muito alta",
+    92:"muito alta",93:"alta",94:"média",96:"alta",98:"média",99:"muito alta",100:"muito alta",101:"média",102:"média",103:"alta",
+    105:"muito alta",106:"alta",109:"média",111:"alta",112:"muito alta",113:"muito alta",115:"média",116:"alta",117:"muito alta",
+    118:"média",119:"alta",120:"alta"
+  }
+};
+
+// ── ANÁLISE UNICAMP 2026 — prevalência baseada em UNICAMP 2022-2025 ──
+export const UNICAMP_2026_ANALYSIS = {
+  resumo: "37% dos temas foram novos na UNICAMP 2026 — prova mais imprevisível que USP-SP, mas com núcleo consistente. Apenas 9 temas apareceram em todas as 5 provas. GO é a área mais estável (86% recorrentes); Preventiva a mais variável (53% novos). Formato misto (objetivas + discursivas/respostas curtas) exige preparo diferente.",
+  distribuicao: { clinica: 22, go: 21, ped: 20, preventiva: 17, cirurgia: 20 },
+  destaques: [
+    "Clínica (22q): 45% temas novos — a mais imprevisível junto com Pediatria. Doença de Wilson, neuralgia do trigêmeo e glomerulonefrite membranosa foram inéditos. IAM/choque cardiogênico e hepatite B são recorrentes. DAC/revascularização (Q69) cai em 4/5.",
+    "Cirurgia (20q): 35% novos. Anatomia vascular femoral/acesso venoso (Q11) cai TODO ano (5/5). Hematoma subdural, pólipo colorretal e empiema pleural são recorrentes. Queimadura e DAOP aparecem com frequência.",
+    "GO (21q): Área MAIS previsível (86% recorrentes!). Incompetência istmocervical (Q31) em 4/5. Rastreamento Ca colo (Q39+Q87) cai TODO ano. Adenomiose, contracepção e mecanismo de parto são frequentes. SUA (Q84) presente em todas as 5 provas.",
+    "Pediatria (20q): 45% novos — muito variável. Reanimação neonatal (Q30) cai TODO ano (5/5). TCE na criança (Q76) também 5/5. Fasciíte necrosante e glomerulonefrite pós-infecciosa são recorrentes. Doença de Hirschsprung foi inédito.",
+    "Preventiva (17q): Área com MENOS questões e MAIS imprevisível (47% novos). Febre amarela e PTS são recorrentes. Mortalidade infantil, política de humanização e declaração de óbito reaparecem. Calendário vacinal/eventos adversos variam."
+  ],
+  sempreCAI: [
+    { q: 11, tema: "Anatomia vascular femoral - acesso venoso no trauma", freq: "5/5 provas" },
+    { q: 30, tema: "Reanimação neonatal", freq: "5/5 provas" },
+    { q: 39, tema: "Rastreamento de câncer de colo uterino - HPV", freq: "5/5 provas" },
+    { q: 76, tema: "TCE na criança", freq: "5/5 provas" },
+    { q: 84, tema: "Sangramento uterino anormal - doença de Von Willebrand", freq: "5/5 provas" },
+    { q: 87, tema: "Rastreamento de câncer de colo uterino - ASC-US/HSIL", freq: "5/5 provas" },
+    { q: 31, tema: "Incompetência istmocervical", freq: "4/5 provas" },
+    { q: 33, tema: "Hiperplasia nodular focal e contracepção", freq: "4/5 provas" },
+    { q: 69, tema: "DAC - revascularização miocárdica", freq: "4/5 provas" }
+  ],
+  prev: {
+    2:"média",3:"média",5:"alta",8:"média",11:"muito alta",12:"média",13:"média",14:"alta",16:"alta",18:"média",19:"média",
+    21:"média",22:"média",23:"média",27:"média",28:"média",29:"média",30:"muito alta",31:"muito alta",32:"média",33:"muito alta",
+    34:"alta",35:"média",36:"média",37:"média",38:"média",39:"muito alta",40:"alta",41:"média",42:"média",43:"média",50:"média",
+    52:"alta",53:"média",55:"alta",57:"alta",58:"alta",60:"alta",61:"média",65:"média",66:"média",68:"média",69:"muito alta",
+    70:"alta",71:"média",76:"muito alta",77:"alta",79:"alta",80:"média",81:"média",82:"média",84:"muito alta",86:"alta",
+    87:"muito alta",89:"média",90:"média",91:"alta",92:"média",93:"alta",95:"média",97:"alta",99:"média",100:"média"
+  }
+};
+
 // ── ANÁLISE UFCSPA 2026 — prevalência baseada em UFCSPA 2022-2025 ──
 export const UFCSPA_2026_ANALYSIS = {
   resumo: "81% dos temas foram NOVOS na UFCSPA 2026. Prova com perfil muito diferente dos anos anteriores. Clínica e Cirurgia foram 100% temas inéditos.",
@@ -1806,7 +1880,7 @@ export const UFCSPA_2026_ANALYSIS = {
     { q: 76, tema: "Atributos da APS", freq: "4/4 provas" },
     { q: 87, tema: "Doença inflamatória intestinal", freq: "4/4 provas" }
   ],
-  prevUfcspa: {
+  prev: {
     21:"muito alta",25:"muito alta",29:"alta",34:"alta",
     41:"média",43:"muito alta",45:"média",47:"alta",53:"média",54:"muito alta",56:"muito alta",59:"média",
     63:"muito alta",64:"alta",66:"alta",68:"média",72:"muito alta",76:"muito alta",77:"média",
@@ -1948,7 +2022,11 @@ export function generateExamAnalysis(examName) {
 }
 
 // Pre-built analyses map (hand-crafted take priority over auto-generated)
-export const EXAM_ANALYSES = { "ufcspa 2026": UFCSPA_2026_ANALYSIS };
+export const EXAM_ANALYSES = {
+  "ufcspa 2026": UFCSPA_2026_ANALYSIS,
+  "uspsp 2026": USP_SP_2026_ANALYSIS,
+  "unicamp 2026": UNICAMP_2026_ANALYSIS,
+};
 
 export const KNOWN_PDFS = [
   // ── RS — FundMed (fundmed.org.br) ──────────────────────────────────────

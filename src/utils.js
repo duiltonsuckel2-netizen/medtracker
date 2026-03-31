@@ -84,6 +84,52 @@ export function mapThemeToSchedule(theme) {
   return bestScore >= 4 ? best : null;
 }
 
+// Enhanced version: also matches against user's registered subtopics for precise linking
+export function mapThemeToStudy(theme, area, userSubtopics) {
+  const base = mapThemeToSchedule(theme);
+  if (!theme || !userSubtopics) return base ? { ...base, matchedSubtopic: null } : null;
+
+  const t = theme.toLowerCase().replace(/[—–\-]/g, " ");
+  const tWords = t.split(/[\s,./()]+/).filter((w) => w.length > 2);
+  let bestKey = null, bestSubName = null, bestScore = 0, bestSemana = null;
+
+  for (const [key, items] of Object.entries(userSubtopics)) {
+    if (!items?.length) continue;
+    const [kArea] = key.split("__");
+    // Area must match if provided
+    if (area && kArea !== area) continue;
+    const parentTheme = key.slice(kArea.length + 2);
+
+    for (const subName of items) {
+      const sLow = subName.toLowerCase().replace(/[—–\-]/g, " ");
+      const sWords = sLow.split(/[\s,./()]+/).filter((w) => w.length > 2);
+      let score = 0;
+      for (const tw of tWords) {
+        for (const sw of sWords) {
+          if (tw === sw) score += tw.length * 2;
+          else if (sw.includes(tw) && tw.length >= 4) score += tw.length;
+          else if (tw.includes(sw) && sw.length >= 4) score += sw.length;
+          // Prefix match for medical terms (6+ chars shared prefix)
+          else if (tw.length >= 6 && sw.length >= 6 && tw.slice(0, 6) === sw.slice(0, 6)) score += 5;
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestSubName = subName;
+        bestKey = key;
+        // Try to find the semana from the parent theme
+        bestSemana = mapThemeToSchedule(parentTheme);
+      }
+    }
+  }
+
+  if (bestScore >= 6 && bestSubName) {
+    const result = bestSemana || base;
+    return result ? { ...result, matchedSubtopic: bestSubName, subtopicKey: bestKey } : { semana: null, topics: [], matchedSubtopic: bestSubName, subtopicKey: bestKey };
+  }
+  return base ? { ...base, matchedSubtopic: null } : null;
+}
+
 export function searchKnownPdf(query) {
   if (!query || query.trim().length < 2) return KNOWN_PDFS;
   const q = query.toLowerCase().replace(/[^a-z0-9 ]/g, "");

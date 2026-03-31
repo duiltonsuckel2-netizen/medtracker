@@ -1811,6 +1811,142 @@ export const UFCSPA_2026_ANALYSIS = {
   }
 };
 
+// ── Auto-analysis generator ─────────────────────────────────────────────────
+// Cross-references an exam's themes against other years of the same institution
+// in EXAM_THEMES_RAW to produce comparative analysis (resumo, destaques, sempreCAI, prev).
+// Sorted longest-first to avoid partial matches (e.g. "unicamp" before "amp")
+const _INST_ALIASES = [
+  ["unicamp","unicamp"],["unifesp","unifesp"],["ufcspa","ufcspa"],
+  ["usp sp","uspsp"],["usp-sp","uspsp"],["uspsp","uspsp"],
+  ["usp rp","usp rp"],["usp-rp","usp rp"],["usprp","usp rp"],
+  ["sus sp","sus sp"],["sus-sp","sus sp"],["sussp","sus sp"],
+  ["ses sp","ses sp"],["ses-sp","ses sp"],
+  ["iamspe","iamspe"],["einstein","einstein"],["famerp","famerp"],
+  ["amrigs","amrigs"],["hcpa","hcpa"],["amp","amp"],
+];
+function _norm(t) {
+  return (t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+}
+function _kw(t) { return _norm(t).split(" ").filter(w=>w.length>3); }
+function _themesMatch(t1,t2) {
+  const a=_kw(t1), b=_kw(t2);
+  if(!a.length||!b.length) return false;
+  let matched=0, score=0;
+  const used = new Set();
+  for(const w1 of a) for(let j=0;j<b.length;j++) {
+    if(used.has(j)) continue;
+    const w2=b[j];
+    if(w1===w2 || (w1.length>=5 && w2.length>=5 && (w1.includes(w2)||w2.includes(w1)))) {
+      score+=Math.max(w1.length,w2.length); matched++; used.add(j); break;
+    }
+  }
+  // Require at least 2 matching keywords AND total score >= 8
+  // OR 1 very specific keyword match (>= 10 chars)
+  return (matched>=2 && score>=8) || (matched>=1 && score>=10);
+}
+function _parseKey(key) {
+  const m = key.match(/^(.+?)\s*(\d{4})$/);
+  return m ? { inst: m[1].trim(), year: parseInt(m[2]) } : null;
+}
+
+export function generateExamAnalysis(examName) {
+  // 1. Resolve exam name → EXAM_THEMES_DB key
+  const n = examName.toLowerCase().replace(/[^a-z0-9 ]/g," ").replace(/\s+/g," ").trim();
+  const yearMatch = n.match(/(\d{4})/);
+  if(!yearMatch) return null;
+  const year = parseInt(yearMatch[1]);
+  const prefix = n.replace(/\d{4}.*$/,"").trim();
+
+  // Find institution prefix (longest match first to avoid "amp" matching "unicamp")
+  let instKey = null;
+  for(const [alias,canon] of _INST_ALIASES) {
+    if(prefix.includes(alias) || alias.includes(prefix)) { instKey = canon; break; }
+  }
+  if(!instKey) return null;
+
+  const examKey = `${instKey} ${year}`;
+  const examData = EXAM_THEMES_RAW[examKey];
+  if(!examData) return null;
+
+  // 2. Find all other years for this institution
+  const otherYears = {};
+  for(const k of Object.keys(EXAM_THEMES_RAW)) {
+    if(k===examKey) continue;
+    const p = _parseKey(k);
+    if(p && p.inst===instKey) otherYears[p.year] = EXAM_THEMES_RAW[k];
+  }
+  const totalYears = Object.keys(otherYears).length + 1;
+  if(totalYears < 2) return null; // Need at least 2 years to compare
+
+  // 3. Area distribution
+  const distribuicao = { clinica:0, go:0, ped:0, preventiva:0, cirurgia:0 };
+  for(const q of Object.values(examData)) {
+    if(distribuicao[q.a]!==undefined) distribuicao[q.a]++;
+  }
+
+  // 4. Cross-reference: for each question, check if theme appears in other years
+  const qFreq = {};
+  for(const [qNum,qData] of Object.entries(examData)) {
+    const found = new Set();
+    for(const [yr,yrData] of Object.entries(otherYears)) {
+      for(const oq of Object.values(yrData)) {
+        if(_themesMatch(qData.t,oq.t)) { found.add(yr); break; }
+      }
+    }
+    qFreq[qNum] = { years:found, theme:qData.t, area:qData.a };
+  }
+
+  // 5. sempreCAI: themes appearing in most/all years
+  // For small datasets (2-3 years), require ALL years; for larger, require >= 75%
+  const minFreq = totalYears <= 3 ? totalYears : Math.max(3, Math.ceil(totalYears*0.75));
+  const sempreCAI = [];
+  for(const [qNum,info] of Object.entries(qFreq)) {
+    const freq = info.years.size+1;
+    if(freq>=minFreq) sempreCAI.push({ q:Number(qNum), tema:info.theme, freq:`${freq}/${totalYears} provas` });
+  }
+  sempreCAI.sort((a,b)=>{ const fa=parseInt(a.freq),fb=parseInt(b.freq); return fb!==fa ? fb-fa : a.q-b.q; });
+
+  // 6. Prevalence per question
+  const prev = {};
+  for(const [qNum,info] of Object.entries(qFreq)) {
+    const ratio = (info.years.size+1)/totalYears;
+    if(ratio>=0.75) prev[qNum]="muito alta";
+    else if(ratio>=0.5) prev[qNum]="alta";
+    else if(ratio>=0.3) prev[qNum]="média";
+  }
+
+  // 7. Per-area highlights
+  const areaNames = { clinica:"Clínica", go:"GO", ped:"Pediatria", preventiva:"Preventiva", cirurgia:"Cirurgia" };
+  const destaques = [];
+  for(const areaId of ["clinica","cirurgia","go","ped","preventiva"]) {
+    if(!distribuicao[areaId]) continue;
+    const areaQs = Object.entries(qFreq).filter(([_,f])=>f.area===areaId);
+    const areaNew = areaQs.filter(([_,f])=>f.years.size===0).length;
+    const areaNewPct = Math.round(areaNew/areaQs.length*100);
+    const recurring = areaQs.filter(([_,f])=>f.years.size>0).map(([_,f])=>f.theme);
+    let d = `${areaNames[areaId]}: ${areaNewPct}% temas novos`;
+    if(recurring.length>0) {
+      const top = recurring.slice(0,3).map(t => t.split("/")[0].trim()).join(", ");
+      d += `. Recorrentes: ${top}`;
+    }
+    destaques.push(d);
+  }
+
+  // 8. Summary
+  const totalQ = Object.keys(examData).length;
+  const newThemes = Object.values(qFreq).filter(f=>f.years.size===0).length;
+  const newPct = Math.round(newThemes/totalQ*100);
+  const instName = instKey.toUpperCase().replace(/ /g,"-");
+  const otherYearsList = Object.keys(otherYears).sort().join(", ");
+  const resumo = `${newPct}% dos temas foram NOVOS na ${instName} ${year} (comparado com ${totalYears-1} prova${totalYears>2?"s":""} anterior${totalYears>2?"es":""}: ${otherYearsList}).${sempreCAI.length>0 ? ` ${sempreCAI.length} temas são recorrentes na instituição.` : ""}`;
+
+  return { resumo, distribuicao, destaques, sempreCAI, prev };
+}
+
+// Pre-built analyses map (hand-crafted take priority over auto-generated)
+export const EXAM_ANALYSES = { "ufcspa 2026": UFCSPA_2026_ANALYSIS };
+
 export const KNOWN_PDFS = [
   // ── RS — FundMed (fundmed.org.br) ──────────────────────────────────────
   { key: "ufcspa 2026", name: "UFCSPA 2026 Acesso Direto", total: 100 },

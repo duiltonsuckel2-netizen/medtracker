@@ -9,7 +9,7 @@ import { Fld, ChartTip } from "./UI.jsx";
 import { useThemeProgress } from "../hooks/useThemeProgress.js";
 
 
-function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, onNewSession, onAlerts, forceTab, flashcardDecks, onNavigateFlashcards }) {
+function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, onNewSession, onAlerts, forceTab, flashcardDecks, onNavigateFlashcards, onNavigateProvas, onNavigateRevisoes }) {
   const [activeTab, setActiveTab] = useState(forceTab || "overview");
   useEffect(() => { if (forceTab) setActiveTab(forceTab); }, [forceTab]);
   const [dismissedAlerts, setDismissedAlerts] = useState(() => { try { return JSON.parse(localStorage.getItem("rp26_dismissed_alerts") || "[]"); } catch { return []; } });
@@ -261,12 +261,12 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
       {!forceTab && <>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: S.md }}>
         {[
-          { label: "Provas", value: exams.length, accent: C.blue },
+          { label: "Provas", value: exams.length, accent: C.blue, onClick: onNavigateProvas },
           { label: "Anki", value: ankiTotal.toLocaleString("pt-BR"), accent: C.yellow },
-          { label: "Revisões", value: totalRevisoes, accent: C.purple },
+          { label: "Revisões", value: totalRevisoes, accent: C.purple, onClick: onNavigateRevisoes },
           { label: "Questões", value: totalQ.toLocaleString("pt-BR"), accent: C.teal },
         ].map((s) => (
-          <div key={s.label} style={{ background: C.card, border: `1px solid ${s.accent}25`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, boxShadow: SH.glow(s.accent), display: "flex", flexDirection: "column", justifyContent: "space-between", height: 88, boxSizing: "border-box" }}>
+          <div key={s.label} onClick={s.onClick} style={{ background: C.card, border: `1px solid ${s.accent}25`, borderRadius: R.xl, padding: `${S.lg}px ${S.xl}px`, boxShadow: SH.glow(s.accent), display: "flex", flexDirection: "column", justifyContent: "space-between", height: 88, boxSizing: "border-box", cursor: s.onClick ? "pointer" : "default" }}>
             <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
             <div style={{ fontSize: 28, fontWeight: 900, color: s.accent, fontFamily: FN, lineHeight: 1 }}>{s.value}</div>
           </div>

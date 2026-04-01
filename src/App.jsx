@@ -349,6 +349,63 @@ function App() {
           }
         }
 
+        // Migration v17: Create subtopic review cards from historical revLogs
+        // This ensures ALL subtopics that were ever scored have persistent review cards
+        if (!localStorage.getItem("rp26_mig_v17")) {
+          localStorage.setItem("rp26_mig_v17", "1");
+          // Process logs chronologically (oldest first) to simulate natural review progression
+          const sortedLogs = [...loadedLogs].filter(l => !l.isSubtopic && l.subtopicScores && l.subtopicScores.length > 0).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+          let subCreated = 0;
+          sortedLogs.forEach((log) => {
+            // Find parent review card for this log
+            const parentKey = `${log.area}__${(log.theme || "").toLowerCase().trim()}`;
+            const parentRev = loadedReviews.find(r => r.key === parentKey && !r.isSubtopic);
+            if (!parentRev) return;
+            // Find parent's intervalIndex at time of this log from history
+            let parentIdxAtLog = 0;
+            if (parentRev.history) {
+              const hEntry = parentRev.history.find(h => h.date === log.date);
+              if (hEntry?._prev?.intervalIndex != null) parentIdxAtLog = hEntry._prev.intervalIndex;
+              else {
+                // Fallback: find the closest history entry before or on this date
+                const prior = parentRev.history.filter(h => h.date && h.date <= log.date).sort((a, b) => b.date.localeCompare(a.date));
+                if (prior.length > 0 && prior[0]._prev?.intervalIndex != null) parentIdxAtLog = prior[0]._prev.intervalIndex;
+              }
+            }
+            log.subtopicScores.forEach((s) => {
+              const sKey = `${log.area}__${(log.theme || "").toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
+              const existing = loadedReviews.find(r => r.key === sKey);
+              // Calculate interval: use existing subtopic's intervalIndex if it exists, otherwise derive from parent's at log time
+              const prevIdx = existing ? existing.intervalIndex : parentIdxAtLog;
+              const sni = nxtIdx(prevIdx, s.pct);
+              const sNextDue = addDays(log.date, INTERVALS[sni]);
+              if (existing) {
+                // Only update if this log is more recent than what the card has
+                if (!existing.lastStudied || log.date >= existing.lastStudied) {
+                  Object.assign(existing, {
+                    intervalIndex: sni, nextDue: sNextDue,
+                    lastPerf: s.pct, lastStudied: log.date,
+                    history: [...(existing.history || []), { date: log.date, pct: s.pct }]
+                  });
+                }
+              } else {
+                // Create new subtopic review card
+                loadedReviews.push({
+                  id: uid(), key: sKey, area: log.area, theme: s.name, parentTheme: log.theme,
+                  isSubtopic: true, intervalIndex: sni, nextDue: sNextDue,
+                  lastPerf: s.pct, lastStudied: log.date,
+                  history: [{ date: log.date, pct: s.pct }]
+                });
+                subCreated++;
+              }
+            });
+          });
+          if (subCreated > 0) {
+            console.log(`Migration v17: created ${subCreated} subtopic review cards from revLogs`);
+            saveKey("rp26_reviews", loadedReviews);
+          }
+        }
+
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(loadedSt);
         // Auto-generate or merge flashcards on every load (picks up new THEME_SUMMARIES)
         if (loadedExams.length > 0) {

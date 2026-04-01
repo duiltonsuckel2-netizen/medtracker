@@ -467,8 +467,8 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                   }}>
                                     {allStItems.map((st, i) => {
                                       const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
-                                      // Fallback: get last % + date from revLog subtopicScores if no review card
-                                      let logPct = null, logDate = null, logInterval = null, logDays = null;
+                                      // Fallback: get last % from revLog, use parent's lastStudied as base date
+                                      let logPct = null, logInterval = null, logDays = null;
                                       if (!subRev) {
                                         const k = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
                                         const themeLogs = logsByTheme[k] || [];
@@ -476,16 +476,13 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                           const ss = themeLogs[li].subtopicScores;
                                           if (ss) {
                                             const match = ss.find((s) => s.name.toLowerCase() === st.toLowerCase());
-                                            if (match) {
-                                              logPct = match.pct;
-                                              logDate = themeLogs[li].date;
-                                              const estIdx = nxtIdx(0, match.pct);
-                                              logInterval = estIdx;
-                                              const estDue = addDays(logDate, INTERVALS[estIdx]);
-                                              logDays = diffDays(estDue, today());
-                                              break;
-                                            }
+                                            if (match) { logPct = match.pct; break; }
                                           }
+                                        }
+                                        if (logPct != null && r.lastStudied) {
+                                          const estIdx = nxtIdx(0, logPct);
+                                          logInterval = estIdx;
+                                          logDays = diffDays(addDays(r.lastStudied, INTERVALS[estIdx]), today());
                                         }
                                       }
                                       const conf = subRev?.history?.slice(-1)[0]?.confidence;

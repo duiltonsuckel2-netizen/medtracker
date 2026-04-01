@@ -488,7 +488,14 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                         // If no individual score, use parent theme's overall perf + lastStudied
                                         if (logPct == null && r.lastPerf != null) { logPct = r.lastPerf; logDate = r.lastStudied; }
                                         if (logPct != null && logDate) {
-                                          const estIdx = nxtIdx(0, logPct);
+                                          // Find parent's intervalIndex at the time of this log
+                                          let prevIdx = 0;
+                                          if (r.history) {
+                                            const hEntry = r.history.find(h => h.date === logDate);
+                                            if (hEntry?._prev?.intervalIndex != null) prevIdx = hEntry._prev.intervalIndex;
+                                            else if (hEntry) { const hi = r.history.indexOf(hEntry); if (hi > 0) prevIdx = r.history[hi - 1]._prev?.intervalIndex || 0; }
+                                          }
+                                          const estIdx = nxtIdx(prevIdx, logPct);
                                           logInterval = estIdx;
                                           logDays = diffDays(addDays(logDate, INTERVALS[estIdx]), today());
                                         }

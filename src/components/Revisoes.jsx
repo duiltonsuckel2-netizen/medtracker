@@ -104,10 +104,16 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     const map = new Map();
     // Priority 1: review cards (have live pct + due dates + intervals)
     subRevs.forEach(sr => map.set(sr.theme.toLowerCase(), { name: sr.theme, pct: sr.lastPerf, isDue: sr.nextDue <= today(), intervalIndex: sr.intervalIndex, nextDue: sr.nextDue, days: diffDays(sr.nextDue, today()) }));
-    // Priority 2: revLog scores (use the log's own date — when the subtopic was actually scored)
+    // Priority 2: revLog scores (use the log's own date + parent's intervalIndex at that time)
     if (lastLog) lastLog.subtopicScores.forEach(s => {
       if (!map.has(s.name.toLowerCase())) {
-        const estIdx = nxtIdx(0, s.pct);
+        // Find parent's intervalIndex at the time of this log
+        let prevIdx = 0;
+        if (r.history) {
+          const hEntry = r.history.find(h => h.date === lastLog.date);
+          if (hEntry?._prev?.intervalIndex != null) prevIdx = hEntry._prev.intervalIndex;
+        }
+        const estIdx = nxtIdx(prevIdx, s.pct);
         const baseDate = lastLog.date;
         const estDue = baseDate ? addDays(baseDate, INTERVALS[estIdx]) : null;
         const estDays = estDue ? diffDays(estDue, today()) : null;
@@ -118,7 +124,13 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     stNames.forEach(n => {
       if (!map.has(n.toLowerCase())) {
         if (r.lastPerf != null && r.lastStudied) {
-          const estIdx = nxtIdx(0, r.lastPerf);
+          // Use parent's previous intervalIndex from last history entry
+          let prevIdx = 0;
+          if (r.history?.length > 0) {
+            const last = r.history[r.history.length - 1];
+            if (last?._prev?.intervalIndex != null) prevIdx = last._prev.intervalIndex;
+          }
+          const estIdx = nxtIdx(prevIdx, r.lastPerf);
           const estDue = addDays(r.lastStudied, INTERVALS[estIdx]);
           const estDays = diffDays(estDue, today());
           map.set(n.toLowerCase(), { name: n, pct: r.lastPerf, isDue: estDue <= today(), intervalIndex: estIdx, nextDue: estDue, days: estDays });

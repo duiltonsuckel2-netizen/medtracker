@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedTracker — Protótipo de Design</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Nunito:wght@700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Inter',system-ui,sans-serif; display:flex; flex-direction:column; min-height:100vh; background:#111; color:#fff; }
+
+  .controls {
+    position:sticky; top:0; z-index:100;
+    background:#0A0A0B; border-bottom:1px solid #27272A;
+    padding:16px 24px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;
+  }
+  .controls h1 { font-size:16px; font-weight:700; color:#A78BFA; }
+  .controls label { font-size:13px; color:#A1A1AA; display:flex; align-items:center; gap:6px; cursor:pointer; }
+  .controls input[type=radio] { accent-color:#A78BFA; }
+  .controls .sep { width:1px; height:20px; background:#27272A; }
+
+  .panels { display:grid; grid-template-columns:1fr 1fr; flex:1; }
+  .panels.single { grid-template-columns:1fr; }
+  .panel { padding:24px; overflow-y:auto; min-height:100vh; }
+  .panel-label {
+    font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+    padding:8px 16px; border-radius:999px; display:inline-block; margin-bottom:20px;
+  }
+
+  /* ===== CURRENT LIGHT ===== */
+  .current-light {
+    background:#F4F4F5;
+    --bg:#F4F4F5; --surface:#EBEBEF; --card:#FFFFFF; --card2:#EDEDF0;
+    --border:#D4D4D8; --border2:#A1A1AA;
+    --text:#09090B; --text2:#3F3F46; --text3:#52525B;
+    --blue:#2563EB; --purple:#7C3AED; --teal:#0D9488; --green:#15803D;
+    --yellow:#B45309; --red:#DC2626;
+    --sh-sm:0 1px 3px rgba(0,0,0,.08);
+    --sh-md:0 4px 12px rgba(0,0,0,.1);
+    --radius:20px;
+  }
+
+  /* ===== NEW LIGHT ===== */
+  .new-light {
+    background:#FAFAFA;
+    --bg:#FAFAFA; --surface:#F5F5F5; --card:#FFFFFF; --card2:#F0F0F2;
+    --border:#EAEAED; --border2:#D4D4D8;
+    --text:#0A0A0B; --text2:#5C5C66; --text3:#8C8C96;
+    --blue:#3B6EE8; --purple:#7B5ADE; --teal:#0E9384; --green:#1A9A4A;
+    --yellow:#C08B20; --red:#E04040;
+    --sh-sm:0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+    --sh-md:0 2px 8px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+    --radius:14px;
+  }
+
+  /* ===== CURRENT DARK ===== */
+  .current-dark {
+    background:#0A0A0B;
+    --bg:#0A0A0B; --surface:#111113; --card:#17171A; --card2:#1F1F23;
+    --border:#27272A; --border2:#3F3F46;
+    --text:#F4F4F5; --text2:#A1A1AA; --text3:#8C8C96;
+    --blue:#60A5FA; --purple:#A78BFA; --teal:#2DD4BF; --green:#22C55E;
+    --yellow:#F59E0B; --red:#F87171;
+    --sh-sm:0 1px 3px rgba(0,0,0,.4);
+    --sh-md:0 4px 12px rgba(0,0,0,.5);
+    --radius:20px;
+  }
+
+  /* ===== NEW DARK ===== */
+  .new-dark {
+    background:#0A0A0B;
+    --bg:#0A0A0B; --surface:#111113; --card:#17171A; --card2:#1F1F23;
+    --border:#27272A; --border2:#3F3F46;
+    --text:#F4F4F5; --text2:#A1A1AA; --text3:#8C8C96;
+    --blue:#60A5FA; --purple:#A78BFA; --teal:#2DD4BF; --green:#22C55E;
+    --yellow:#F59E0B; --red:#F87171;
+    --sh-sm:0 1px 3px rgba(0,0,0,.4);
+    --sh-md:0 4px 12px rgba(0,0,0,.5);
+    --radius:14px;
+  }
+
+  /* ===== SHARED COMPONENT STYLES ===== */
+  .mock-card {
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:20px;
+    box-shadow:var(--sh-md);
+    margin-bottom:12px;
+  }
+  .current-light .mock-card,
+  .current-dark .mock-card { border:1px solid var(--border); }
+  .new-light .mock-card,
+  .new-dark .mock-card { border:none; }
+
+  .mock-card h3 { font-size:16px; font-weight:800; color:var(--text); letter-spacing:-0.3px; margin-bottom:4px; }
+  .mock-card .subtitle { font-size:12px; color:var(--text3); margin-bottom:16px; }
+
+  .stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px; }
+  .stat-card {
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:12px 16px;
+    display:flex; flex-direction:column; justify-content:space-between;
+    height:80px;
+    transition:transform .15s ease;
+  }
+  .current-light .stat-card,
+  .current-dark .stat-card { border:1px solid var(--border); box-shadow:var(--sh-sm); }
+  .new-light .stat-card,
+  .new-dark .stat-card { border:none; box-shadow:var(--sh-sm); }
+  .stat-card:hover { transform:translateY(-1px); }
+  .stat-card .stat-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text3); }
+  .stat-card .stat-value { font-size:26px; font-weight:900; font-family:'Nunito',sans-serif; line-height:1; }
+
+  .action-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:12px; }
+  .action-btn {
+    border:none; cursor:pointer;
+    border-radius:var(--radius); padding:12px 16px;
+    display:flex; flex-direction:column; align-items:flex-start;
+    justify-content:space-between; height:80px;
+    transition:transform .15s ease, box-shadow .15s ease;
+    text-align:left;
+  }
+  .action-btn:hover { transform:translateY(-1px); }
+  .action-btn .action-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+  .action-btn .action-value { font-size:28px; font-weight:900; font-family:'Nunito',sans-serif; line-height:1; }
+
+  .tab-bar {
+    display:flex; gap:4px; padding:4px;
+    border-radius:999px; margin-bottom:16px;
+  }
+  .current-light .tab-bar,
+  .current-dark .tab-bar { background:var(--surface); border:1px solid var(--border); }
+  .new-light .tab-bar { background:var(--surface); border:none; box-shadow:var(--sh-sm); }
+  .new-dark .tab-bar { background:var(--surface); border:1px solid var(--border); }
+  .tab-btn {
+    flex:1; padding:10px 16px;
+    border:1px solid transparent; border-radius:999px;
+    background:transparent; cursor:pointer;
+    font-size:13px; font-family:'Inter',sans-serif; font-weight:500;
+    color:var(--text3); transition:all .15s ease;
+    text-align:center;
+  }
+  .tab-btn.active {
+    font-weight:700; color:var(--purple);
+    background:color-mix(in srgb, var(--purple) 12%, transparent);
+    border-color:color-mix(in srgb, var(--purple) 20%, transparent);
+  }
+
+  .review-card {
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:16px;
+    margin-bottom:8px;
+    display:flex; gap:12px; align-items:center;
+    transition:transform .15s ease;
+  }
+  .current-light .review-card,
+  .current-dark .review-card { border:1px solid var(--border); border-left:3px solid var(--red); box-shadow:var(--sh-sm); }
+  .new-light .review-card { border:none; border-left:3px solid var(--red); box-shadow:var(--sh-sm); }
+  .new-dark .review-card { border:1px solid var(--border); border-left:3px solid var(--red); box-shadow:var(--sh-sm); }
+  .review-card:hover { transform:translateY(-1px); }
+  .review-card .theme-name { font-size:15px; font-weight:700; color:var(--text); letter-spacing:-0.2px; }
+  .review-card .meta { font-size:11px; color:var(--text3); font-family:'JetBrains Mono',monospace; margin-top:3px; }
+
+  .tag {
+    display:inline-flex; align-items:center;
+    padding:3px 10px; border-radius:999px;
+    font-size:10px; font-weight:600;
+    font-family:'JetBrains Mono',monospace;
+    line-height:1.4;
+  }
+  .current-light .tag,
+  .current-dark .tag { border:1px solid; }
+  .new-light .tag { border:none; }
+  .new-dark .tag { border:1px solid; }
+
+  .perf-circle {
+    width:42px; height:42px; border-radius:12px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:700; font-family:'Nunito',sans-serif;
+  }
+
+  .days-count {
+    display:flex; flex-direction:column; align-items:center; min-width:44px;
+  }
+  .days-count .num { font-size:22px; font-weight:800; font-family:'Nunito',sans-serif; line-height:1; }
+  .days-count .unit { font-size:10px; color:var(--text3); font-weight:500; }
+
+  .upcoming-card {
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:14px 16px;
+    margin-bottom:8px;
+    display:flex; gap:12px; align-items:center;
+    transition:transform .15s ease;
+  }
+  .current-light .upcoming-card,
+  .current-dark .upcoming-card { border:1px solid var(--border); box-shadow:var(--sh-sm); }
+  .new-light .upcoming-card { border:none; box-shadow:var(--sh-sm); }
+  .new-dark .upcoming-card { border:1px solid var(--border); box-shadow:var(--sh-sm); }
+
+  .mock-input {
+    width:100%; padding:10px 14px;
+    font-size:14px; font-family:'Inter',sans-serif;
+    border-radius:12px; outline:none;
+    color:var(--text);
+  }
+  .current-light .mock-input,
+  .current-dark .mock-input { background:var(--surface); border:1px solid var(--border2); }
+  .new-light .mock-input { background:var(--surface); border:1px solid var(--border); }
+  .new-dark .mock-input { background:var(--surface); border:1px solid var(--border2); }
+  .mock-input:focus {
+    border-color:var(--purple);
+    box-shadow:0 0 0 3px color-mix(in srgb, var(--purple) 15%, transparent);
+  }
+
+  .mock-btn {
+    border:none; cursor:pointer;
+    border-radius:12px; padding:10px 18px;
+    font-size:13px; font-weight:500; font-family:'Inter',sans-serif;
+    color:#fff; transition:opacity .15s, transform .1s;
+  }
+  .mock-btn:active { transform:scale(0.97); }
+
+  .empty-state {
+    background:var(--surface);
+    border-radius:var(--radius);
+    padding:32px 20px;
+    text-align:center;
+    display:flex; flex-direction:column;
+    align-items:center; gap:12px;
+  }
+  .current-light .empty-state,
+  .current-dark .empty-state { border:1px solid var(--border); }
+  .new-light .empty-state { border:none; box-shadow:var(--sh-sm); }
+  .new-dark .empty-state { border:1px solid var(--border); }
+  .empty-state .msg { font-size:13px; color:var(--text3); max-width:280px; line-height:1.6; font-weight:500; }
+
+  .section-title { font-size:15px; font-weight:800; letter-spacing:-0.2px; margin-bottom:12px; color:var(--text); display:flex; align-items:center; gap:8px; }
+
+  .progress-bar { height:4px; border-radius:999px; overflow:hidden; margin-top:8px; }
+  .progress-bar-bg { height:100%; border-radius:999px; }
+
+  .area-card {
+    background:var(--surface); border-radius:12px;
+    padding:12px 16px; margin-bottom:8px;
+  }
+  .current-light .area-card,
+  .current-dark .area-card { border:1px solid var(--border); }
+  .new-light .area-card { border:none; box-shadow:var(--sh-sm); }
+  .new-dark .area-card { border:1px solid var(--border); }
+
+  .bottom-nav {
+    display:flex; justify-content:space-around;
+    padding:12px 0 20px;
+    border-radius:20px 20px 0 0;
+    background:var(--card);
+    position:sticky; bottom:0;
+  }
+  .current-light .bottom-nav,
+  .current-dark .bottom-nav { border-top:1px solid var(--border); }
+  .new-light .bottom-nav { border-top:none; box-shadow:0 -2px 12px rgba(0,0,0,.06); }
+  .new-dark .bottom-nav { border-top:1px solid var(--border); }
+  .nav-item {
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    font-size:10px; font-weight:600; color:var(--text3);
+    background:none; border:none; cursor:pointer; padding:4px 12px;
+  }
+  .nav-item.active { color:var(--purple); }
+  .nav-item svg { width:20px; height:20px; }
+
+  .modal-backdrop {
+    border-radius:var(--radius);
+    overflow:hidden;
+    margin-bottom:12px;
+  }
+  .current-light .modal-backdrop { background:rgba(0,0,0,0.5); }
+  .new-light .modal-backdrop { background:rgba(0,0,0,0.3); }
+  .current-dark .modal-backdrop,
+  .new-dark .modal-backdrop { background:rgba(0,0,0,0.85); }
+  .modal-content {
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:24px; margin:20px;
+  }
+  .current-light .modal-content,
+  .current-dark .modal-content { border:1px solid var(--border2); box-shadow:var(--sh-md); }
+  .new-light .modal-content { border:none; box-shadow:0 8px 32px rgba(0,0,0,.12), 0 2px 8px rgba(0,0,0,.06); }
+  .new-dark .modal-content { border:1px solid var(--border2); box-shadow:var(--sh-md); }
+
+  .divider { height:1px; background:var(--border); margin:20px 0; }
+
+  @media(max-width:900px) {
+    .panels { grid-template-columns:1fr; }
+    .stat-grid { grid-template-columns:repeat(2,1fr); }
+    .action-grid { grid-template-columns:repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>MedTracker Design Preview</h1>
+  <div class="sep"></div>
+  <label><input type="radio" name="view" value="light" checked onchange="setView(this.value)"> Light mode</label>
+  <label><input type="radio" name="view" value="dark" onchange="setView(this.value)"> Dark mode</label>
+  <div class="sep"></div>
+  <label style="font-size:11px;color:#8C8C96">Esquerda = atual &nbsp;|&nbsp; Direita = proposto</label>
+</div>
+
+<div class="panels" id="panels">
+  <!-- Left: Current -->
+  <div class="panel current-light" id="panel-left"></div>
+  <!-- Right: New -->
+  <div class="panel new-light" id="panel-right"></div>
+</div>
+
+<script>
+function setView(mode) {
+  const left = document.getElementById('panel-left');
+  const right = document.getElementById('panel-right');
+  left.className = 'panel ' + (mode === 'dark' ? 'current-dark' : 'current-light');
+  right.className = 'panel ' + (mode === 'dark' ? 'new-dark' : 'new-light');
+}
+
+function mockContent(side) {
+  const isNew = side === 'new';
+  return `
+    <div class="panel-label" style="background:${isNew ? '#7B5ADE22' : '#7C3AED22'}; color:${isNew ? '#7B5ADE' : '#7C3AED'}">
+      ${isNew ? 'Proposto' : 'Atual'}
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="stat-grid">
+      <div class="stat-card" style="border-left:3px solid var(--blue)">
+        <div class="stat-label">Provas</div>
+        <div class="stat-value" style="color:var(--blue)">3</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--yellow)">
+        <div class="stat-label">Anki</div>
+        <div class="stat-value" style="color:var(--yellow)">10.4k</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--purple)">
+        <div class="stat-label">Revisoes</div>
+        <div class="stat-value" style="color:var(--purple)">847</div>
+      </div>
+      <div class="stat-card" style="border-left:3px solid var(--teal)">
+        <div class="stat-label">Questoes</div>
+        <div class="stat-value" style="color:var(--teal)">12.3k</div>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="action-grid">
+      <div class="action-btn" style="background:linear-gradient(135deg, color-mix(in srgb, var(--yellow) 30%, transparent), color-mix(in srgb, var(--purple) 35%, transparent))">
+        <div class="action-label" style="color:var(--text2)">5 pendentes</div>
+        <div class="action-value" style="color:var(--yellow)">Flash</div>
+      </div>
+      <div class="action-btn" style="background:linear-gradient(135deg, color-mix(in srgb, var(--blue) 35%, transparent), color-mix(in srgb, var(--purple) 40%, transparent))">
+        <div class="action-label" style="color:var(--text2)">Registrar</div>
+        <div class="action-value" style="color:var(--blue)">+ Sessao</div>
+      </div>
+      <div class="action-btn" style="background:linear-gradient(135deg, color-mix(in srgb, var(--red) 30%, transparent), color-mix(in srgb, var(--purple) 35%, transparent))">
+        <div class="action-label" style="color:var(--text2)">3 temas</div>
+        <div class="action-value" style="color:var(--red)">GAPS</div>
+      </div>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active">Visao geral</button>
+      <button class="tab-btn">Heatmap</button>
+      <button class="tab-btn">Notion</button>
+    </div>
+
+    <!-- Chart Card -->
+    <div class="mock-card">
+      <h3>Desempenho por area</h3>
+      <div class="subtitle">Media das sessoes vs. meta 85%</div>
+      <div style="display:flex;gap:8px;align-items:flex-end;height:120px;padding:0 8px">
+        ${['CM','CIR','GO','PED','PM'].map((a,i) => {
+          const h = [72,68,85,78,60][i];
+          const colors = ['var(--blue)','var(--teal)','var(--green)','var(--yellow)','var(--purple)'];
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+            <span style="font-size:10px;font-weight:700;color:${colors[i]};font-family:'Nunito',sans-serif">${h}%</span>
+            <div style="width:100%;height:${h}%;background:${colors[i]};border-radius:8px 8px 4px 4px;opacity:0.7;min-height:8px"></div>
+            <span style="font-size:11px;color:var(--text2)">${a}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="height:1px;background:var(--border);margin:8px 0;opacity:0.5"></div>
+      <div style="font-size:10px;color:var(--text3);text-align:right">meta 85%</div>
+    </div>
+
+    <!-- Section: Revisoes vencidas -->
+    <div class="section-title" style="color:var(--red)">
+      Revisoes vencidas
+      <span class="tag" style="color:var(--red);background:color-mix(in srgb, var(--red) 12%, transparent);border-color:color-mix(in srgb, var(--red) 25%, transparent)">2</span>
+    </div>
+
+    <div class="review-card">
+      <div style="flex:1">
+        <div class="theme-name">Insuficiencia Cardiaca</div>
+        <div class="meta">Ultimo: <span style="color:var(--yellow)">72%</span> em 28/03 · 4x revisado</div>
+        <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+          <span class="tag" style="color:var(--blue);background:color-mix(in srgb, var(--blue) 12%, transparent);border-color:color-mix(in srgb, var(--blue) 25%, transparent)">CM</span>
+          <span class="tag" style="color:var(--red);background:color-mix(in srgb, var(--red) 12%, transparent);border-color:color-mix(in srgb, var(--red) 25%, transparent)">2d atraso</span>
+        </div>
+      </div>
+      <button class="mock-btn" style="background:var(--blue);padding:8px 14px;font-size:12px">Registrar</button>
+    </div>
+
+    <div class="review-card" style="border-left-color:var(--yellow)">
+      <div style="flex:1">
+        <div class="theme-name">Doencas Exantematicas</div>
+        <div class="meta">Ultimo: <span style="color:var(--green)">88%</span> em 30/03 · 6x revisado</div>
+        <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+          <span class="tag" style="color:var(--teal);background:color-mix(in srgb, var(--teal) 12%, transparent);border-color:color-mix(in srgb, var(--teal) 25%, transparent)">PED</span>
+          <span class="tag" style="color:var(--yellow);background:color-mix(in srgb, var(--yellow) 12%, transparent);border-color:color-mix(in srgb, var(--yellow) 25%, transparent)">hoje</span>
+        </div>
+      </div>
+      <button class="mock-btn" style="background:var(--blue);padding:8px 14px;font-size:12px">Registrar</button>
+    </div>
+
+    <!-- Section: Proximas -->
+    <div style="margin-top:20px"></div>
+    <div class="section-title">
+      <div style="width:4px;height:16px;border-radius:2px;background:var(--green)"></div>
+      <span style="color:var(--green)">Esta semana</span>
+      <span style="font-size:11px;color:var(--text3);font-weight:500;font-family:'JetBrains Mono',monospace">(3)</span>
+    </div>
+
+    <div class="upcoming-card" style="border-left:3px solid var(--blue)">
+      <div class="days-count">
+        <span class="num" style="color:var(--yellow)">2</span>
+        <span class="unit">dias</span>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:-0.2px">Pneumonia</div>
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+          <span class="tag" style="color:var(--blue);background:color-mix(in srgb, var(--blue) 12%, transparent);border-color:color-mix(in srgb, var(--blue) 25%, transparent)">CM</span>
+          <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">R3</span>
+        </div>
+      </div>
+      <div class="perf-circle" style="background:color-mix(in srgb, var(--green) 10%, transparent);border:2px solid color-mix(in srgb, var(--green) 20%, transparent);color:var(--green)">85%</div>
+    </div>
+
+    <div class="upcoming-card" style="border-left:3px solid var(--teal)">
+      <div class="days-count">
+        <span class="num" style="color:var(--text)">5</span>
+        <span class="unit">dias</span>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:-0.2px">Fraturas de Quadril</div>
+        <div style="display:flex;gap:6px;margin-top:4px;flex-wrap:wrap">
+          <span class="tag" style="color:var(--teal);background:color-mix(in srgb, var(--teal) 12%, transparent);border-color:color-mix(in srgb, var(--teal) 25%, transparent)">CIR</span>
+          <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">R2</span>
+        </div>
+      </div>
+      <div class="perf-circle" style="background:color-mix(in srgb, var(--yellow) 10%, transparent);border:2px solid color-mix(in srgb, var(--yellow) 20%, transparent);color:var(--yellow)">68%</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Area Cards -->
+    <div class="section-title">Por area</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      ${[
+        {name:'Clinica Medica',short:'CM',color:'var(--blue)',pct:72},
+        {name:'Cirurgia',short:'CIR',color:'var(--teal)',pct:68},
+        {name:'Ginecologia',short:'GO',color:'var(--green)',pct:85},
+        {name:'Pediatria',short:'PED',color:'var(--yellow)',pct:78},
+      ].map(a => `
+        <div class="area-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:12px;font-weight:600;color:${a.color}">${a.name}</span>
+            <span style="font-size:20px;font-weight:900;color:var(--text);font-family:'Nunito',sans-serif;line-height:1">${a.pct}<span style="font-size:11px;color:var(--text3)">%</span></span>
+          </div>
+          <div class="progress-bar" style="background:var(--card2)">
+            <div class="progress-bar-bg" style="width:${a.pct}%;background:${a.color};opacity:0.75"></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Input + Button -->
+    <div class="mock-card">
+      <h3>Registro rapido</h3>
+      <div class="subtitle">Adicionar sessao de questoes</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <input class="mock-input" placeholder="Buscar tema..." />
+        <div style="display:flex;gap:8px">
+          <input class="mock-input" placeholder="Total" style="width:50%" />
+          <input class="mock-input" placeholder="Acertos" style="width:50%" />
+        </div>
+        <button class="mock-btn" style="background:var(--green);width:100%;padding:12px">Salvar</button>
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" style="border-color:color-mix(in srgb, var(--green) 20%, transparent)">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="22" stroke="var(--green)" stroke-width="2" stroke-dasharray="4 3" opacity="0.3"/>
+        <circle cx="24" cy="24" r="14" fill="color-mix(in srgb, var(--green) 8%, transparent)"/>
+        <path d="M17 24l5 5 9-9" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <div class="msg" style="color:var(--green)">Nenhuma revisao vencida. Otimo!</div>
+    </div>
+
+    <!-- Modal Preview -->
+    <div style="margin-top:16px"></div>
+    <div class="section-title">Modal</div>
+    <div class="modal-backdrop" style="padding:20px">
+      <div class="modal-content">
+        <h3 style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:12px">Nova sessao</h3>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <input class="mock-input" placeholder="Tema" />
+          <div style="display:flex;gap:8px">
+            <input class="mock-input" placeholder="Total" style="width:50%" />
+            <input class="mock-input" placeholder="Acertos" style="width:50%" />
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <button class="mock-btn" style="background:var(--card2);color:var(--text3);padding:10px 18px">Cancelar</button>
+            <button class="mock-btn" style="background:var(--purple);padding:10px 18px">Salvar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Nav -->
+    <div class="bottom-nav" style="margin-top:16px;position:relative">
+      ${[
+        {name:'Agenda', active:false},
+        {name:'Dash', active:true},
+        {name:'Revisoes', active:false},
+        {name:'Provas', active:false},
+        {name:'Temas', active:false},
+      ].map(n => `
+        <button class="nav-item ${n.active ? 'active' : ''}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            ${n.name === 'Dash' ? '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>'
+            : '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'}
+          </svg>
+          ${n.name}
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Render both panels
+document.getElementById('panel-left').innerHTML = mockContent('current');
+document.getElementById('panel-right').innerHTML = mockContent('new');
+</script>
+
+</body>
+</html>

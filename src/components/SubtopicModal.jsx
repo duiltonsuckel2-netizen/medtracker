@@ -4,9 +4,9 @@ import { areaMap } from "../data.js";
 import { useEscapeKey } from "../hooks/useEscapeKey.js";
 
 const CONFIDENCE_OPTS = [
-  { id: "domino", label: "Domino", icon: "💪", color: "#22C55E" },
-  { id: "mais_ou_menos", label: "Mais ou menos", icon: "🤔", color: "#EAB308" },
-  { id: "preciso_revisar", label: "Preciso revisar", icon: "📖", color: "#EF4444" },
+  { id: "domino", label: "Domino", icon: "💪", get color() { return C.green; } },
+  { id: "mais_ou_menos", label: "Mais ou menos", icon: "🤔", get color() { return C.yellow; } },
+  { id: "preciso_revisar", label: "Preciso revisar", icon: "📖", get color() { return C.red; } },
 ];
 
 function SubtopicModal({ area, topic, semana, existing, onSave, onClose }) {
@@ -78,7 +78,7 @@ function SubtopicModal({ area, topic, semana, existing, onSave, onClose }) {
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={handleSave} style={btn("#34D399", { flex: 1, padding: "12px 16px", fontSize: 13 })}>
+          <button onClick={handleSave} style={btn(C.green, { flex: 1, padding: "12px 16px", fontSize: 13 })}>
             {items.length > 0 ? `✓ Salvar ${items.length} subtema${items.length > 1 ? "s" : ""}` : "Salvar sem subtemas"}
           </button>
           <button onClick={onClose} style={btn(C.card2, { padding: "12px 16px", fontSize: 13 })}>Pular</button>
@@ -128,7 +128,7 @@ function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) 
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {entries.map((entry, i) => {
             const val = entry.pct !== "" ? Number(entry.pct) : null;
-            const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
+            const pctColor = val !== null ? (val >= 85 ? C.green : val >= 60 ? C.yellow : C.red) : C.text3;
             return (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.card2, borderRadius: R.md, border: `1px solid ${val !== null ? pctColor + "40" : C.border}`, transition: "border-color .15s" }}>
                 <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{entry.name}</span>
@@ -142,7 +142,7 @@ function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) 
         </div>
 
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-          <button onClick={handleSave} disabled={filled === 0} style={btn("#34D399", { flex: 1, padding: "12px 16px", fontSize: 13, opacity: filled > 0 ? 1 : 0.4 })}>
+          <button onClick={handleSave} disabled={filled === 0} style={btn(C.green, { flex: 1, padding: "12px 16px", fontSize: 13, opacity: filled > 0 ? 1 : 0.4 })}>
             ✓ Salvar {filled} subtema{filled !== 1 ? "s" : ""}
           </button>
           <button onClick={onClose} style={btn(C.card2, { padding: "12px 16px", fontSize: 13 })}>Cancelar</button>

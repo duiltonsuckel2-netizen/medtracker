@@ -157,9 +157,9 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                     <div style={{ fontSize: 20, fontWeight: 800, color: C.green, ...NUM }}>{subtemaResult.melhor?.pct ?? "-"}%</div>
                   </div>
                   <div style={{ background: "#EF444414", border: "1px solid #EF444433", borderRadius: R.sm, padding: 12 }}>
-                    <div style={{ fontSize: 10, color: "#EF4444", fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>⚠️ Pior</div>
+                    <div style={{ fontSize: 10, color: C.red, fontWeight: 600, textTransform: "uppercase", marginBottom: 4 }}>⚠️ Pior</div>
                     <div style={{ fontSize: 13, fontWeight: 600 }}>{subtemaResult.pior?.nome || "—"}</div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "#EF4444", ...NUM }}>{subtemaResult.pior?.pct ?? "-"}%</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: C.red, ...NUM }}>{subtemaResult.pior?.pct ?? "-"}%</div>
                   </div>
                 </div>
                 {subtemaResult.subtemas?.length > 0 && (
@@ -199,8 +199,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12, alignItems: "flex-end" }}>
             <Fld label="Total"><input type="number" min="0" value={qForm.total} onChange={(e) => setQ("total", e.target.value)} style={inp()} /></Fld>
-            <Fld label="✓ Acertos"><input type="number" min="0" value={qForm.acertos} onChange={(e) => setQ("acertos", e.target.value)} style={inp({ borderColor: "#34D39944" })} /></Fld>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{qPct !== null && <div style={{ textAlign: "center", fontSize: 16, fontWeight: 700, color: perfColor(qPct), ...NUM }}>{qPct}%</div>}<button onClick={submitQ} style={btn("#34D399", { padding: "9px 14px" })}>Salvar</button></div>
+            <Fld label="✓ Acertos"><input type="number" min="0" value={qForm.acertos} onChange={(e) => setQ("acertos", e.target.value)} style={inp({ borderColor: C.green + "44" })} /></Fld>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>{qPct !== null && <div style={{ textAlign: "center", fontSize: 16, fontWeight: 700, color: perfColor(qPct), ...NUM }}>{qPct}%</div>}<button onClick={submitQ} style={btn(C.green, { padding: "9px 14px" })}>Salvar</button></div>
           </div>
         </div>}
       </div>
@@ -226,15 +226,15 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                   ) : null; })()}
                   {r.subtemaNote && (
                     <div style={{ marginTop: 6, padding: "5px 10px", background: C.bg, borderRadius: R.sm, fontSize: 11, color: C.text3, border: `1px solid ${C.border}` }}>
-                      ⚠️ Pior subtema anterior: <span style={{ color: "#EF4444", fontWeight: 600 }}>{r.subtemaNote.pior?.nome}</span> ({r.subtemaNote.pior?.pct}%)
+                      ⚠️ Pior subtema anterior: <span style={{ color: C.red, fontWeight: 600 }}>{r.subtemaNote.pior?.nome}</span> ({r.subtemaNote.pior?.pct}%)
                     </div>
                   )}
                   {isM && <div style={{ marginTop: 10 }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto auto", gap: 8, alignItems: "flex-end" }}>
                       <Fld label="Total"><input type="number" min="0" value={marking.total} onChange={(e) => setMarking((m) => ({ ...m, total: e.target.value }))} style={inp()} autoFocus /></Fld>
-                      <Fld label="✓ Acertos"><input type="number" min="0" value={marking.acertos} onChange={(e) => setMarking((m) => ({ ...m, acertos: e.target.value }))} style={inp({ borderColor: "#34D39944" })} /></Fld>
+                      <Fld label="✓ Acertos"><input type="number" min="0" value={marking.acertos} onChange={(e) => setMarking((m) => ({ ...m, acertos: e.target.value }))} style={inp({ borderColor: C.green + "44" })} /></Fld>
                       {mPct !== null && <div style={{ textAlign: "center", paddingBottom: 2, fontSize: 16, fontWeight: 700, color: perfColor(mPct), ...NUM }}>{mPct}%</div>}
-                      <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}><button onClick={submitMark} style={btn("#34D399", { padding: "9px 12px" })}>✓</button><button onClick={() => setMarking(null)} style={btn(C.card2, { padding: "9px 10px" })}>✕</button></div>
+                      <div style={{ display: "flex", gap: 6, paddingBottom: 2 }}><button onClick={submitMark} style={btn(C.green, { padding: "9px 12px" })}>✓</button><button onClick={() => setMarking(null)} style={btn(C.card2, { padding: "9px 10px" })}>✕</button></div>
                     </div>
                     <div style={{ marginTop: 10, padding: 10, background: C.surface, borderRadius: R.md, border: `1px solid ${C.purple}25` }}>
                       <div style={{ fontSize: 11, color: C.purple, fontWeight: 600, marginBottom: 8, fontFamily: FM }}>Subtemas — % de acertos</div>
@@ -242,7 +242,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                           {marking.subtemas.map((s, si) => {
                             const val = s.pct !== "" ? Number(s.pct) : null;
-                            const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
+                            const pctColor = val !== null ? (val >= 85 ? C.green : val >= 60 ? C.yellow : C.red) : C.text3;
                             return (
                               <div key={si} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                 <span style={{ fontSize: 12, flex: 1, color: C.text2 }}>{s.name}</span>
@@ -262,7 +262,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                   </div>}
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {!isM && <button onClick={() => { const allSt = resolveSubtopicsWithScores(r); const subtemas = allSt.length > 0 ? allSt.map(s => ({ name: s.name, pct: "" })) : null; setMarking({ id: r.id, total: "", acertos: "", subtemas }); }} style={btn("#3B82F6", { padding: "8px 14px" })}>Registrar</button>}
+                  {!isM && <button onClick={() => { const allSt = resolveSubtopicsWithScores(r); const subtemas = allSt.length > 0 ? allSt.map(s => ({ name: s.name, pct: "" })) : null; setMarking({ id: r.id, total: "", acertos: "", subtemas }); }} style={btn(C.blue, { padding: "8px 14px" })}>Registrar</button>}
                 </div>
               </div>
             </div>
@@ -502,7 +502,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                     ))}
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-                    <button onClick={() => { const scores = (editingLog.subtopicScores || []).filter((s) => s.name.trim() && s.pct !== "" && s.pct >= 0); onEditLog(editingLog.id, { ...editingLog, subtopicScores: scores.length > 0 ? scores : undefined }); setEditingLog(null); }} style={btn("#34D399", { padding: "9px 18px", fontSize: 12, fontWeight: 600 })}>Salvar</button>
+                    <button onClick={() => { const scores = (editingLog.subtopicScores || []).filter((s) => s.name.trim() && s.pct !== "" && s.pct >= 0); onEditLog(editingLog.id, { ...editingLog, subtopicScores: scores.length > 0 ? scores : undefined }); setEditingLog(null); }} style={btn(C.green, { padding: "9px 18px", fontSize: 12, fontWeight: 600 })}>Salvar</button>
                     <button onClick={() => setEditingLog(null)} style={btn(C.card2, { padding: "9px 18px", fontSize: 12 })}>Cancelar</button>
                   </div>
                 </div>

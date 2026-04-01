@@ -168,7 +168,7 @@ function SessionModal({ onSave, onClose, subtopics: subtopicDict, revLogs, revie
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <Fld label="Total questões" error={touched.total && errors.total}><input type="number" min="0" value={total} onChange={(e) => { setTotal(e.target.value); if (errors.total) setErrors((er) => ({ ...er, total: null })); }} onBlur={() => { touch("total"); validate("total"); }} style={inp(errStyle("total"))} /></Fld>
-            <Fld label="Acertos" error={touched.acertos && errors.acertos}><input type="number" min="0" value={acertos} onChange={(e) => { setAcertos(e.target.value); if (errors.acertos) setErrors((er) => ({ ...er, acertos: null })); }} onBlur={() => { touch("acertos"); validate("acertos"); }} style={inp({ borderColor: "#34D39944", ...errStyle("acertos") })} /></Fld>
+            <Fld label="Acertos" error={touched.acertos && errors.acertos}><input type="number" min="0" value={acertos} onChange={(e) => { setAcertos(e.target.value); if (errors.acertos) setErrors((er) => ({ ...er, acertos: null })); }} onBlur={() => { touch("acertos"); validate("acertos"); }} style={inp({ borderColor: C.green + "44", ...errStyle("acertos") })} /></Fld>
           </div>
           {/* Subtopics section */}
           <div>
@@ -185,7 +185,7 @@ function SessionModal({ onSave, onClose, subtopics: subtopicDict, revLogs, revie
                   <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
                     {subtopics.map((s, i) => {
                       const val = s.pct !== "" ? Number(s.pct) : null;
-                      const pctColor = val !== null ? (val >= 85 ? "#22C55E" : val >= 60 ? "#EAB308" : "#EF4444") : C.text3;
+                      const pctColor = val !== null ? (val >= 85 ? C.green : val >= 60 ? C.yellow : C.red) : C.text3;
                       return (
                         <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: C.card2, borderRadius: R.md, border: `1px solid ${val !== null ? pctColor + "40" : C.border}` }}>
                           <span style={{ fontSize: 12, flex: 1 }}>{s.name}</span>
@@ -225,7 +225,7 @@ function SessionModal({ onSave, onClose, subtopics: subtopicDict, revLogs, revie
               </div>
             )}
           </div>
-          <button onClick={submit} style={btn("#34D399", { width: "100%", marginTop: 4 })}>✓ Salvar sessão</button>
+          <button onClick={submit} style={btn(C.green, { width: "100%", marginTop: 4 })}>✓ Salvar sessão</button>
         </div>
       </div>
     </div>

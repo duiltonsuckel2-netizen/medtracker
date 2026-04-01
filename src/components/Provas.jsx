@@ -126,7 +126,7 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
           {CATS.map((cat) => <div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5 }}><div style={{ width: 10, height: 10, borderRadius: "50%", background: cat.color }} /><span style={{ fontSize: 11, color: C.text2 }}>{cat.label}</span></div>)}
         </div>
       </div>}
-      {step === 2 && <div style={{ ...card, border: "1px solid #3B82F655", display: "flex", flexDirection: "column", gap: 16 }}>
+      {step === 2 && <div style={{ ...card, border: `1px solid ${C.blue}55`, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.blue }}>{examMeta.name}</div>
@@ -199,12 +199,12 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
           </div>
         )}
         {classified > 0 && (
-          <button onClick={() => needArea.length > 0 ? setStep(3) : buildExam()} style={btn("#34D399")}>
+          <button onClick={() => needArea.length > 0 ? setStep(3) : buildExam()} style={btn(C.green)}>
             {needArea.length > 0 ? `Próximo → indicar áreas (${needArea.length} erradas)` : "✓ Salvar prova"}
           </button>
         )}
       </div>}
-      {step === 3 && <div style={{ ...card, border: "1px solid #3B82F655", display: "flex", flexDirection: "column", gap: 16 }}>
+      {step === 3 && <div style={{ ...card, border: `1px solid ${C.blue}55`, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 15, fontWeight: 700, color: C.blue }}>Áreas das questões erradas</div>
@@ -237,7 +237,7 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
             );
           })}
         </div>
-        <button onClick={() => { if (!allAreasFilled) return alert("Preencha a área de todas as questões erradas."); buildExam(); }} style={btn("#34D399")}>✓ Salvar prova</button>
+        <button onClick={() => { if (!allAreasFilled) return alert("Preencha a área de todas as questões erradas."); buildExam(); }} style={btn(C.green)}>✓ Salvar prova</button>
       </div>}
     </div>
   );

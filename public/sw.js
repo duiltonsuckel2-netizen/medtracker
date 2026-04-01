@@ -1,4 +1,4 @@
-const CACHE_NAME = 'medtracker-v56';
+const CACHE_NAME = 'medtracker-v57';
 
 self.addEventListener('install', () => {
   self.skipWaiting();

@@ -467,7 +467,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                   }}>
                                     {allStItems.map((st, i) => {
                                       const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
-                                      // Fallback: get last % from revLog, use parent's lastStudied as base date
+                                      // Fallback: get last % from revLog, or use parent's lastPerf if no individual score
                                       let logPct = null, logInterval = null, logDays = null;
                                       if (!subRev) {
                                         const k = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;

@@ -114,7 +114,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: estDue ? estDue <= today() : false, intervalIndex: estIdx, nextDue: estDue, days: estDays });
       }
     });
-    // Priority 3: dictionary names (no pct)
+    // Priority 3: dictionary names (no score = no schedule)
     stNames.forEach(n => { if (!map.has(n.toLowerCase())) map.set(n.toLowerCase(), { name: n, pct: null, isDue: false, intervalIndex: null, nextDue: null, days: null }); });
 
     // Sort: due first, then by days ascending

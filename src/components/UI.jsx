@@ -14,11 +14,26 @@ function Fld({ label, children, error }) {
 }
 
 function Empty({ msg, green, icon, action, onAction }) {
+  const emptyIllustration = green ? (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="22" stroke={C.green} strokeWidth="2" strokeDasharray="4 3" opacity="0.3" />
+      <circle cx="24" cy="24" r="14" fill={C.green + "12"} />
+      <path d="M17 24l5 5 9-9" stroke={C.green} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ) : (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="22" stroke={C.border2} strokeWidth="1.5" strokeDasharray="4 3" opacity="0.4" />
+      <circle cx="24" cy="24" r="10" fill={C.card2} />
+      <circle cx="20" cy="22" r="1.5" fill={C.text3} opacity="0.5" />
+      <circle cx="28" cy="22" r="1.5" fill={C.text3} opacity="0.5" />
+      <path d="M20 28c1.5-1.5 6.5-1.5 8 0" stroke={C.text3} strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+    </svg>
+  );
   return (
-    <div style={{ ...card, background: C.surface, border: `1px solid ${green ? C.green + "33" : C.border}`, textAlign: "center", padding: `${S.xl + 12}px ${S.xl}px`, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-      {icon && <div style={{ width: 48, height: 48, borderRadius: 14, background: green ? C.green + "12" : C.card2, border: `1px solid ${green ? C.green + "25" : C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>{icon}</div>}
-      <div style={{ fontSize: 13, color: green ? C.green : C.text3, maxWidth: 260, lineHeight: 1.5 }}>{msg}</div>
-      {action && onAction && <button onClick={onAction} style={{ ...btn(C.blue), padding: "8px 18px", fontSize: 12, marginTop: 4 }}>{action}</button>}
+    <div className={green ? "celebrate-pulse" : ""} style={{ ...card, background: C.surface, border: `1px solid ${green ? C.green + "33" : C.border}`, textAlign: "center", padding: "32px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+      <div style={{ marginBottom: 4 }}>{icon || emptyIllustration}</div>
+      <div style={{ fontSize: 13, color: green ? C.green : C.text3, maxWidth: 280, lineHeight: 1.6, fontWeight: 500 }}>{msg}</div>
+      {action && onAction && <button onClick={onAction} style={{ ...btn(C.blue), padding: "10px 22px", fontSize: 12, marginTop: 6, borderRadius: R.lg }}>{action}</button>}
     </div>
   );
 }

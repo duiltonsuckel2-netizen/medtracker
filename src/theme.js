@@ -11,7 +11,11 @@ const H = { sm:36, md:44, lg:52 };
 function applyTheme(dark) {
   C = dark ? DARK : LIGHT;
   SH = dark ? { sm:"0 1px 3px rgba(0,0,0,.4)", md:"0 4px 12px rgba(0,0,0,.5)", lg:"0 8px 30px rgba(0,0,0,.6)", glow:c=>`0 0 20px ${c}22, 0 0 40px ${c}11` } : { sm:"0 1px 3px rgba(0,0,0,.08)", md:"0 4px 12px rgba(0,0,0,.1)", lg:"0 8px 30px rgba(0,0,0,.12)", glow:c=>`0 0 20px ${c}15, 0 0 40px ${c}08` };
-  card = { background:C.card, border:`1px solid ${C.border}`, borderRadius:R.xl, padding:`${S.xl}px`, boxShadow:SH.md };
+  card = { background:C.card, border:`1px solid ${C.border}`, borderRadius:R.xl, padding:"20px", boxShadow:SH.md };
+  if (typeof document !== "undefined") {
+    document.body.style.background = C.bg;
+    document.documentElement.classList.toggle("light-mode", !dark);
+  }
 }
 applyTheme(true);
 const inp = (extra={}) => ({ background:C.surface, border:`1px solid ${C.border2}`, borderRadius:R.md, padding:"10px 14px", color:C.text, fontSize:14, fontFamily:F, width:"100%", outline:"none", transition:"border-color 0.15s, box-shadow 0.15s", ...extra });
@@ -44,14 +48,24 @@ function injectKeyframes() {
     @keyframes fadeSlideIn { from { opacity:0; transform:translateY(8px) } to { opacity:1; transform:translateY(0) } }
     @keyframes pulseCheck { 0% { transform:scale(1) } 50% { transform:scale(1.3) } 100% { transform:scale(1) } }
     @keyframes skeletonShimmer { 0% { background-position:-200% 0 } 100% { background-position:200% 0 } }
+    @keyframes celebratePulse { 0% { box-shadow:0 0 0 0 rgba(34,197,94,0.4) } 70% { box-shadow:0 0 0 10px rgba(34,197,94,0) } 100% { box-shadow:0 0 0 0 rgba(34,197,94,0) } }
     .fade-in { animation:fadeSlideIn .25s ease-out }
     .pulse-check { animation:pulseCheck .3s ease-out }
+    .celebrate-pulse { animation:celebratePulse 1.5s ease-out }
     .skeleton { background:linear-gradient(90deg,transparent 25%,rgba(255,255,255,.06) 50%,transparent 75%); background-size:200% 100%; animation:skeletonShimmer 1.5s infinite }
     @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }
-    @media(max-width:768px){ .logo-img{width:52px!important;height:52px!important} .logo-text{font-size:24px!important} }
+    *:focus-visible { outline:2px solid #A78BFA; outline-offset:2px; border-radius:8px }
+    button:focus-visible { box-shadow:0 0 0 3px rgba(167,139,250,0.3) }
+    input:focus-visible, select:focus-visible { outline:2px solid #A78BFA; outline-offset:0; border-color:#A78BFA !important }
+    button:active { transform:scale(0.97) }
+    .card-interactive { transition:transform 0.15s ease, box-shadow 0.15s ease }
+    .card-interactive:hover { transform:translateY(-1px) }
+    @media(max-width:768px){ .logo-img{width:52px!important;height:52px!important} .logo-text{font-size:24px!important} .card-interactive:hover{transform:none} }
     @media(max-width:640px){ .bottom-nav{display:block!important} .desktop-tabs{display:none!important} }
   `;
   document.head.appendChild(s);
 }
 
-export { C, DARK, LIGHT, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit, applyTheme, TY, perfIcon, perfIconColor, injectKeyframes, isLightColor };
+const modalBg = () => C === DARK ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.5)";
+
+export { C, DARK, LIGHT, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit, applyTheme, TY, perfIcon, perfIconColor, injectKeyframes, isLightColor, modalBg };

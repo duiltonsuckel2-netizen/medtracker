@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useMemo } from "react";
 import { LineChart, Line, ResponsiveContainer, ReferenceLine, Tooltip } from "recharts";
 import { AREAS, INTERVALS, INT_LABELS, areaMap } from "../data.js";
-import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
+import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, modalBg } from "../theme.js";
 import { today, diffDays, fmtDate, perc, perfColor } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
 import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
@@ -129,7 +129,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         {SUB_TABS.map((t) => { const active = subTab === t.id; return (<button key={t.id} onClick={() => setSubTab(t.id)} style={{ padding: "10px 18px", flex: 1, background: active ? C.purple + "20" : "transparent", border: active ? `1px solid ${C.purple}35` : "1px solid transparent", borderRadius: R.pill, cursor: "pointer", color: active ? C.purple : C.text3, fontSize: 13, fontFamily: F, fontWeight: active ? 700 : 500, whiteSpace: "nowrap", minHeight: H.sm, height: H.sm, boxShadow: active ? SH.glow(C.purple) : "none", transition: "all 0.15s ease", opacity: active ? 1 : 0.55, textAlign: "center" }}>{t.label}</button>); })}
       </div>
       {subtemaModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "20px", overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, background: modalBg(), zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "20px", overflowY: "auto" }}>
           <div style={{ background: C.card, borderRadius: 20, padding: 24, maxWidth: 480, width: "100%", border: `1px solid ${C.border2}`, marginTop: 40 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div>
@@ -205,7 +205,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         </div>}
       </div>
       <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><div style={{ fontSize: 15, fontWeight: 700, color: C.red }}>Revisões vencidas</div>{due.length > 0 && <span style={tag(C.red)}>{due.length}</span>}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}><div style={{ fontSize: 16, fontWeight: 800, color: C.red, letterSpacing: -0.3 }}>Revisões vencidas</div>{due.length > 0 && <span style={tag(C.red)}>{due.length}</span>}</div>
         {due.length === 0 ? <Empty msg="Nenhuma revisão vencida. Ótimo!" green /> : due.map((r) => {
           const a = areaMap[r.area]; const days = diffDays(r._effDue || r.nextDue, today()); const isM = marking?.id === r.id;
           return (
@@ -213,7 +213,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
-                    <span style={{ fontSize: 14, fontWeight: 600 }}>{r.theme}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.2 }}>{r.theme}</span>
                     <span style={tag(a?.color || "#6B7280")}>{a?.label}</span>
                     <span style={tag(C.red)}>{days === 0 ? "hoje" : `${Math.abs(days)}d atraso`}</span>
                     <span style={tag(C.text3)}>{INT_LABELS[r.intervalIndex]}</span>
@@ -289,7 +289,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
           <div key={g.label}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
               <div style={{ width: 4, height: 16, borderRadius: 2, background: g.accent }} />
-              <span style={{ fontSize: 14, fontWeight: 700, color: g.accent }}>{g.label}</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: g.accent, letterSpacing: -0.2 }}>{g.label}</span>
               <span style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>({g.items.length})</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
@@ -306,7 +306,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                     </div>
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 4, lineHeight: 1.3 }}>{r.theme}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4, lineHeight: 1.3, letterSpacing: -0.2 }}>{r.theme}</div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ ...tag(aColor), borderLeft: `2px solid ${aColor}` }}>{a?.short}</span>
                         <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[r.intervalIndex]}</span>
@@ -364,7 +364,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
           return (
             <div key={i} style={{ ...card, padding: `${S.xl}px` }}>
               <div style={{ marginBottom: S.lg }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text, lineHeight: 1.3, marginBottom: S.xs }}>{t.theme}</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: C.text, lineHeight: 1.3, marginBottom: S.xs, letterSpacing: -0.3 }}>{t.theme}</div>
                 <div style={{ fontSize: 12, color: C.text3 }}><span style={{ color: a?.color, fontWeight: 600 }}>{a?.label}</span> <span style={{ color: C.border2 }}>·</span> {t.n} sessões</div>
               </div>
               <div style={{ display: "flex", gap: S.lg, alignItems: "center", marginBottom: S.xl }}>

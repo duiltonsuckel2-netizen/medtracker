@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { C, F, FM, R, S, SH, inp, btn, tag } from "../theme.js";
+import { C, F, FM, R, S, SH, inp, btn, tag, modalBg } from "../theme.js";
 import { areaMap } from "../data.js";
 import { useEscapeKey } from "../hooks/useEscapeKey.js";
 
@@ -31,7 +31,7 @@ function SubtopicModal({ area, topic, semana, existing, onSave, onClose }) {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={{ position: "fixed", inset: 0, background: modalBg(), zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="fade-in" style={{ background: C.card, borderRadius: 20, padding: 24, maxWidth: 460, width: "100%", border: `1px solid ${C.border2}`, boxShadow: SH.lg, maxHeight: "85vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
           <div>
@@ -108,7 +108,7 @@ function SubtopicReviewModal({ area, parentTheme, subtopics, onSave, onClose }) 
   const filled = entries.filter((e) => e.pct !== "" && Number(e.pct) >= 0 && Number(e.pct) <= 100).length;
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={{ position: "fixed", inset: 0, background: modalBg(), zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="fade-in" style={{ background: C.card, borderRadius: 20, padding: 24, maxWidth: 520, width: "100%", border: `1px solid ${C.border2}`, boxShadow: SH.lg, maxHeight: "85vh", overflowY: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
           <div>

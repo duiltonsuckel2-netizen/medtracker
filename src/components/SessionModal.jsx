@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { AREAS, SEMANAS } from "../data.js";
-import { C, F, FM, R, S, H, SH, card, inp, btn, tag } from "../theme.js";
+import { C, F, FM, R, S, H, SH, card, inp, btn, tag, modalBg } from "../theme.js";
 import { today } from "../utils.js";
 import { Fld } from "./UI.jsx";
 import { useEscapeKey } from "../hooks/useEscapeKey.js";
@@ -113,7 +113,7 @@ function SessionModal({ onSave, onClose, subtopics: subtopicDict, revLogs, revie
   const errStyle = (field) => touched[field] && errors[field] ? { borderColor: C.red + "88", boxShadow: `0 0 0 2px ${C.red}18` } : {};
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div style={{ position: "fixed", inset: 0, background: modalBg(), zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="fade-in" style={{ background: C.card, borderRadius: 20, padding: 24, maxWidth: 420, width: "100%", border: `1px solid ${C.border2}`, boxShadow: SH.lg }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontSize: 16, fontWeight: 700 }}>Nova sessão</div>

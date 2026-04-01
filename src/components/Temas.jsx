@@ -28,6 +28,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
   const [newStItem, setNewStItem] = useState("");
   const [weekLimit, setWeekLimit] = useState(12);
   const [stSugFocused, setStSugFocused] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null); // { stKey, area, theme, name }
   const [viewMode, setViewMode] = useState(() => { try { return localStorage.getItem("rp26_temas_view") || "list"; } catch { return "list"; } });
 
   // Separate parent reviews from subtopic reviews
@@ -158,11 +159,16 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
   }
 
   function removeStItem(stKey, area, theme, name) {
-    if (!confirm(`Remover subtema "${name}"?`)) return;
+    setConfirmDelete({ stKey, area, theme, name });
+  }
+  function confirmRemoveSt() {
+    if (!confirmDelete) return;
+    const { stKey, area, theme, name } = confirmDelete;
     const key = stKey || `${area}__${theme}`;
     const topic = key.split("__").slice(1).join("__");
     const existing = subtopics[key] || [];
     onSaveSubtopics(area, topic, existing.filter((s) => s.toLowerCase() !== name.toLowerCase()));
+    setConfirmDelete(null);
   }
 
   // Gallery: flatten all aulas into individual items
@@ -507,7 +513,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                           ) : (
                                             <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>
                                           )}
-                                          {isEditing && (
+                                          {isEditing && stKey && stItems.some(s => s.toLowerCase() === st.toLowerCase()) && (
                                             <button onClick={() => removeStItem(stKey, r.area, r.theme, st)}
                                               style={{ background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 10, padding: "2px 5px" }}>✕</button>
                                           )}
@@ -573,6 +579,20 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
           style={btn(C.surface, { color: C.text2, border: `1px solid ${C.border}`, width: "100%", textAlign: "center", padding: "12px 18px" })}>
           Mais semanas ({filtered.length - weekLimit} restantes)
         </button>
+      )}
+
+      {/* Confirm delete modal */}
+      {confirmDelete && (
+        <div onClick={() => setConfirmDelete(null)} style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.card, borderRadius: R.xl, padding: 24, maxWidth: 340, width: "100%", boxShadow: SH.lg, display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Remover subtema?</div>
+            <div style={{ fontSize: 13, color: C.text2 }}>"{confirmDelete.name}" será removido do dicionário.</div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setConfirmDelete(null)} style={btn(C.surface, { padding: "10px 20px", color: C.text2, border: `1px solid ${C.border}` })}>Cancelar</button>
+              <button onClick={confirmRemoveSt} style={btn(C.red, { padding: "10px 20px" })}>Remover</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -495,7 +495,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                           <span style={{ ...TY.caption, flex: 1, minWidth: 0 }}>{st}</span>
                                           {displayPct !== null ? (
                                             <span style={{ fontSize: 11, fontWeight: 700, color: perfColor(displayPct), fontFamily: FN, whiteSpace: "nowrap" }}>
-                                              {displayPct}%{subRev && (() => { const d = diffDays(subRev.nextDue, today()); return <> <span style={{ color: d <= 0 ? C.red : C.text3, fontWeight: 500 }}>{d <= 0 ? (d === 0 ? "hoje" : `${Math.abs(d)}d atraso`) : `em ${d}d`}</span></>; })()}
+                                              {displayPct}%{subRev ? (() => { const d = diffDays(subRev.nextDue, today()); return <> <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>{INT_LABELS[subRev.intervalIndex]}</span> <span style={{ color: d <= 0 ? C.red : C.text3, fontWeight: 500 }}>{d <= 0 ? (d === 0 ? "hoje" : `${Math.abs(d)}d atraso`) : `em ${d}d`}</span></>; })() : <span style={{ color: C.text3, fontWeight: 400, marginLeft: 3, fontSize: 10 }}>sem agenda</span>}
                                             </span>
                                           ) : (
                                             <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>

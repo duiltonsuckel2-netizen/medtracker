@@ -157,6 +157,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
   }
 
   function removeStItem(stKey, area, theme, name) {
+    if (!confirm(`Remover subtema "${name}"?`)) return;
     const key = stKey || `${area}__${theme}`;
     const topic = key.split("__").slice(1).join("__");
     const existing = subtopics[key] || [];

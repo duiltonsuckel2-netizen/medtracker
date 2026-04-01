@@ -156,9 +156,11 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
     setNewStItem("");
   }
 
-  function removeStItem(stKey, area, idx) {
-    const existing = subtopics[stKey] || [];
-    onSaveSubtopics(area, stKey.split("__").slice(1).join("__"), existing.filter((_, i) => i !== idx));
+  function removeStItem(stKey, area, theme, name) {
+    const key = stKey || `${area}__${theme}`;
+    const topic = key.split("__").slice(1).join("__");
+    const existing = subtopics[key] || [];
+    onSaveSubtopics(area, topic, existing.filter((s) => s.toLowerCase() !== name.toLowerCase()));
   }
 
   const visibleWeeks = filtered.slice(0, weekLimit);
@@ -394,7 +396,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                             <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>
                                           )}
                                           {isEditing && (
-                                            <button onClick={() => stKey && removeStItem(stKey, r.area, i)}
+                                            <button onClick={() => removeStItem(stKey, r.area, r.theme, st)}
                                               style={{ background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 10, padding: "2px 5px" }}>✕</button>
                                           )}
                                         </div>

@@ -400,8 +400,47 @@ function App() {
               }
             });
           });
+          // After creating all subtopic cards, align overdue ones with parent if parent was reviewed more recently
+          const t17 = today();
+          loadedReviews.forEach((sr) => {
+            if (!sr.isSubtopic || !sr.parentTheme) return;
+            if (sr.nextDue > t17) return; // not overdue, leave as-is
+            const pKey = `${sr.area}__${sr.parentTheme.toLowerCase().trim()}`;
+            const parent = loadedReviews.find(r => r.key === pKey && !r.isSubtopic);
+            if (!parent) return;
+            // If parent was reviewed AFTER the subtopic's last study date, the subtopic was covered
+            if (parent.lastStudied && sr.lastStudied && parent.lastStudied > sr.lastStudied) {
+              sr.nextDue = parent.nextDue;
+              sr.lastStudied = parent.lastStudied;
+              subCreated++; // flag to save
+            }
+          });
           if (subCreated > 0) {
-            console.log(`Migration v17: created ${subCreated} subtopic review cards from revLogs`);
+            console.log(`Migration v17: created/updated ${subCreated} subtopic review cards from revLogs`);
+            saveKey("rp26_reviews", loadedReviews);
+          }
+        }
+
+        // Migration v18: Fix overdue subtopic cards where parent was reviewed more recently
+        // This fixes cards created by v17 that have stale nextDue dates
+        if (!localStorage.getItem("rp26_mig_v18")) {
+          localStorage.setItem("rp26_mig_v18", "1");
+          const t18 = today();
+          let v18Fixed = 0;
+          loadedReviews.forEach((sr) => {
+            if (!sr.isSubtopic || !sr.parentTheme) return;
+            if (sr.nextDue > t18) return;
+            const pKey = `${sr.area}__${sr.parentTheme.toLowerCase().trim()}`;
+            const parent = loadedReviews.find(r => r.key === pKey && !r.isSubtopic);
+            if (!parent) return;
+            if (parent.lastStudied && sr.lastStudied && parent.lastStudied > sr.lastStudied) {
+              sr.nextDue = parent.nextDue;
+              sr.lastStudied = parent.lastStudied;
+              v18Fixed++;
+            }
+          });
+          if (v18Fixed > 0) {
+            console.log(`Migration v18: fixed ${v18Fixed} overdue subtopic cards`);
             saveKey("rp26_reviews", loadedReviews);
           }
         }
@@ -533,9 +572,12 @@ function App() {
       const niInner = nxtIdx(prevRev.intervalIndex, pct);
       const entry = { date: today(), pct, _prev: { intervalIndex: prevRev.intervalIndex, nextDue: prevRev.nextDue, lastPerf: prevRev.lastPerf, lastStudied: prevRev.lastStudied } };
       let newReviews = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: niInner, nextDue: addDays(today(), INTERVALS[niInner]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
+      // Update subtopic cards that were explicitly scored
+      const scoredSubKeys = new Set();
       if (subtopicScores && subtopicScores.length > 0) {
         subtopicScores.forEach((s) => {
           const sKey = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
+          scoredSubKeys.add(sKey);
           const ex = newReviews.find((r) => r.key === sKey);
           const sni = nxtIdx(ex?.intervalIndex || 0, s.pct);
           const sRev = {
@@ -547,6 +589,19 @@ function App() {
           newReviews = ex ? newReviews.map((r) => r.key === sKey ? sRev : r) : [sRev, ...newReviews];
         });
       }
+      // Advance overdue subtopic cards that were NOT scored in this review
+      // They follow the parent's new schedule (reviewed together)
+      const t = today();
+      const parentNextDue = addDays(t, INTERVALS[niInner]);
+      newReviews = newReviews.map((r) => {
+        if (!r.isSubtopic || scoredSubKeys.has(r.key)) return r;
+        if (r.area !== prevRev.area) return r;
+        if (!r.parentTheme || r.parentTheme.toLowerCase().trim() !== prevRev.theme.toLowerCase().trim()) return r;
+        // Only advance if this subtopic is currently overdue
+        if (r.nextDue > t) return r;
+        // Move to parent's next due date (keeps its own intervalIndex for future progression)
+        return { ...r, nextDue: parentNextDue, lastStudied: t };
+      });
       return newReviews;
     });
     // Single log entry with inline subtopic scores

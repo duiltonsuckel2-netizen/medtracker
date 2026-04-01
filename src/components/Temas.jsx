@@ -508,9 +508,20 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                       const totalStRevs = parentRevsBefore + stScores.length;
                                       const stAvg = stScores.length > 0 ? Math.round(stScores.reduce((s, x) => s + x.pct, 0) / stScores.length) : null;
                                       const displayPct = subRev ? subRev.lastPerf : stScores.length > 0 ? stScores[0].pct : null;
-                                      const curIdx = subRev ? subRev.intervalIndex : null;
-                                      const nextDue = subRev ? subRev.nextDue : null;
-                                      const daysLeft = nextDue ? diffDays(nextDue, today()) : null;
+                                      // Calculate interval for ALL subtopics (with or without review card)
+                                      let estIdx = null, estDue = null;
+                                      if (subRev) {
+                                        estIdx = subRev.intervalIndex;
+                                        estDue = subRev.nextDue;
+                                      } else if (displayPct !== null) {
+                                        // Estimate: parent reviews before = starting index, then apply score
+                                        const startIdx = Math.min(Math.max(parentRevsBefore, 0), INTERVALS.length - 1);
+                                        estIdx = nxtIdx(startIdx, displayPct);
+                                        // Use the date of the last explicit score, or parent's lastStudied
+                                        const baseDate = stScores.length > 0 ? stScores[0].date : r.lastStudied;
+                                        if (baseDate) estDue = addDays(baseDate, INTERVALS[estIdx]);
+                                      }
+                                      const daysLeft = estDue ? diffDays(estDue, today()) : null;
                                       const isDueSt = daysLeft !== null && daysLeft <= 0;
 
                                       return (
@@ -531,7 +542,9 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                                 style={{ ...inp(), width: 52, padding: "1px 2px", fontSize: 10, background: C.card, textAlign: "center" }}>
                                                 {INTERVALS.map((_, ii) => <option key={ii} value={ii}>{INT_LABELS[ii]}</option>)}
                                               </select>
-                                            ) : displayPct === null && (
+                                            ) : estIdx !== null ? (
+                                              <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, fontFamily: FM }}>{INT_LABELS[estIdx]}</span>
+                                            ) : (
                                               <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>
                                             )}
                                             {isEditing && stKey && (

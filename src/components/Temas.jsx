@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { AREAS, INTERVALS, INT_LABELS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, TY, perfIcon, perfIconColor } from "../theme.js";
-import { perfColor, today, diffDays, fmtDate, addDays } from "../utils.js";
+import { perfColor, today, diffDays, fmtDate, addDays, nxtIdx } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
 import { CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 
@@ -467,8 +467,8 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                   }}>
                                     {allStItems.map((st, i) => {
                                       const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
-                                      // Fallback: get last % from revLog subtopicScores if no review card
-                                      let logPct = null;
+                                      // Fallback: get last % + date from revLog subtopicScores if no review card
+                                      let logPct = null, logDate = null, logInterval = null, logDays = null;
                                       if (!subRev) {
                                         const k = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
                                         const themeLogs = logsByTheme[k] || [];
@@ -476,7 +476,15 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                           const ss = themeLogs[li].subtopicScores;
                                           if (ss) {
                                             const match = ss.find((s) => s.name.toLowerCase() === st.toLowerCase());
-                                            if (match) { logPct = match.pct; break; }
+                                            if (match) {
+                                              logPct = match.pct;
+                                              logDate = themeLogs[li].date;
+                                              const estIdx = nxtIdx(0, match.pct);
+                                              logInterval = estIdx;
+                                              const estDue = addDays(logDate, INTERVALS[estIdx]);
+                                              logDays = diffDays(estDue, today());
+                                              break;
+                                            }
                                           }
                                         }
                                       }
@@ -495,7 +503,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                           <span style={{ ...TY.caption, flex: 1, minWidth: 0 }}>{st}</span>
                                           {displayPct !== null ? (
                                             <span style={{ fontSize: 11, fontWeight: 700, color: perfColor(displayPct), fontFamily: FN, whiteSpace: "nowrap" }}>
-                                              {displayPct}%{subRev ? (() => { const d = diffDays(subRev.nextDue, today()); return <> <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>{INT_LABELS[subRev.intervalIndex]}</span> <span style={{ color: d <= 0 ? C.red : C.text3, fontWeight: 500 }}>{d <= 0 ? (d === 0 ? "hoje" : `${Math.abs(d)}d atraso`) : `em ${d}d`}</span></>; })() : <span style={{ color: C.text3, fontWeight: 400, marginLeft: 3, fontSize: 10 }}>sem agenda</span>}
+                                              {displayPct}%{subRev ? (() => { const d = diffDays(subRev.nextDue, today()); return <> <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>{INT_LABELS[subRev.intervalIndex]}</span> <span style={{ color: d <= 0 ? C.red : C.text3, fontWeight: 500 }}>{d <= 0 ? (d === 0 ? "hoje" : `${Math.abs(d)}d atraso`) : `em ${d}d`}</span></>; })() : logInterval != null ? <> <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>{INT_LABELS[logInterval]}</span> <span style={{ color: logDays <= 0 ? C.red : C.text3, fontWeight: 500 }}>{logDays <= 0 ? (logDays === 0 ? "hoje" : `${Math.abs(logDays)}d atraso`) : `em ${logDays}d`}</span></> : null}
                                             </span>
                                           ) : (
                                             <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>

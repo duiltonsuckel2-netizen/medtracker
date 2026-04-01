@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 import { LineChart, Line, ResponsiveContainer, ReferenceLine, Tooltip } from "recharts";
 import { AREAS, INTERVALS, INT_LABELS, areaMap } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, modalBg } from "../theme.js";
-import { today, diffDays, fmtDate, perc, perfColor } from "../utils.js";
+import { today, diffDays, fmtDate, perc, perfColor, addDays, nxtIdx } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
 import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 import { useThemeProgress } from "../hooks/useThemeProgress.js";
@@ -104,8 +104,15 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     const map = new Map();
     // Priority 1: review cards (have live pct + due dates + intervals)
     subRevs.forEach(sr => map.set(sr.theme.toLowerCase(), { name: sr.theme, pct: sr.lastPerf, isDue: sr.nextDue <= today(), intervalIndex: sr.intervalIndex, nextDue: sr.nextDue, days: diffDays(sr.nextDue, today()) }));
-    // Priority 2: revLog scores (fallback pct)
-    if (lastLog) lastLog.subtopicScores.forEach(s => { if (!map.has(s.name.toLowerCase())) map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: false, intervalIndex: null, nextDue: null, days: null }); });
+    // Priority 2: revLog scores (fallback pct — estimate interval from log date + score)
+    if (lastLog) lastLog.subtopicScores.forEach(s => {
+      if (!map.has(s.name.toLowerCase())) {
+        const estIdx = nxtIdx(0, s.pct);
+        const estDue = lastLog.date ? addDays(lastLog.date, INTERVALS[estIdx]) : null;
+        const estDays = estDue ? diffDays(estDue, today()) : null;
+        map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: estDue ? estDue <= today() : false, intervalIndex: estIdx, nextDue: estDue, days: estDays });
+      }
+    });
     // Priority 3: dictionary names (no pct)
     stNames.forEach(n => { if (!map.has(n.toLowerCase())) map.set(n.toLowerCase(), { name: n, pct: null, isDue: false, intervalIndex: null, nextDue: null, days: null }); });
 

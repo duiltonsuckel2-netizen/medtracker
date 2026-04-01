@@ -18,7 +18,7 @@ function parseWeekLabel(label) {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics }) {
+function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, onDeleteReviews }) {
   const [filterArea, setFilterArea] = useState("all");
   const [search, setSearch] = useState("");
   const [collapsedWeeks, setCollapsedWeeks] = useState({});
@@ -167,7 +167,13 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
     const key = stKey || `${area}__${theme}`;
     const topic = key.split("__").slice(1).join("__");
     const existing = subtopics[key] || [];
+    // Remove from dictionary
     onSaveSubtopics(area, topic, existing.filter((s) => s.toLowerCase() !== name.toLowerCase()));
+    // Also remove subtopic review card if it exists
+    if (onDeleteReviews) {
+      const subKey = `${area}__${theme.toLowerCase().trim()}::${name.toLowerCase().trim()}`;
+      onDeleteReviews((prev) => prev.filter((r) => !(r.isSubtopic && r.key === subKey)));
+    }
     setConfirmDelete(null);
   }
 
@@ -398,7 +404,9 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                           {hasRevs ? aula.reviews.map((r) => {
                             const isDue = r.nextDue <= today();
                             const days = diffDays(r.nextDue, today());
-                            const { key: stKey, items: stItems } = getSubtopicsForTheme(r);
+                            let { key: stKey, items: stItems } = getSubtopicsForTheme(r);
+                            // Ensure stKey always exists so editing/deleting works
+                            if (!stKey) stKey = `${r.area}__${r.theme}`;
                             const subRevs = getSubReviewsForTheme(r);
                             // Merge subtopics from: registered list + review cards + revLog subtopicScores
                             const _lk = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
@@ -520,7 +528,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                           ) : (
                                             <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>
                                           )}
-                                          {isEditing && stKey && stItems.some(s => s.toLowerCase() === st.toLowerCase()) && (
+                                          {isEditing && stKey && (
                                             <button onClick={() => removeStItem(stKey, r.area, r.theme, st)}
                                               style={{ background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 10, padding: "2px 5px" }}>✕</button>
                                           )}

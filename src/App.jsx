@@ -361,15 +361,18 @@ function App() {
             const parentKey = `${log.area}__${(log.theme || "").toLowerCase().trim()}`;
             const parentRev = loadedReviews.find(r => r.key === parentKey && !r.isSubtopic);
             if (!parentRev) return;
-            // Find parent's intervalIndex at time of this log from history
+            // Find parent's intervalIndex at time of this log
+            // Each parent review before this log = one interval advancement
+            // (subtopics were reviewed together with parent before individual tracking)
             let parentIdxAtLog = 0;
             if (parentRev.history) {
               const hEntry = parentRev.history.find(h => h.date === log.date);
-              if (hEntry?._prev?.intervalIndex != null) parentIdxAtLog = hEntry._prev.intervalIndex;
-              else {
-                // Fallback: find the closest history entry before or on this date
-                const prior = parentRev.history.filter(h => h.date && h.date <= log.date).sort((a, b) => b.date.localeCompare(a.date));
-                if (prior.length > 0 && prior[0]._prev?.intervalIndex != null) parentIdxAtLog = prior[0]._prev.intervalIndex;
+              if (hEntry?._prev?.intervalIndex != null) {
+                parentIdxAtLog = hEntry._prev.intervalIndex;
+              } else {
+                // Count parent reviews before this date as proxy for intervalIndex
+                const reviewsBefore = parentRev.history.filter(h => h.date && h.date < log.date).length;
+                parentIdxAtLog = Math.min(reviewsBefore, INTERVALS.length - 1);
               }
             }
             log.subtopicScores.forEach((s) => {
@@ -525,6 +528,60 @@ function App() {
           }
         }
 
+        // Migration v20: Recalculate subtopic intervalIndex using parent review count
+        // Fixes subtopics that were created starting from 0 instead of inheriting parent's progression
+        if (!localStorage.getItem("rp26_mig_v20")) {
+          localStorage.setItem("rp26_mig_v20", "1");
+          let v20Fixed = 0;
+          // Index logs with subtopicScores by parent key + date
+          const logsWithSt = loadedLogs.filter(l => !l.isSubtopic && l.subtopicScores && l.subtopicScores.length > 0);
+          loadedReviews.forEach((sr) => {
+            if (!sr.isSubtopic || !sr.parentTheme) return;
+            // Find parent review card
+            const pKey = `${sr.area}__${sr.parentTheme.toLowerCase().trim()}`;
+            const parent = loadedReviews.find(r => r.key === pKey && !r.isSubtopic);
+            if (!parent || !parent.history) return;
+            // Find the first log that scored this subtopic
+            const firstLog = logsWithSt
+              .filter(l => l.area === sr.area && (l.theme || "").toLowerCase().trim() === sr.parentTheme.toLowerCase().trim())
+              .sort((a, b) => (a.date || "").localeCompare(b.date || ""))
+              .find(l => l.subtopicScores.some(s => s.name.toLowerCase().trim() === sr.theme.toLowerCase().trim()));
+            if (!firstLog) return;
+            // Count parent reviews before the first subtopic score date
+            const reviewsBefore = parent.history.filter(h => h.date && h.date < firstLog.date).length;
+            const startIdx = Math.min(reviewsBefore, INTERVALS.length - 1);
+            // Find the subtopic's score in that first log
+            const firstScore = firstLog.subtopicScores.find(s => s.name.toLowerCase().trim() === sr.theme.toLowerCase().trim());
+            if (!firstScore) return;
+            const correctIdx = nxtIdx(startIdx, firstScore.pct);
+            const correctDue = addDays(firstLog.date, INTERVALS[correctIdx]);
+            // Only fix if currently wrong (subtopic only has 1 history entry = first-time creation)
+            if (sr.history && sr.history.length === 1 && sr.intervalIndex !== correctIdx) {
+              sr.intervalIndex = correctIdx;
+              sr.nextDue = correctDue;
+              v20Fixed++;
+            }
+          });
+          // Also align overdue subtopics with parent if parent was reviewed more recently
+          const t20 = today();
+          loadedReviews.forEach((sr) => {
+            if (!sr.isSubtopic || !sr.parentTheme) return;
+            if (sr.nextDue > t20) return;
+            const pKey = `${sr.area}__${sr.parentTheme.toLowerCase().trim()}`;
+            const parent = loadedReviews.find(r => r.key === pKey && !r.isSubtopic);
+            if (!parent) return;
+            if (parent.lastStudied && sr.lastStudied && parent.lastStudied > sr.lastStudied) {
+              sr.nextDue = parent.nextDue;
+              sr.lastStudied = parent.lastStudied;
+              v20Fixed++;
+            }
+          });
+          if (v20Fixed > 0) {
+            console.log(`Migration v20: fixed ${v20Fixed} subtopic cards with correct intervalIndex`);
+            saveKey("rp26_reviews", loadedReviews);
+          }
+        }
+
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(loadedSt);
         // Auto-generate or merge flashcards on every load (picks up new THEME_SUMMARIES)
         if (loadedExams.length > 0) {
@@ -609,10 +666,15 @@ function App() {
         const subNames = session.subtopicScores.map((st) => st.name);
         // Store subtopicNames on parent review card so Revisoes can find them
         newReviews = newReviews.map((r) => r.key === key ? { ...r, subtopicNames: subNames } : r);
+        // Count parent reviews to determine subtopic starting intervalIndex
+        const parentCard = newReviews.find(r => r.key === key && !r.isSubtopic);
+        const parentRevCount = parentCard ? (parentCard.history || []).length : 1;
         session.subtopicScores.forEach((st) => {
           const sKey = `${session.area}__${session.theme.toLowerCase().trim()}::${st.name.toLowerCase().trim()}`;
           const exSub = newReviews.find((r) => r.key === sKey);
-          const sni = nxtIdx(exSub?.intervalIndex || 0, st.pct);
+          // If subtopic has no card yet, inherit parent's review progression
+          const startIdx = exSub ? exSub.intervalIndex : Math.min(parentRevCount - 1, INTERVALS.length - 1);
+          const sni = nxtIdx(startIdx, st.pct);
           const sRev = {
             id: exSub?.id || uid(), key: sKey, area: session.area, theme: st.name, parentTheme: session.theme,
             isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
@@ -654,12 +716,17 @@ function App() {
       let newReviews = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: niInner, nextDue: addDays(today(), INTERVALS[niInner]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
       // Update subtopic cards that were explicitly scored
       const scoredSubKeys = new Set();
+      // Count parent reviews to determine subtopic starting intervalIndex
+      const updatedParent = newReviews.find(r => r.id === revId);
+      const parentHistLen = updatedParent ? (updatedParent.history || []).length : 1;
       if (subtopicScores && subtopicScores.length > 0) {
         subtopicScores.forEach((s) => {
           const sKey = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
           scoredSubKeys.add(sKey);
           const ex = newReviews.find((r) => r.key === sKey);
-          const sni = nxtIdx(ex?.intervalIndex || 0, s.pct);
+          // If subtopic has no card yet, inherit parent's review progression
+          const startIdx = ex ? ex.intervalIndex : Math.min(parentHistLen - 1, INTERVALS.length - 1);
+          const sni = nxtIdx(startIdx, s.pct);
           const sRev = {
             id: ex?.id || uid(), key: sKey, area: prevRev.area, theme: s.name, parentTheme: prevRev.theme,
             isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),

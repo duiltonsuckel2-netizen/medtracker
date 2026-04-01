@@ -323,8 +323,8 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                       <div style={{ width: 40, height: 40, borderRadius: 10, background: perfColor(r.lastPerf) + "18", border: `2px solid ${perfColor(r.lastPerf)}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: perfColor(r.lastPerf), fontFamily: FN }}>{r.lastPerf}%</span>
                       </div>
-                      {(() => { const st = getSubtopicsForReview(r); return st.length > 0
-                        ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st })} style={{ background: C.purple + "14", border: `1px solid ${C.purple}30`, borderRadius: R.md, cursor: "pointer", fontSize: 10, color: C.purple, height: 32, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 600, fontFamily: FM, gap: 3 }} title="Detalhar subtemas">📋 {st.length}</button>
+                      {(() => { const st = resolveSubtopicsWithScores(r); return st.length > 0
+                        ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st.map(s => s.name) })} style={{ background: C.purple + "14", border: `1px solid ${C.purple}30`, borderRadius: R.md, cursor: "pointer", fontSize: 10, color: C.purple, height: 32, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 600, fontFamily: FM, gap: 3 }} title="Detalhar subtemas">📋 {st.length}</button>
                         : <button onClick={() => setStRegisterModal({ area: r.area, theme: r.theme })} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.md, cursor: "pointer", fontSize: 10, color: C.text3, height: 32, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FM, gap: 3 }} title="Adicionar subtemas">📋 sub</button>;
                       })()}
                     </div>

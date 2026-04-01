@@ -494,6 +494,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                     {allStItems.map((st, i) => {
                                       const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
                                       // Collect ALL scores for this subtopic from revLogs
+                                      // Explicit subtopic scores from revLogs
                                       const stScores = [];
                                       themeLogs.forEach(l => {
                                         if (l.subtopicScores) {
@@ -501,6 +502,10 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                           if (m) stScores.push({ date: l.date, pct: m.pct });
                                         }
                                       });
+                                      // Parent reviews before first subtopic score count as subtopic reviews too
+                                      const firstStDate = stScores.length > 0 ? stScores[stScores.length - 1].date : null; // oldest (logs are newest-first)
+                                      const parentRevsBefore = firstStDate ? themeLogs.filter(l => l.date < firstStDate).length : revCount;
+                                      const totalStRevs = parentRevsBefore + stScores.length;
                                       const stAvg = stScores.length > 0 ? Math.round(stScores.reduce((s, x) => s + x.pct, 0) / stScores.length) : null;
                                       const displayPct = subRev ? subRev.lastPerf : stScores.length > 0 ? stScores[0].pct : null;
                                       const curIdx = subRev ? subRev.intervalIndex : null;
@@ -535,10 +540,10 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                             )}
                                           </div>
                                           {/* Row 2: Details — average, review count, due date */}
-                                          {(stScores.length > 0 || subRev) && (
+                                          {(totalStRevs > 0 || subRev) && (
                                             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, paddingLeft: 17, flexWrap: "wrap" }}>
-                                              {stScores.length > 0 && (
-                                                <span style={{ fontSize: 10, color: C.text3 }}>{stScores.length}× rev{stAvg !== null && <> · μ <span style={{ color: perfColor(stAvg), fontWeight: 600 }}>{stAvg}%</span></>}</span>
+                                              {totalStRevs > 0 && (
+                                                <span style={{ fontSize: 10, color: C.text3 }}>{totalStRevs}× rev{stAvg !== null && <> · μ <span style={{ color: perfColor(stAvg), fontWeight: 600 }}>{stAvg}%</span></>}</span>
                                               )}
                                               {stScores.length > 0 && (
                                                 <span style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>{stScores.slice(0, 3).map(s => `${fmtDate(s.date)} ${s.pct}%`).join(" · ")}</span>

@@ -100,16 +100,21 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     // 3) Subtopic names from dictionary
     const stNames = getSubtopicsForReview(r);
 
-    // Merge all sources: name → { pct, isDue }
+    // Merge all sources: name → { pct, isDue, intervalIndex, nextDue, days }
     const map = new Map();
-    // Priority 1: review cards (have live pct + due dates)
-    subRevs.forEach(sr => map.set(sr.theme.toLowerCase(), { name: sr.theme, pct: sr.lastPerf, isDue: sr.nextDue <= today() }));
+    // Priority 1: review cards (have live pct + due dates + intervals)
+    subRevs.forEach(sr => map.set(sr.theme.toLowerCase(), { name: sr.theme, pct: sr.lastPerf, isDue: sr.nextDue <= today(), intervalIndex: sr.intervalIndex, nextDue: sr.nextDue, days: diffDays(sr.nextDue, today()) }));
     // Priority 2: revLog scores (fallback pct)
-    if (lastLog) lastLog.subtopicScores.forEach(s => { if (!map.has(s.name.toLowerCase())) map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: false }); });
+    if (lastLog) lastLog.subtopicScores.forEach(s => { if (!map.has(s.name.toLowerCase())) map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: false, intervalIndex: null, nextDue: null, days: null }); });
     // Priority 3: dictionary names (no pct)
-    stNames.forEach(n => { if (!map.has(n.toLowerCase())) map.set(n.toLowerCase(), { name: n, pct: null, isDue: false }); });
+    stNames.forEach(n => { if (!map.has(n.toLowerCase())) map.set(n.toLowerCase(), { name: n, pct: null, isDue: false, intervalIndex: null, nextDue: null, days: null }); });
 
-    return [...map.values()];
+    // Sort: due first, then by days ascending
+    return [...map.values()].sort((a, b) => {
+      if (a.isDue !== b.isDue) return a.isDue ? -1 : 1;
+      if (a.days != null && b.days != null) return a.days - b.days;
+      return 0;
+    });
   }
   function handleSubtopicReviewSave(entries) {
     if (!stReviewModal || !onSubtopicReview) return;
@@ -219,9 +224,15 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                     <span style={tag(C.text3)}>{INT_LABELS[r.intervalIndex]}</span>
                   </div>
                   <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>Último: <span style={{ color: perfColor(r.lastPerf) }}>{r.lastPerf}%</span> em {fmtDate(r.lastStudied)} · {r.history?.length || 0}× revisado</div>
-                  {(() => { const allSubs = resolveSubtopicsWithScores(r); return allSubs.length > 0 ? (
-                    <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                      {allSubs.map((s, i) => <span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: R.pill, background: s.pct != null ? perfColor(s.pct) + "14" : C.surface, border: `1px solid ${s.pct != null ? perfColor(s.pct) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4 }}>{s.name}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 3 }}>{s.pct}%</span>}</span>)}
+                  {(() => { const allSubs = resolveSubtopicsWithScores(r); const dueSubs = allSubs.filter(s => s.isDue); const otherSubs = allSubs.filter(s => !s.isDue); return allSubs.length > 0 ? (
+                    <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                      {dueSubs.length > 0 && <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                        <span style={{ fontSize: 9, color: C.red, fontWeight: 600, fontFamily: FM }}>REVISAR:</span>
+                        {dueSubs.map((s, i) => <span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: R.pill, background: C.red + "14", border: `1px solid ${C.red}35`, fontFamily: FM, lineHeight: 1.4, fontWeight: 600 }}>{s.name}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 3 }}>{s.pct}%</span>}{s.intervalIndex != null && <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>{INT_LABELS[s.intervalIndex]}</span>}</span>)}
+                      </div>}
+                      {otherSubs.length > 0 && <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {otherSubs.map((s, i) => <span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: R.pill, background: s.pct != null ? perfColor(s.pct) + "14" : C.surface, border: `1px solid ${s.pct != null ? perfColor(s.pct) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4, opacity: 0.7 }}>{s.name}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 3 }}>{s.pct}%</span>}{s.intervalIndex != null && <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>{INT_LABELS[s.intervalIndex]}</span>}{s.days != null && <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>em {s.days}d</span>}</span>)}
+                      </div>}
                     </div>
                   ) : null; })()}
                   {r.subtemaNote && (
@@ -312,9 +323,15 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                         <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[r.intervalIndex]}</span>
                         <span style={{ fontSize: 10, color: C.text3 }}>{fmtDate(r._effDue || r.nextDue)}</span>
                       </div>
-                      {(() => { const allSubs = resolveSubtopicsWithScores(r); return allSubs.length > 0 ? (
-                        <div style={{ marginTop: 4, display: "flex", gap: 3, flexWrap: "wrap" }}>
-                          {allSubs.map((s, i) => <span key={i} style={{ fontSize: 9, padding: "1px 6px", borderRadius: R.pill, background: s.pct != null ? perfColor(s.pct) + "14" : C.surface, border: `1px solid ${s.pct != null ? perfColor(s.pct) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4 }}>{s.name}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 2 }}>{s.pct}%</span>}</span>)}
+                      {(() => { const allSubs = resolveSubtopicsWithScores(r); const dueSubs = allSubs.filter(s => s.isDue); const otherSubs = allSubs.filter(s => !s.isDue); return allSubs.length > 0 ? (
+                        <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
+                          {dueSubs.length > 0 && <div style={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>
+                            <span style={{ fontSize: 8, color: C.red, fontWeight: 600, fontFamily: FM }}>REVISAR:</span>
+                            {dueSubs.map((s, i) => <span key={i} style={{ fontSize: 9, padding: "1px 6px", borderRadius: R.pill, background: C.red + "14", border: `1px solid ${C.red}35`, fontFamily: FM, lineHeight: 1.4, fontWeight: 600 }}>{s.name}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 2 }}>{s.pct}%</span>}{s.intervalIndex != null && <span style={{ color: C.text3, fontWeight: 500, marginLeft: 2 }}>{INT_LABELS[s.intervalIndex]}</span>}</span>)}
+                          </div>}
+                          {otherSubs.length > 0 && <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                            {otherSubs.map((s, i) => <span key={i} style={{ fontSize: 9, padding: "1px 6px", borderRadius: R.pill, background: s.pct != null ? perfColor(s.pct) + "14" : C.surface, border: `1px solid ${s.pct != null ? perfColor(s.pct) + "30" : C.border}`, fontFamily: FM, lineHeight: 1.4, opacity: 0.7 }}>{s.name}{s.pct != null && <span style={{ fontWeight: 700, color: perfColor(s.pct), marginLeft: 2 }}>{s.pct}%</span>}{s.intervalIndex != null && <span style={{ color: C.text3, fontWeight: 500, marginLeft: 2 }}>{INT_LABELS[s.intervalIndex]}</span>}{s.days != null && <span style={{ color: C.text3, fontWeight: 500, marginLeft: 2 }}>em {s.days}d</span>}</span>)}
+                          </div>}
                         </div>
                       ) : null; })()}
                     </div>

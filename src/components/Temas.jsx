@@ -472,7 +472,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                       if (!subRev) {
                                         const k = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
                                         const themeLogs = logsByTheme[k] || [];
-                                        for (let li = themeLogs.length - 1; li >= 0; li--) {
+                                        for (let li = 0; li < themeLogs.length; li++) {
                                           const ss = themeLogs[li].subtopicScores;
                                           if (ss) {
                                             const match = ss.find((s) => s.name.toLowerCase() === st.toLowerCase());

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { AREAS, INTERVALS, INT_LABELS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP } from "../data.js";
-import { C, F, FM, FN, R, S, SH, card, inp, btn, tag, NUM, TY, perfIcon, perfIconColor } from "../theme.js";
+import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, TY, perfIcon, perfIconColor } from "../theme.js";
 import { perfColor, today, diffDays, fmtDate, addDays } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
 import { CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
@@ -28,6 +28,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
   const [newStItem, setNewStItem] = useState("");
   const [weekLimit, setWeekLimit] = useState(12);
   const [stSugFocused, setStSugFocused] = useState(false);
+  const [viewMode, setViewMode] = useState(() => { try { return localStorage.getItem("rp26_temas_view") || "list"; } catch { return "list"; } });
 
   // Separate parent reviews from subtopic reviews
   const { parentReviews, subtopicReviews } = useMemo(() => {
@@ -164,8 +165,33 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
     onSaveSubtopics(area, topic, existing.filter((s) => s.toLowerCase() !== name.toLowerCase()));
   }
 
+  // Gallery: flatten all aulas into individual items
+  const galleryItems = useMemo(() => {
+    const items = [];
+    filtered.forEach((week) => {
+      week.aulas.forEach((aula) => {
+        if (filterArea !== "all" && aula.areaId !== filterArea) return;
+        const aObj = areaMap[aula.areaId];
+        const rev = aula.reviews[0]; // primary review
+        const k = rev ? `${rev.area}__${(rev.theme || "").toLowerCase().trim()}` : null;
+        const logs = k ? (logsByTheme[k] || []) : [];
+        const avg = logs.length > 0 ? Math.round(logs.reduce((s, l) => s + (l.pct || 0), 0) / logs.length) : null;
+        const isDue = rev ? rev.nextDue <= today() : false;
+        const days = rev ? diffDays(rev.nextDue, today()) : null;
+        const { items: stItems } = rev ? getSubtopicsForTheme(rev) : { items: [] };
+        const subRevs = rev ? getSubReviewsForTheme(rev) : [];
+        const stCount = Math.max(stItems.length, subRevs.length);
+        items.push({ week: week.wk, aula, aObj, rev, avg, isDue, days, logs, stCount, isPast: week.isPast });
+      });
+    });
+    return items;
+  }, [filtered, filterArea, logsByTheme]);
+
   const visibleWeeks = filtered.slice(0, weekLimit);
   const hasMoreWeeks = filtered.length > weekLimit;
+  const [galleryLimit, setGalleryLimit] = useState(24);
+  const visibleGallery = galleryItems.slice(0, galleryLimit);
+  const hasMoreGallery = galleryItems.length > galleryLimit;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -182,6 +208,19 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
         </div>
       </div>
 
+      {/* ── View Toggle ── */}
+      <div style={{ display: "flex", gap: 4, background: C.surface, borderRadius: R.pill, padding: 3 }}>
+        {[{ id: "list", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>, label: "Lista" }, { id: "gallery", icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>, label: "Galeria" }].map((v) => {
+          const active = viewMode === v.id;
+          return (
+            <button key={v.id} onClick={() => { setViewMode(v.id); try { localStorage.setItem("rp26_temas_view", v.id); } catch {} }}
+              style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, padding: "8px 14px", borderRadius: R.pill, border: active ? `1px solid ${C.purple}35` : "1px solid transparent", background: active ? C.purple + "18" : "transparent", color: active ? C.purple : C.text3, fontSize: 12, fontWeight: active ? 700 : 500, fontFamily: F, cursor: "pointer", transition: "all 0.15s ease", minHeight: H.sm }}>
+              {v.icon}{v.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Summary ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: C.card, borderRadius: R.lg, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
         <span style={{ ...TY.caption, color: C.text2 }}>{weeksStudied}/{totalWeeks} semanas</span>
@@ -194,8 +233,73 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
         {stCount > 0 && <span style={{ ...TY.caption, color: C.text3 }}>{stCount} sub</span>}
       </div>
 
-      {/* ── Weeks ── */}
-      {filtered.length === 0
+      {/* ── Gallery View ── */}
+      {viewMode === "gallery" && (
+        galleryItems.length === 0
+          ? <Empty icon="🔍" msg={search ? `Nenhum tema para "${search}"` : "Nenhum tema encontrado."} />
+          : <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+              {visibleGallery.map((item, idx) => {
+                const { week, aula, aObj, rev, avg, isDue, days, stCount, isPast } = item;
+                const aColor = aObj?.color || C.text3;
+                return (
+                  <div key={idx} className="card-interactive" style={{
+                    background: C.card, borderRadius: R.xl, padding: "16px 14px",
+                    border: isDue ? `1px solid ${C.red}30` : (C === DARK ? `1px solid ${C.border}` : "none"),
+                    boxShadow: SH.sm,
+                    display: "flex", flexDirection: "column", gap: 8,
+                    borderTop: `3px solid ${aColor}`,
+                    cursor: rev ? "default" : "default",
+                  }}>
+                    {/* Week badge */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, fontFamily: FM }}>Sem. {week}</span>
+                      {isDue && <span style={{ fontSize: 9, fontWeight: 700, color: C.red, background: C.red + "14", padding: "2px 6px", borderRadius: R.pill }}>{days === 0 ? "hoje" : `${Math.abs(days)}d`}</span>}
+                    </div>
+
+                    {/* Topic */}
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.text, lineHeight: 1.3, letterSpacing: -0.2, flex: 1 }}>
+                      {aula.topic}
+                    </div>
+
+                    {/* Area tag */}
+                    <span style={{ ...tag(aColor), alignSelf: "flex-start", fontSize: 9 }}>{aula.area}</span>
+
+                    {/* Performance */}
+                    {rev ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ flex: 1, height: 4, borderRadius: R.pill, background: C.surface, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${rev.lastPerf}%`, background: perfColor(rev.lastPerf), borderRadius: R.pill, transition: "width 0.3s" }} />
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: perfColor(rev.lastPerf), fontFamily: FN, lineHeight: 1 }}>{rev.lastPerf}%</span>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>{isPast ? "Sem revisão" : "Futura"}</div>
+                    )}
+
+                    {/* Footer: interval + subtopics */}
+                    {rev && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[rev.intervalIndex]}</span>
+                        {stCount > 0 && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM, fontWeight: 600 }}>{stCount} sub</span>}
+                        {avg !== null && <span style={{ fontSize: 10, color: C.text3 }}>μ {avg}%</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {hasMoreGallery && (
+              <button onClick={() => setGalleryLimit((v) => v + 24)}
+                style={btn(C.surface, { color: C.text2, border: `1px solid ${C.border}`, width: "100%", textAlign: "center", padding: "12px 18px" })}>
+                Mais temas ({galleryItems.length - galleryLimit} restantes)
+              </button>
+            )}
+          </>
+      )}
+
+      {/* ── List View (Weeks) ── */}
+      {viewMode === "list" && (filtered.length === 0
         ? <Empty icon="🔍" msg={search ? `Nenhum tema para "${search}"` : "Nenhum tema encontrado."} />
         : visibleWeeks.map((week) => {
           const isCollapsed = collapsedWeeks[week.wk];
@@ -455,9 +559,9 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
               )}
             </div>
           );
-        })}
+        }))}
 
-      {hasMoreWeeks && (
+      {viewMode === "list" && hasMoreWeeks && (
         <button onClick={() => setWeekLimit((v) => v + 12)}
           style={btn(C.surface, { color: C.text2, border: `1px solid ${C.border}`, width: "100%", textAlign: "center", padding: "12px 18px" })}>
           Mais semanas ({filtered.length - weekLimit} restantes)

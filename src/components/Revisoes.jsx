@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useMemo } from "react";
 import { LineChart, Line, ResponsiveContainer, ReferenceLine, Tooltip } from "recharts";
-import { AREAS, INTERVALS, INT_LABELS, areaMap } from "../data.js";
+import { AREAS, INTERVALS, INT_LABELS, INT_DAYS, areaMap } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, modalBg } from "../theme.js";
 import { today, diffDays, fmtDate, perc, perfColor, addDays, nxtIdx } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";

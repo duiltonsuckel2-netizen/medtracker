@@ -1,6 +1,6 @@
 import React, { Suspense } from "react";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { AREAS, INTERVALS, INT_LABELS, SEED_REVIEWS, SEED_LOGS, SEED_SUBTOPICS, areaMap, buildUnicamp2024Exam, buildUfcspa2026Exam, buildUspSp2023Exam, LOG_NAME_MAP } from "./data.js";
+import { AREAS, INTERVALS, INT_LABELS, INT_DAYS, SEED_REVIEWS, SEED_LOGS, SEED_SUBTOPICS, areaMap, buildUnicamp2024Exam, buildUfcspa2026Exam, buildUspSp2023Exam, LOG_NAME_MAP } from "./data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, applyTheme, injectKeyframes, modalBg } from "./theme.js";
 import { today, addDays, perc, uid, fmtDate, nxtIdx, diffDays } from "./utils.js";
 import { loadKey, saveKey } from "./storage.js";
@@ -697,7 +697,7 @@ function App() {
       const last = { ...hist[hist.length - 1], _logId: logId };
       return { ...r, history: [...hist.slice(0, -1), last] };
     }));
-    notify("✓ Concluída — próximo: " + INT_LABELS[ni]);
+    notify("✓ Concluída — próximo: " + INT_LABELS[ni] + " (" + INT_DAYS[ni] + ")");
   }
   function undoMarkReview(revId) {
     const targetRev = reviews.find((r) => r.id === revId);

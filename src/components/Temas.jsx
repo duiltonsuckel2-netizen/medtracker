@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { AREAS, INTERVALS, INT_LABELS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP } from "../data.js";
+import { AREAS, INTERVALS, INT_LABELS, INT_DAYS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, TY, perfIcon, perfIconColor } from "../theme.js";
 import { perfColor, today, diffDays, fmtDate, addDays, nxtIdx } from "../utils.js";
 import { Fld, Empty } from "./UI.jsx";
@@ -455,8 +455,8 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
 
                                   {/* Interval */}
                                   <select value={r.intervalIndex} onChange={(e) => { const ni = Number(e.target.value); onEditInterval(r.id, ni, addDays(today(), INTERVALS[ni])); }} onClick={(e) => e.stopPropagation()}
-                                    style={{ ...inp(), width: 65, padding: "2px 4px", fontSize: 11, background: C.card }}>
-                                    {INTERVALS.map((_, i) => <option key={i} value={i}>{INT_LABELS[i]}</option>)}
+                                    style={{ ...inp(), width: 75, padding: "2px 4px", fontSize: 11, background: C.card }}>
+                                    {INTERVALS.map((_, i) => <option key={i} value={i}>{INT_LABELS[i]} ({INT_DAYS[i]})</option>)}
                                   </select>
 
                                   {/* Subtopics toggle */}
@@ -473,68 +473,88 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                 </div>
 
                                 {/* Subtopics panel */}
-                                {isExpanded && hasSubtopics && (
+                                {isExpanded && hasSubtopics && (() => {
+                                  const _lk = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
+                                  const themeLogs = logsByTheme[_lk] || [];
+                                  const revCount = themeLogs.length;
+                                  const revDates = themeLogs.slice(0, 5).map(l => l.date);
+                                  return (
                                   <div style={{
                                     background: C.surface, marginTop: 4, borderRadius: R.md,
                                     borderLeft: `3px solid ${C.purple}50`,
-                                    padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4,
+                                    padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6,
                                   }}>
+                                    {/* Review count header */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>
+                                      <span style={{ fontSize: 11, fontWeight: 600, color: C.text2 }}>{revCount}× revisado</span>
+                                      <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{revDates.map(d => fmtDate(d)).join(" · ")}</span>
+                                    </div>
+
+                                    {/* Subtopics list */}
                                     {allStItems.map((st, i) => {
                                       const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
-                                      // Fallback: get last % from revLog with the date it was scored
-                                      let logPct = null, logDate = null, logInterval = null, logDays = null;
-                                      if (!subRev) {
-                                        const k = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
-                                        const themeLogs = logsByTheme[k] || [];
-                                        for (let li = 0; li < themeLogs.length; li++) {
-                                          const ss = themeLogs[li].subtopicScores;
-                                          if (ss) {
-                                            const match = ss.find((s) => s.name.toLowerCase() === st.toLowerCase());
-                                            if (match) { logPct = match.pct; logDate = themeLogs[li].date; break; }
-                                          }
+                                      // Collect ALL scores for this subtopic from revLogs
+                                      const stScores = [];
+                                      themeLogs.forEach(l => {
+                                        if (l.subtopicScores) {
+                                          const m = l.subtopicScores.find(s => s.name.toLowerCase() === st.toLowerCase());
+                                          if (m) stScores.push({ date: l.date, pct: m.pct });
                                         }
-                                        // If no individual score, use parent theme's overall perf + lastStudied
-                                        if (logPct == null && r.lastPerf != null) { logPct = r.lastPerf; logDate = r.lastStudied; }
-                                        if (logPct != null && logDate) {
-                                          // Find parent's intervalIndex at the time of this log
-                                          let prevIdx = 0;
-                                          if (r.history) {
-                                            const hEntry = r.history.find(h => h.date === logDate);
-                                            if (hEntry?._prev?.intervalIndex != null) prevIdx = hEntry._prev.intervalIndex;
-                                            else if (hEntry) { const hi = r.history.indexOf(hEntry); if (hi > 0) prevIdx = r.history[hi - 1]._prev?.intervalIndex || 0; }
-                                          }
-                                          const estIdx = nxtIdx(prevIdx, logPct);
-                                          logInterval = estIdx;
-                                          logDays = diffDays(addDays(logDate, INTERVALS[estIdx]), today());
-                                        }
-                                      }
-                                      const conf = subRev?.history?.slice(-1)[0]?.confidence;
-                                      const confObj = conf ? CONFIDENCE_OPTS.find((c) => c.id === conf) : null;
-                                      const displayPct = subRev ? subRev.lastPerf : logPct;
+                                      });
+                                      const stAvg = stScores.length > 0 ? Math.round(stScores.reduce((s, x) => s + x.pct, 0) / stScores.length) : null;
+                                      const displayPct = subRev ? subRev.lastPerf : stScores.length > 0 ? stScores[0].pct : null;
+                                      const curIdx = subRev ? subRev.intervalIndex : null;
+                                      const nextDue = subRev ? subRev.nextDue : null;
+                                      const daysLeft = nextDue ? diffDays(nextDue, today()) : null;
+                                      const isDueSt = daysLeft !== null && daysLeft <= 0;
+
                                       return (
                                         <div key={i} style={{
-                                          display: "flex", alignItems: "center", gap: 6,
-                                          padding: "5px 8px", borderRadius: R.sm,
+                                          padding: "8px 10px", borderRadius: R.md,
                                           background: i % 2 === 0 ? C.card : "transparent",
+                                          border: isDueSt ? `1px solid ${C.red}25` : "1px solid transparent",
                                         }}>
-                                          {confObj
-                                            ? <span style={{ fontSize: 12 }} title={confObj.label}>{confObj.icon}</span>
-                                            : <span style={{ fontSize: 11, color: C.purple }}>›</span>}
-                                          <span style={{ ...TY.caption, flex: 1, minWidth: 0 }}>{st}</span>
-                                          {displayPct !== null ? (
-                                            <span style={{ fontSize: 11, fontWeight: 700, color: perfColor(displayPct), fontFamily: FN, whiteSpace: "nowrap" }}>
-                                              {displayPct}%{subRev ? (() => { const d = diffDays(subRev.nextDue, today()); return <> <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>{INT_LABELS[subRev.intervalIndex]}</span> <span style={{ color: d <= 0 ? C.red : C.text3, fontWeight: 500 }}>{d <= 0 ? (d === 0 ? "hoje" : `${Math.abs(d)}d atraso`) : `em ${d}d`}</span></>; })() : logInterval != null ? <> <span style={{ color: C.text3, fontWeight: 500, marginLeft: 3 }}>{INT_LABELS[logInterval]}</span> <span style={{ color: logDays <= 0 ? C.red : C.text3, fontWeight: 500 }}>{logDays <= 0 ? (logDays === 0 ? "hoje" : `${Math.abs(logDays)}d atraso`) : `em ${logDays}d`}</span></> : null}
-                                            </span>
-                                          ) : (
-                                            <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>
-                                          )}
-                                          {isEditing && stKey && (
-                                            <button onClick={() => removeStItem(stKey, r.area, r.theme, st)}
-                                              style={{ background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 10, padding: "2px 5px" }}>✕</button>
+                                          {/* Row 1: Name + last score + interval select */}
+                                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                            <span style={{ fontSize: 11, color: C.purple, flexShrink: 0 }}>›</span>
+                                            <span style={{ ...TY.caption, fontWeight: 600, flex: 1, minWidth: 0 }}>{st}</span>
+                                            {displayPct !== null && (
+                                              <span style={{ fontSize: 12, fontWeight: 700, color: perfColor(displayPct), fontFamily: FN }}>{displayPct}%</span>
+                                            )}
+                                            {subRev ? (
+                                              <select value={subRev.intervalIndex} onChange={(e) => { const ni = Number(e.target.value); onEditInterval(subRev.id, ni, addDays(today(), INTERVALS[ni])); }} onClick={(e) => e.stopPropagation()}
+                                                style={{ ...inp(), width: 52, padding: "1px 2px", fontSize: 10, background: C.card, textAlign: "center" }}>
+                                                {INTERVALS.map((_, ii) => <option key={ii} value={ii}>{INT_LABELS[ii]}</option>)}
+                                              </select>
+                                            ) : displayPct === null && (
+                                              <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>
+                                            )}
+                                            {isEditing && stKey && (
+                                              <button onClick={() => removeStItem(stKey, r.area, r.theme, st)}
+                                                style={{ background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 10, padding: "2px 5px", flexShrink: 0 }}>✕</button>
+                                            )}
+                                          </div>
+                                          {/* Row 2: Details — average, review count, due date */}
+                                          {(stScores.length > 0 || subRev) && (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, paddingLeft: 17, flexWrap: "wrap" }}>
+                                              {stScores.length > 0 && (
+                                                <span style={{ fontSize: 10, color: C.text3 }}>{stScores.length}× rev{stAvg !== null && <> · μ <span style={{ color: perfColor(stAvg), fontWeight: 600 }}>{stAvg}%</span></>}</span>
+                                              )}
+                                              {stScores.length > 0 && (
+                                                <span style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>{stScores.slice(0, 3).map(s => `${fmtDate(s.date)} ${s.pct}%`).join(" · ")}</span>
+                                              )}
+                                              {daysLeft !== null && (
+                                                <span style={{ fontSize: 10, fontWeight: 600, color: isDueSt ? C.red : C.text3, marginLeft: "auto" }}>
+                                                  {isDueSt ? (daysLeft === 0 ? "hoje" : `${Math.abs(daysLeft)}d atraso`) : `em ${daysLeft}d`}
+                                                </span>
+                                              )}
+                                            </div>
                                           )}
                                         </div>
                                       );
                                     })}
+
+                                    {/* Edit controls */}
                                     <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
                                       <button onClick={() => toggleStEdit(r.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.purple, fontSize: 11, fontWeight: 600, padding: 0 }}>
                                         {isEditing ? "Fechar" : "Editar"}
@@ -571,7 +591,8 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                       );
                                     })()}
                                   </div>
-                                )}
+                                  );
+                                })()}
                               </div>
                             );
                           }) : (

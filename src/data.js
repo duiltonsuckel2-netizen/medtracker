@@ -9,7 +9,8 @@ export const AREAS = [
   { id: "ped", label: "Pediatria", short: "PED", color: "#60A5FA" },
 ];
 export const INTERVALS = [7, 14, 30, 60, 90];
-export const INT_LABELS = ["7d", "14d", "1m", "2m", "3m"];
+export const INT_LABELS = ["R1", "R2", "R3", "R4", "R5"];
+export const INT_DAYS = ["7d", "14d", "30d", "60d", "90d"];
 export const BENCHMARKS = { clinica: 85, cirurgia: 85, preventiva: 85, go: 85, ped: 85 };
 export const areaMap = Object.fromEntries(AREAS.map((a) => [a.id, a]));
 export const AREA_SHORT_MAP = { CM: "clinica", CIR: "cirurgia", GO: "go", PED: "ped", PREV: "preventiva", ESPECIAL: "clinica" };

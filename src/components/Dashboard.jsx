@@ -273,7 +273,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
           </div>
         ))}
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: S.sm }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.sm }}>
         <button className="card-interactive" onClick={onNavigateFlashcards} style={{ background: `linear-gradient(135deg, ${C.yellow}45, ${C.purple}50)`, border: `1px solid ${C.yellow}35`, borderRadius: R.xl, padding: `${S.md}px ${S.lg}px`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between", height: 80, boxSizing: "border-box", boxShadow: SH.glow(C.yellow), transition: "all 0.15s ease", textAlign: "left" }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.purple); }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.yellow); }}>
           <div style={{ fontSize: 9, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>{flashcardDecks.reduce((s, d) => s + d.cards.filter(c => !c.nextDue || c.nextDue <= today()).length, 0)} pendentes</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: C.yellow, fontFamily: FN, lineHeight: 1 }}>Flash</div>

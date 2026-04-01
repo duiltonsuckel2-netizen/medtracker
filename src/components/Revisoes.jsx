@@ -114,8 +114,19 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: estDue ? estDue <= today() : false, intervalIndex: estIdx, nextDue: estDue, days: estDays });
       }
     });
-    // Priority 3: dictionary names (no score = no schedule)
-    stNames.forEach(n => { if (!map.has(n.toLowerCase())) map.set(n.toLowerCase(), { name: n, pct: null, isDue: false, intervalIndex: null, nextDue: null, days: null }); });
+    // Priority 3: dictionary names — use parent's overall perf + lastStudied as baseline
+    stNames.forEach(n => {
+      if (!map.has(n.toLowerCase())) {
+        if (r.lastPerf != null && r.lastStudied) {
+          const estIdx = nxtIdx(0, r.lastPerf);
+          const estDue = addDays(r.lastStudied, INTERVALS[estIdx]);
+          const estDays = diffDays(estDue, today());
+          map.set(n.toLowerCase(), { name: n, pct: r.lastPerf, isDue: estDue <= today(), intervalIndex: estIdx, nextDue: estDue, days: estDays });
+        } else {
+          map.set(n.toLowerCase(), { name: n, pct: null, isDue: false, intervalIndex: null, nextDue: null, days: null });
+        }
+      }
+    });
 
     // Sort: due first, then by days ascending
     return [...map.values()].sort((a, b) => {

@@ -479,6 +479,8 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
                                             if (match) { logPct = match.pct; break; }
                                           }
                                         }
+                                        // If no individual score, use parent theme's overall performance
+                                        if (logPct == null && r.lastPerf != null) logPct = r.lastPerf;
                                         if (logPct != null && r.lastStudied) {
                                           const estIdx = nxtIdx(0, logPct);
                                           logInterval = estIdx;

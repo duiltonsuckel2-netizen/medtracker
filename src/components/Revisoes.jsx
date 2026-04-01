@@ -104,11 +104,11 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     const map = new Map();
     // Priority 1: review cards (have live pct + due dates + intervals)
     subRevs.forEach(sr => map.set(sr.theme.toLowerCase(), { name: sr.theme, pct: sr.lastPerf, isDue: sr.nextDue <= today(), intervalIndex: sr.intervalIndex, nextDue: sr.nextDue, days: diffDays(sr.nextDue, today()) }));
-    // Priority 2: revLog scores (fallback pct — estimate interval from parent's lastStudied)
+    // Priority 2: revLog scores (use the log's own date — when the subtopic was actually scored)
     if (lastLog) lastLog.subtopicScores.forEach(s => {
       if (!map.has(s.name.toLowerCase())) {
         const estIdx = nxtIdx(0, s.pct);
-        const baseDate = r.lastStudied || lastLog.date;
+        const baseDate = lastLog.date;
         const estDue = baseDate ? addDays(baseDate, INTERVALS[estIdx]) : null;
         const estDays = estDue ? diffDays(estDue, today()) : null;
         map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: estDue ? estDue <= today() : false, intervalIndex: estIdx, nextDue: estDue, days: estDays });

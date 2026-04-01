@@ -29,6 +29,13 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
   const [weekLimit, setWeekLimit] = useState(12);
   const [stSugFocused, setStSugFocused] = useState(false);
 
+  // Separate parent reviews from subtopic reviews
+  const { parentReviews, subtopicReviews } = useMemo(() => {
+    const parents = [], subs = [];
+    reviews.forEach((r) => (r.isSubtopic ? subs : parents).push(r));
+    return { parentReviews: parents, subtopicReviews: subs };
+  }, [reviews]);
+
   // Collect all known subtopic names for autocomplete
   const allSubNames = useMemo(() => {
     const names = new Set();
@@ -37,13 +44,6 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics })
     (revLogs || []).forEach(l => { if (l.subtopicScores) l.subtopicScores.forEach(s => names.add(s.name)); });
     return [...names].sort();
   }, [subtopics, subtopicReviews, revLogs]);
-
-  // Separate parent reviews from subtopic reviews
-  const { parentReviews, subtopicReviews } = useMemo(() => {
-    const parents = [], subs = [];
-    reviews.forEach((r) => (r.isSubtopic ? subs : parents).push(r));
-    return { parentReviews: parents, subtopicReviews: subs };
-  }, [reviews]);
 
   // Index revLogs by area+theme for stats
   const logsByTheme = useMemo(() => {

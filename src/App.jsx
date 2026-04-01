@@ -445,6 +445,86 @@ function App() {
           }
         }
 
+        // Migration v19: Merge duplicate subtopic review cards
+        // When user types "Context | SubtopicName", merge with existing "SubtopicName" card
+        if (!localStorage.getItem("rp26_mig_v19")) {
+          localStorage.setItem("rp26_mig_v19", "1");
+          const subCards = loadedReviews.filter(r => r.isSubtopic && r.parentTheme);
+          // Group by parent theme
+          const byParent = {};
+          subCards.forEach(r => {
+            const pk = `${r.area}__${r.parentTheme.toLowerCase().trim()}`;
+            if (!byParent[pk]) byParent[pk] = [];
+            byParent[pk].push(r);
+          });
+          const keysToRemove = new Set();
+          const renames = []; // { oldKey, card, newName }
+          Object.values(byParent).forEach(group => {
+            // Find cards with " | " in name — these are potential duplicates
+            group.forEach(card => {
+              if (!card.theme.includes(" | ")) return;
+              const parts = card.theme.split(" | ").map(p => p.trim());
+              // Check if any part matches another card in the same group
+              for (const part of parts) {
+                const match = group.find(other =>
+                  other.key !== card.key && other.theme.toLowerCase().trim() === part.toLowerCase()
+                );
+                if (match) {
+                  // Merge: keep the more recent one, delete the other
+                  const winner = (card.lastStudied || "") >= (match.lastStudied || "") ? card : match;
+                  const loser = winner === card ? match : card;
+                  // Keep winner's scheduling data if more recent, but use canonical name
+                  const canonicalName = match.theme; // the one WITHOUT "|" is canonical
+                  if (winner === card) {
+                    // The "|" card is more recent — rename it and remove the other
+                    renames.push({ card: winner, newName: canonicalName, newKey: match.key });
+                    keysToRemove.add(loser.key);
+                  } else {
+                    // The canonical card is more recent — just remove the "|" card
+                    keysToRemove.add(loser.key);
+                  }
+                  break;
+                }
+              }
+            });
+          });
+          if (keysToRemove.size > 0 || renames.length > 0) {
+            // Apply renames
+            renames.forEach(({ card, newName, newKey }) => {
+              card.theme = newName;
+              card.key = newKey;
+            });
+            // Remove duplicates
+            loadedReviews = loadedReviews.filter(r => !keysToRemove.has(r.key));
+            // Also clean up subtopics dictionary
+            Object.keys(loadedSt).forEach(dk => {
+              const items = loadedSt[dk];
+              if (!items) return;
+              const cleaned = [];
+              const seen = new Set();
+              items.forEach(name => {
+                // If name has "|", try to extract the canonical part
+                let canonical = name;
+                if (name.includes(" | ")) {
+                  const parts = name.split(" | ").map(p => p.trim());
+                  // Use the part that matches an existing item (without |)
+                  const matchPart = parts.find(p => items.some(other => !other.includes(" | ") && other.toLowerCase() === p.toLowerCase()));
+                  if (matchPart) canonical = matchPart; // skip this duplicate
+                  else canonical = parts[parts.length - 1]; // use last part as canonical
+                }
+                if (!seen.has(canonical.toLowerCase())) {
+                  seen.add(canonical.toLowerCase());
+                  cleaned.push(canonical);
+                }
+              });
+              if (cleaned.length !== items.length) loadedSt[dk] = cleaned;
+            });
+            console.log(`Migration v19: merged ${keysToRemove.size} duplicate subtopic cards`);
+            saveKey("rp26_reviews", loadedReviews);
+            saveKey("rp26_subtopics", loadedSt);
+          }
+        }
+
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(loadedSt);
         // Auto-generate or merge flashcards on every load (picks up new THEME_SUMMARIES)
         if (loadedExams.length > 0) {

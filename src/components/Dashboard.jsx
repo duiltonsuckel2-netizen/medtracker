@@ -260,7 +260,8 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.xl }}>
       {!forceTab && <>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: S.sm }}>
+      <div className="dash-top-wrap" style={{ display: "flex", flexDirection: "column", gap: S.sm }}>
+        <div className="dash-stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: S.sm }}>
         {[
           { label: "Provas", value: exams.length, accent: C.blue, onClick: onNavigateProvas },
           { label: "Anki", value: ankiTotal.toLocaleString("pt-BR"), accent: C.yellow },
@@ -272,8 +273,8 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
             <div style={{ fontSize: 24, fontWeight: 900, color: s.accent, fontFamily: FN, lineHeight: 1 }}>{s.value}</div>
           </div>
         ))}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.sm }}>
+        </div>
+        <div className="dash-action-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: S.sm }}>
         <button className="card-interactive" onClick={onNavigateFlashcards} style={{ background: `linear-gradient(135deg, ${C.yellow}45, ${C.purple}50)`, border: `1px solid ${C.yellow}35`, borderRadius: R.xl, padding: `${S.md}px ${S.lg}px`, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "space-between", height: 80, boxSizing: "border-box", boxShadow: SH.glow(C.yellow), transition: "all 0.15s ease", textAlign: "left" }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.purple); }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = SH.glow(C.yellow); }}>
           <div style={{ fontSize: 9, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>{flashcardDecks.reduce((s, d) => s + d.cards.filter(c => !c.nextDue || c.nextDue <= today()).length, 0)} pendentes</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: C.yellow, fontFamily: FN, lineHeight: 1 }}>Flash</div>
@@ -286,6 +287,7 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
           <div style={{ fontSize: 9, color: C.text2, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.8 }}>{alerts.length > 0 ? `${alerts.length} temas` : "0 temas"}</div>
           <div style={{ fontSize: 26, fontWeight: 900, color: C.red, fontFamily: FN, lineHeight: 1 }}>GAPS</div>
         </button>
+        </div>
       </div>
       <div style={{ display: "flex", gap: 4, background: C.surface, borderRadius: R.pill, padding: 4, overflowX: "auto", scrollbarWidth: "none", border: `1px solid ${C.border}` }}>
         {DASH_TABS.map((t) => { const active = activeTab === t.id; return (

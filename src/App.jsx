@@ -37,7 +37,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   useEffect(() => { applyTheme(darkMode); }, [darkMode]);
   const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14","rp26_mig_v15","rp26_mig_v16"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) { try { data[k] = JSON.parse(v); } catch { data[k] = v; } } });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -189,111 +189,108 @@ function App() {
         try {
           const snapshot = { rp26_sessions: loadedSessions, rp26_reviews: loadedReviews, rp26_revlogs: loadedLogs, rp26_exams: loadedExams, rp26_subtopics: st, rp26_flashcards: fc, _savedAt: new Date().toISOString() };
           const prev1 = localStorage.getItem("rp26_auto_backup_1");
-          const prev2 = localStorage.getItem("rp26_auto_backup_2");
-          if (prev2) localStorage.setItem("rp26_auto_backup_3", prev2);
           if (prev1) localStorage.setItem("rp26_auto_backup_2", prev1);
           localStorage.setItem("rp26_auto_backup_1", JSON.stringify(snapshot));
         } catch (e) { /* storage full — skip backup silently */ }
 
-        // Normalize theme names via LOG_NAME_MAP (safe — only renames, never deletes)
-        let logsRenamed = false, revsRenamed = false, sessRenamed = false;
-        loadedSessions = loadedSessions.map((s) => {
-          const mapped = LOG_NAME_MAP[s.theme];
-          if (mapped && mapped !== s.theme) { sessRenamed = true; return { ...s, theme: mapped }; }
-          return s;
-        });
-        if (sessRenamed) saveKey("rp26_sessions", loadedSessions);
-        loadedLogs = loadedLogs.map((l) => {
-          if (l.isSubtopic) return l;
-          const mapped = LOG_NAME_MAP[l.theme];
-          if (mapped && mapped !== l.theme) { logsRenamed = true; return { ...l, theme: mapped }; }
-          return l;
-        });
-        if (logsRenamed) saveKey("rp26_revlogs", loadedLogs);
-        loadedReviews = loadedReviews.map((rv) => {
-          if (rv.isSubtopic) return rv;
-          const mapped = LOG_NAME_MAP[rv.theme];
-          if (mapped && mapped !== rv.theme) {
-            revsRenamed = true;
-            const newKey = `${rv.area}__${mapped.toLowerCase().trim()}`;
-            return { ...rv, theme: mapped, key: newKey };
-          }
-          return rv;
-        });
-        if (revsRenamed) saveKey("rp26_reviews", loadedReviews);
+        // Normalize theme names via LOG_NAME_MAP — one-time migration only
+        if (!localStorage.getItem("rp26_mig_v15")) {
+          localStorage.setItem("rp26_mig_v15", "1");
+          let logsRenamed = false, revsRenamed = false, sessRenamed = false;
+          loadedSessions = loadedSessions.map((s) => {
+            const mapped = LOG_NAME_MAP[s.theme];
+            if (mapped && mapped !== s.theme) { sessRenamed = true; return { ...s, theme: mapped }; }
+            return s;
+          });
+          if (sessRenamed) saveKey("rp26_sessions", loadedSessions);
+          loadedLogs = loadedLogs.map((l) => {
+            if (l.isSubtopic) return l;
+            const mapped = LOG_NAME_MAP[l.theme];
+            if (mapped && mapped !== l.theme) { logsRenamed = true; return { ...l, theme: mapped }; }
+            return l;
+          });
+          if (logsRenamed) saveKey("rp26_revlogs", loadedLogs);
+          loadedReviews = loadedReviews.map((rv) => {
+            if (rv.isSubtopic) return rv;
+            const mapped = LOG_NAME_MAP[rv.theme];
+            if (mapped && mapped !== rv.theme) {
+              revsRenamed = true;
+              const newKey = `${rv.area}__${mapped.toLowerCase().trim()}`;
+              return { ...rv, theme: mapped, key: newKey };
+            }
+            return rv;
+          });
+          if (revsRenamed) saveKey("rp26_reviews", loadedReviews);
 
-        // Merge reviews that ended up with the same key after renaming (rename + sync can create dupes)
-        const _rkm = new Map();
-        let _hadDupeKeys = false;
-        loadedReviews.forEach((rv) => {
-          if (_rkm.has(rv.key)) {
-            _hadDupeKeys = true;
-            const ex = _rkm.get(rv.key);
-            // Merge histories, dedup by date+pct
-            const mh = [...(ex.history || []), ...(rv.history || [])];
-            const hm = new Map(); mh.forEach(h => hm.set(`${h.date}_${h.pct}`, h));
-            const dh = [...hm.values()].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-            // Keep whichever has more recent lastStudied
-            const w = (rv.lastStudied || "") > (ex.lastStudied || "") ? rv : ex;
-            _rkm.set(rv.key, { ...w, history: dh });
-          } else {
-            _rkm.set(rv.key, rv);
+          // Merge reviews that ended up with the same key after renaming
+          const _rkm = new Map();
+          let _hadDupeKeys = false;
+          loadedReviews.forEach((rv) => {
+            if (_rkm.has(rv.key)) {
+              _hadDupeKeys = true;
+              const ex = _rkm.get(rv.key);
+              const mh = [...(ex.history || []), ...(rv.history || [])];
+              const hm = new Map(); mh.forEach(h => hm.set(`${h.date}_${h.pct}`, h));
+              const dh = [...hm.values()].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+              const w = (rv.lastStudied || "") > (ex.lastStudied || "") ? rv : ex;
+              _rkm.set(rv.key, { ...w, history: dh });
+            } else {
+              _rkm.set(rv.key, rv);
+            }
+          });
+          if (_hadDupeKeys) {
+            loadedReviews = [..._rkm.values()];
+            saveKey("rp26_reviews", loadedReviews);
           }
-        });
-        if (_hadDupeKeys) {
-          loadedReviews = [..._rkm.values()];
-          saveKey("rp26_reviews", loadedReviews);
         }
 
-        // Restore correct intervals from SEED_REVIEWS for reviews that lost their data
-        // Use SEED_REVIEWS for intervalIndex/nextDue (from Notion), SEED_LOGS for lastStudied/lastPerf
-        const seedByKey = {};
-        SEED_REVIEWS.forEach((sr) => {
-          const k = `${sr.area}__${sr.theme.toLowerCase().trim()}`;
-          seedByKey[k] = sr;
-        });
-        const seedLogsByKey = {};
-        SEED_LOGS.forEach((l) => {
-          if (l.isSubtopic) return;
-          const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
-          const k = `${l.area}__${(mapped || "").toLowerCase().trim()}`;
-          if (!seedLogsByKey[k]) seedLogsByKey[k] = [];
-          seedLogsByKey[k].push(l);
-        });
-        Object.values(seedLogsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
-        let seedRestored = false;
-        loadedReviews = loadedReviews.map((rv) => {
-          if (rv.isSubtopic) return rv;
-          const seed = seedByKey[rv.key];
-          if (!seed) return rv;
-          const logs = seedLogsByKey[rv.key] || [];
-          const lastLog = logs.length > 0 ? logs[logs.length - 1] : null;
-          const correctLastStudied = lastLog ? lastLog.date : seed.lastStudied;
-          const correctLastPerf = lastLog ? (lastLog.pct != null ? lastLog.pct : seed.lastPerf) : seed.lastPerf;
-          // Build history from SEED_LOGS if review has fewer history entries than seed logs
-          const seedHistory = logs.map((l) => ({ date: l.date, pct: l.pct }));
-          let updatedHistory = rv.history || [];
-          if (seedHistory.length > 0 && updatedHistory.length < seedHistory.length) {
-            // Keep seed history + any app-recorded entries after last seed log
-            const lastSeedDate = logs[logs.length - 1].date;
-            const appEntries = updatedHistory.filter((h) => h.date > lastSeedDate);
-            updatedHistory = [...seedHistory, ...appEntries];
-          }
-          // Only restore if the review has no recent activity beyond seed data
-          if (!rv.lastStudied || rv.lastStudied <= correctLastStudied) {
-            if (rv.intervalIndex !== seed.intervalIndex || rv.nextDue !== seed.nextDue || rv.lastStudied !== correctLastStudied || updatedHistory.length !== (rv.history || []).length) {
-              seedRestored = true;
-              return { ...rv, intervalIndex: seed.intervalIndex, nextDue: seed.nextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: updatedHistory };
+        // Restore correct intervals from SEED_REVIEWS — one-time migration only
+        if (!localStorage.getItem("rp26_mig_v16")) {
+          localStorage.setItem("rp26_mig_v16", "1");
+          const seedByKey = {};
+          SEED_REVIEWS.forEach((sr) => {
+            const k = `${sr.area}__${sr.theme.toLowerCase().trim()}`;
+            seedByKey[k] = sr;
+          });
+          const seedLogsByKey = {};
+          SEED_LOGS.forEach((l) => {
+            if (l.isSubtopic) return;
+            const mapped = LOG_NAME_MAP[l.theme] || LOG_NAME_MAP[l.theme?.trim()] || l.theme;
+            const k = `${l.area}__${(mapped || "").toLowerCase().trim()}`;
+            if (!seedLogsByKey[k]) seedLogsByKey[k] = [];
+            seedLogsByKey[k].push(l);
+          });
+          Object.values(seedLogsByKey).forEach((logs) => logs.sort((a, b) => (a.date || "").localeCompare(b.date || "")));
+          let seedRestored = false;
+          loadedReviews = loadedReviews.map((rv) => {
+            if (rv.isSubtopic) return rv;
+            const seed = seedByKey[rv.key];
+            if (!seed) return rv;
+            const logs = seedLogsByKey[rv.key] || [];
+            const lastLog = logs.length > 0 ? logs[logs.length - 1] : null;
+            const correctLastStudied = lastLog ? lastLog.date : seed.lastStudied;
+            const correctLastPerf = lastLog ? (lastLog.pct != null ? lastLog.pct : seed.lastPerf) : seed.lastPerf;
+            const seedHistory = logs.map((l) => ({ date: l.date, pct: l.pct }));
+            let updatedHistory = rv.history || [];
+            if (seedHistory.length > 0 && updatedHistory.length < seedHistory.length) {
+              const lastSeedDate = logs[logs.length - 1].date;
+              const appEntries = updatedHistory.filter((h) => h.date > lastSeedDate);
+              updatedHistory = [...seedHistory, ...appEntries];
             }
-          }
-          // Even if intervals are fine, fix history if needed
-          if (updatedHistory.length !== (rv.history || []).length) {
-            seedRestored = true;
-            return { ...rv, history: updatedHistory };
-          }
-          return rv;
-        });
-        if (seedRestored) saveKey("rp26_reviews", loadedReviews);
+            if (!rv.lastStudied || rv.lastStudied <= correctLastStudied) {
+              if (rv.intervalIndex !== seed.intervalIndex || rv.nextDue !== seed.nextDue || rv.lastStudied !== correctLastStudied || updatedHistory.length !== (rv.history || []).length) {
+                seedRestored = true;
+                return { ...rv, intervalIndex: seed.intervalIndex, nextDue: seed.nextDue, lastStudied: correctLastStudied, lastPerf: correctLastPerf, history: updatedHistory };
+              }
+            }
+            if (updatedHistory.length !== (rv.history || []).length) {
+              seedRestored = true;
+              return { ...rv, history: updatedHistory };
+            }
+            return rv;
+          });
+          if (seedRestored) saveKey("rp26_reviews", loadedReviews);
+        }
 
         // Ensure SEED_LOGS subtopicScores are present in revLogs (fills missing data, never overwrites)
         const seedLogsWithSt = SEED_LOGS.filter((sl) => sl.subtopicScores);
@@ -362,40 +359,6 @@ function App() {
           } else { setFlashcardDecks(loadedFc); }
         } else { setFlashcardDecks(loadedFc); }
 
-        // One-time dedup: remove duplicate reviews and revLogs
-        const dedupKey2 = "rp26_mig_dedup_v2";
-        if (!localStorage.getItem(dedupKey2)) {
-          localStorage.setItem(dedupKey2, "1");
-          const seen2 = new Map();
-          loadedReviews.forEach((rv) => {
-            const k = rv.key || `${rv.area}__${(rv.theme || "").toLowerCase().trim()}`;
-            const existing = seen2.get(k);
-            if (!existing) { seen2.set(k, rv); return; }
-            const existH = (existing.history || []).length;
-            const rvH = (rv.history || []).length;
-            if (rvH > existH || (rvH === existH && (rv.lastStudied || "") > (existing.lastStudied || ""))) {
-              seen2.set(k, rv);
-            }
-          });
-          const deduped2 = Array.from(seen2.values());
-          if (deduped2.length < loadedReviews.length) {
-            console.log(`Dedup: removed ${loadedReviews.length - deduped2.length} duplicate reviews`);
-            loadedReviews = deduped2;
-            saveKey("rp26_reviews", loadedReviews);
-          }
-          const logSeen2 = new Set();
-          const dedupedLogs2 = loadedLogs.filter((l) => {
-            const k = `${l.date}__${l.area}__${(l.theme || "").toLowerCase().trim()}__${l.pct}__${l.total}`;
-            if (logSeen2.has(k)) return false;
-            logSeen2.add(k);
-            return true;
-          });
-          if (dedupedLogs2.length < loadedLogs.length) {
-            console.log(`Dedup: removed ${loadedLogs.length - dedupedLogs2.length} duplicate revLogs`);
-            loadedLogs = dedupedLogs2;
-            saveKey("rp26_revlogs", loadedLogs);
-          }
-        }
       }
       setDataLoaded(true);
       setReady(true);
@@ -649,8 +612,8 @@ function App() {
       <div style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 20px)", background: `linear-gradient(160deg, rgba(129,140,248,0.12) 0%, rgba(196,181,253,0.10) 50%, transparent 100%)`, borderBottom: `1px solid ${C.border}`, position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
         <div style={{ display: "flex", alignItems: "center", padding: "12px 16px 10px", maxWidth: 1200, margin: "0 auto", gap: 0 }}>
           <div onClick={() => switchTab("dashboard")} style={{ display: "flex", alignItems: "center", gap: 0, flexShrink: 0, marginRight: 14, cursor: "pointer" }}>
-            <img src={import.meta.env.BASE_URL + "logo-cropped.png"} alt="MedTracker" style={{ width: window.innerWidth < 768 ? 52 : 42, height: window.innerWidth < 768 ? 52 : 42 }} />
-            <span style={{ fontSize: window.innerWidth < 768 ? 24 : 20, fontWeight: 800, letterSpacing: -0.6, fontFamily: F }}><span style={{ color: C.purple }}>Med</span><span style={{ color: C.text, fontWeight: 700 }}>Tracker</span></span>
+            <img className="logo-img" src={import.meta.env.BASE_URL + "logo-cropped.png"} alt="MedTracker" style={{ width: 42, height: 42 }} />
+            <span className="logo-text" style={{ fontSize: 20, fontWeight: 800, letterSpacing: -0.6, fontFamily: F }}><span style={{ color: C.purple }}>Med</span><span style={{ color: C.text, fontWeight: 700 }}>Tracker</span></span>
           </div>
           {/* Desktop tabs */}
           <div className="desktop-tabs" style={{ display: "flex", gap: 4, flex: 1, overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none", WebkitOverflowScrolling: "touch", padding: "2px 0" }}>
@@ -744,7 +707,7 @@ function App() {
               <button onClick={() => setShowAutoBackupMenu(false)} style={{ background: "none", border: "none", color: C.text3, cursor: "pointer", fontSize: 18 }}>✕</button>
             </div>
             <div style={{ fontSize: 12, color: C.text3, marginBottom: 12 }}>O app salva automaticamente uma cópia dos dados toda vez que carrega. Escolha qual restaurar:</div>
-            {[1, 2, 3].map((slot) => {
+            {[1, 2].map((slot) => {
               const raw = localStorage.getItem(`rp26_auto_backup_${slot}`);
               let info = "Vazio";
               if (raw) { try { const d = JSON.parse(raw); info = d._savedAt ? new Date(d._savedAt).toLocaleString("pt-BR") : "Data desconhecida"; } catch { info = "Corrompido"; } }

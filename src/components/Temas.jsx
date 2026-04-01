@@ -28,6 +28,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
   const [newStItem, setNewStItem] = useState("");
   const [weekLimit, setWeekLimit] = useState(12);
   const [stSugFocused, setStSugFocused] = useState(false);
+  const [expandedSt, setExpandedSt] = useState({}); // per-subtopic detail toggle
   const [confirmDelete, setConfirmDelete] = useState(null); // { stKey, area, theme, name }
   const [viewMode, setViewMode] = useState(() => { try { return localStorage.getItem("rp26_temas_view") || "list"; } catch { return "list"; } });
 
@@ -477,24 +478,25 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                   const _lk = `${r.area}__${(r.theme || "").toLowerCase().trim()}`;
                                   const themeLogs = logsByTheme[_lk] || [];
                                   const revCount = themeLogs.length;
-                                  const revDates = themeLogs.slice(0, 5).map(l => l.date);
                                   return (
                                   <div style={{
-                                    background: C.surface, marginTop: 4, borderRadius: R.md,
-                                    borderLeft: `3px solid ${C.purple}50`,
-                                    padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6,
+                                    background: C.surface, marginTop: 6, borderRadius: R.lg,
+                                    overflow: "hidden",
+                                    border: `1px solid ${C.border}`,
                                   }}>
-                                    {/* Review count header */}
-                                    <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4, borderBottom: `1px solid ${C.border}` }}>
-                                      <span style={{ fontSize: 11, fontWeight: 600, color: C.text2 }}>{revCount}× revisado</span>
-                                      <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{revDates.map(d => fmtDate(d)).join(" · ")}</span>
+                                    {/* Panel header */}
+                                    <div style={{ padding: "10px 14px", background: C.card, display: "flex", alignItems: "center", gap: 10, borderBottom: `1px solid ${C.border}` }}>
+                                      <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{allStItems.length} subtemas</span>
+                                      <span style={{ fontSize: 11, color: C.text3 }}>{revCount}× revisado</span>
+                                      <div style={{ flex: 1 }} />
+                                      <button onClick={() => toggleStEdit(r.id)} style={{ background: C.purple + "14", border: `1px solid ${C.purple}30`, borderRadius: R.pill, cursor: "pointer", color: C.purple, fontSize: 10, fontWeight: 600, padding: "4px 12px", fontFamily: F }}>
+                                        {isEditing ? "Fechar" : "Editar"}
+                                      </button>
                                     </div>
 
                                     {/* Subtopics list */}
                                     {allStItems.map((st, i) => {
                                       const subRev = subRevs.find((sr) => sr.theme && sr.theme.toLowerCase() === st.toLowerCase());
-                                      // Collect ALL scores for this subtopic from revLogs
-                                      // Explicit subtopic scores from revLogs
                                       const stScores = [];
                                       themeLogs.forEach(l => {
                                         if (l.subtopicScores) {
@@ -502,69 +504,151 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                           if (m) stScores.push({ date: l.date, pct: m.pct });
                                         }
                                       });
-                                      // Parent reviews before first subtopic score count as subtopic reviews too
-                                      const firstStDate = stScores.length > 0 ? stScores[stScores.length - 1].date : null; // oldest (logs are newest-first)
+                                      const firstStDate = stScores.length > 0 ? stScores[stScores.length - 1].date : null;
                                       const parentRevsBefore = firstStDate ? themeLogs.filter(l => l.date < firstStDate).length : revCount;
                                       const totalStRevs = parentRevsBefore + stScores.length;
                                       const stAvg = stScores.length > 0 ? Math.round(stScores.reduce((s, x) => s + x.pct, 0) / stScores.length) : null;
                                       const displayPct = subRev ? subRev.lastPerf : stScores.length > 0 ? stScores[0].pct : null;
-                                      // Calculate interval for ALL subtopics (with or without review card)
                                       let estIdx = null, estDue = null;
-                                      if (subRev) {
-                                        estIdx = subRev.intervalIndex;
-                                        estDue = subRev.nextDue;
-                                      } else if (displayPct !== null) {
-                                        // Estimate: parent reviews before = starting index, then apply score
+                                      if (subRev) { estIdx = subRev.intervalIndex; estDue = subRev.nextDue; }
+                                      else if (displayPct !== null) {
                                         const startIdx = Math.min(Math.max(parentRevsBefore, 0), INTERVALS.length - 1);
                                         estIdx = nxtIdx(startIdx, displayPct);
-                                        // Use the date of the last explicit score, or parent's lastStudied
                                         const baseDate = stScores.length > 0 ? stScores[0].date : r.lastStudied;
                                         if (baseDate) estDue = addDays(baseDate, INTERVALS[estIdx]);
                                       }
                                       const daysLeft = estDue ? diffDays(estDue, today()) : null;
                                       const isDueSt = daysLeft !== null && daysLeft <= 0;
+                                      const stId = `${r.id}_${i}`;
+                                      const isStExpanded = expandedSt[stId];
+                                      const statusColor = displayPct === null ? C.text3 : displayPct >= 80 ? C.green : displayPct >= 60 ? C.yellow : C.red;
 
                                       return (
-                                        <div key={i} style={{
-                                          padding: "8px 10px", borderRadius: R.md,
-                                          background: i % 2 === 0 ? C.card : "transparent",
-                                          border: isDueSt ? `1px solid ${C.red}25` : "1px solid transparent",
-                                        }}>
-                                          {/* Row 1: Name + last score + interval select */}
-                                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                            <span style={{ fontSize: 11, color: C.purple, flexShrink: 0 }}>›</span>
-                                            <span style={{ ...TY.caption, fontWeight: 600, flex: 1, minWidth: 0 }}>{st}</span>
-                                            {displayPct !== null && (
-                                              <span style={{ fontSize: 12, fontWeight: 700, color: perfColor(displayPct), fontFamily: FN }}>{displayPct}%</span>
-                                            )}
-                                            {subRev ? (
-                                              <select value={subRev.intervalIndex} onChange={(e) => { const ni = Number(e.target.value); onEditInterval(subRev.id, ni, addDays(today(), INTERVALS[ni])); }} onClick={(e) => e.stopPropagation()}
-                                                style={{ ...inp(), width: 52, padding: "1px 2px", fontSize: 10, background: C.card, textAlign: "center" }}>
-                                                {INTERVALS.map((_, ii) => <option key={ii} value={ii}>{INT_LABELS[ii]}</option>)}
-                                              </select>
-                                            ) : estIdx !== null ? (
-                                              <span style={{ fontSize: 10, fontWeight: 600, color: C.text3, fontFamily: FM }}>{INT_LABELS[estIdx]}</span>
+                                        <div key={i} style={{ borderBottom: i < allStItems.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                                          {/* Main row — always visible */}
+                                          <div
+                                            onClick={() => setExpandedSt(p => ({ ...p, [stId]: !p[stId] }))}
+                                            style={{
+                                              display: "flex", alignItems: "center", gap: 8,
+                                              padding: "10px 14px", cursor: "pointer",
+                                              background: isDueSt ? C.red + "08" : "transparent",
+                                              transition: "background 0.15s",
+                                            }}
+                                          >
+                                            {/* Status dot */}
+                                            <div style={{ width: 8, height: 8, borderRadius: 4, background: statusColor, flexShrink: 0 }} />
+
+                                            {/* Name */}
+                                            <span style={{ fontSize: 13, fontWeight: 600, color: C.text, flex: 1, minWidth: 0, lineHeight: 1.3 }}>{st}</span>
+
+                                            {/* Score badge */}
+                                            {displayPct !== null ? (
+                                              <span style={{
+                                                fontSize: 12, fontWeight: 700, fontFamily: FN,
+                                                color: perfColor(displayPct),
+                                                background: perfColor(displayPct) + "15",
+                                                padding: "2px 8px", borderRadius: R.pill,
+                                              }}>{displayPct}%</span>
                                             ) : (
-                                              <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic" }}>Pendente</span>
+                                              <span style={{ fontSize: 10, color: C.text3, fontStyle: "italic", padding: "2px 8px" }}>Pendente</span>
                                             )}
-                                            {isEditing && stKey && (
-                                              <button onClick={() => removeStItem(stKey, r.area, r.theme, st)}
-                                                style={{ background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 10, padding: "2px 5px", flexShrink: 0 }}>✕</button>
+
+                                            {/* Interval badge */}
+                                            {estIdx !== null && (
+                                              <span style={{
+                                                fontSize: 10, fontWeight: 700, fontFamily: FM,
+                                                color: C.purple, background: C.purple + "15",
+                                                padding: "2px 8px", borderRadius: R.pill,
+                                                minWidth: 28, textAlign: "center",
+                                              }}>{INT_LABELS[estIdx]}</span>
                                             )}
+
+                                            {/* Due badge */}
+                                            {daysLeft !== null && (
+                                              <span style={{
+                                                fontSize: 10, fontWeight: 600, fontFamily: FM,
+                                                color: isDueSt ? "#fff" : C.text3,
+                                                background: isDueSt ? C.red : "transparent",
+                                                padding: isDueSt ? "2px 8px" : "2px 4px",
+                                                borderRadius: R.pill, whiteSpace: "nowrap",
+                                              }}>
+                                                {isDueSt ? (daysLeft === 0 ? "hoje" : `${Math.abs(daysLeft)}d`) : `${daysLeft}d`}
+                                              </span>
+                                            )}
+
+                                            {/* Expand arrow */}
+                                            <span style={{ fontSize: 10, color: C.text3, flexShrink: 0 }}>{isStExpanded ? "▼" : "▶"}</span>
                                           </div>
-                                          {/* Row 2: Details — average, review count, due date */}
-                                          {(totalStRevs > 0 || subRev) && (
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, paddingLeft: 17, flexWrap: "wrap" }}>
-                                              {totalStRevs > 0 && (
-                                                <span style={{ fontSize: 10, color: C.text3 }}>{totalStRevs}× rev{stAvg !== null && <> · μ <span style={{ color: perfColor(stAvg), fontWeight: 600 }}>{stAvg}%</span></>}</span>
+
+                                          {/* Expanded details */}
+                                          {isStExpanded && (
+                                            <div className="fade-in" style={{
+                                              padding: "0 14px 12px 30px",
+                                              display: "flex", flexDirection: "column", gap: 8,
+                                            }}>
+                                              {/* Progress bar */}
+                                              {displayPct !== null && (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                  <div style={{ flex: 1, height: 6, borderRadius: R.pill, background: C.border, overflow: "hidden" }}>
+                                                    <div style={{ height: "100%", width: `${displayPct}%`, background: perfColor(displayPct), borderRadius: R.pill, transition: "width 0.3s" }} />
+                                                  </div>
+                                                  <span style={{ fontSize: 10, color: C.text3, fontFamily: FM, whiteSpace: "nowrap" }}>{displayPct}/100</span>
+                                                </div>
                                               )}
+
+                                              {/* Stats row */}
+                                              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                                {totalStRevs > 0 && (
+                                                  <span style={{ ...tag(C.text3), fontSize: 10 }}>{totalStRevs}× revisado</span>
+                                                )}
+                                                {stAvg !== null && (
+                                                  <span style={{ ...tag(perfColor(stAvg)), fontSize: 10 }}>média {stAvg}%</span>
+                                                )}
+                                                {estIdx !== null && (
+                                                  <span style={{ ...tag(C.purple), fontSize: 10 }}>{INT_LABELS[estIdx]} ({INT_DAYS[estIdx]})</span>
+                                                )}
+                                                {estDue && (
+                                                  <span style={{ ...tag(isDueSt ? C.red : C.teal), fontSize: 10 }}>
+                                                    {isDueSt ? (daysLeft === 0 ? "Revisar hoje" : `${Math.abs(daysLeft)}d atraso`) : `Próxima em ${daysLeft}d`}
+                                                  </span>
+                                                )}
+                                              </div>
+
+                                              {/* Score history */}
                                               {stScores.length > 0 && (
-                                                <span style={{ fontSize: 9, color: C.text3, fontFamily: FM }}>{stScores.slice(0, 3).map(s => `${fmtDate(s.date)} ${s.pct}%`).join(" · ")}</span>
+                                                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                                  <span style={{ fontSize: 10, fontWeight: 600, color: C.text2, textTransform: "uppercase", letterSpacing: 0.5 }}>Histórico</span>
+                                                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                                    {stScores.slice(0, 5).map((sc, si) => (
+                                                      <div key={si} style={{
+                                                        display: "flex", alignItems: "center", gap: 4,
+                                                        padding: "3px 8px", borderRadius: R.sm,
+                                                        background: C.card, border: `1px solid ${C.border}`,
+                                                        fontSize: 10,
+                                                      }}>
+                                                        <span style={{ color: C.text3, fontFamily: FM }}>{fmtDate(sc.date)}</span>
+                                                        <span style={{ fontWeight: 700, color: perfColor(sc.pct), fontFamily: FN }}>{sc.pct}%</span>
+                                                      </div>
+                                                    ))}
+                                                  </div>
+                                                </div>
                                               )}
-                                              {daysLeft !== null && (
-                                                <span style={{ fontSize: 10, fontWeight: 600, color: isDueSt ? C.red : C.text3, marginLeft: "auto" }}>
-                                                  {isDueSt ? (daysLeft === 0 ? "hoje" : `${Math.abs(daysLeft)}d atraso`) : `em ${daysLeft}d`}
-                                                </span>
+
+                                              {/* Interval editor */}
+                                              {subRev && (
+                                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                  <span style={{ fontSize: 10, color: C.text2, fontWeight: 600 }}>Intervalo:</span>
+                                                  <select value={subRev.intervalIndex} onChange={(e) => { const ni = Number(e.target.value); onEditInterval(subRev.id, ni, addDays(today(), INTERVALS[ni])); }} onClick={(e) => e.stopPropagation()}
+                                                    style={{ ...inp(), width: 100, padding: "4px 8px", fontSize: 11, background: C.card }}>
+                                                    {INTERVALS.map((_, ii) => <option key={ii} value={ii}>{INT_LABELS[ii]} ({INT_DAYS[ii]})</option>)}
+                                                  </select>
+                                                </div>
+                                              )}
+
+                                              {/* Delete button in edit mode */}
+                                              {isEditing && stKey && (
+                                                <button onClick={() => removeStItem(stKey, r.area, r.theme, st)}
+                                                  style={{ alignSelf: "flex-start", background: C.red + "14", border: `1px solid ${C.red}30`, borderRadius: R.sm, cursor: "pointer", color: C.red, fontSize: 11, padding: "4px 12px", fontFamily: F, fontWeight: 500 }}>Remover subtema</button>
                                               )}
                                             </div>
                                           )}
@@ -572,32 +656,27 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                       );
                                     })}
 
-                                    {/* Edit controls */}
-                                    <div style={{ display: "flex", gap: 6, marginTop: 2 }}>
-                                      <button onClick={() => toggleStEdit(r.id)} style={{ background: "none", border: "none", cursor: "pointer", color: C.purple, fontSize: 11, fontWeight: 600, padding: 0 }}>
-                                        {isEditing ? "Fechar" : "Editar"}
-                                      </button>
-                                    </div>
+                                    {/* Add subtopic input */}
                                     {isEditing && stKey && (() => {
                                       const q = (editingSt === r.id ? newStItem : "").toLowerCase().trim();
                                       const currentItems = (subtopics[stKey] || []).map(s => s.toLowerCase());
                                       const suggestions = q.length >= 2 ? allSubNames.filter(n => n.toLowerCase().includes(q) && !currentItems.includes(n.toLowerCase())).slice(0, 6) : [];
                                       return (
-                                      <div style={{ position: "relative" }}>
+                                      <div style={{ position: "relative", padding: "8px 14px", borderTop: `1px solid ${C.border}` }}>
                                         <div style={{ display: "flex", gap: 6 }}>
                                           <input value={editingSt === r.id ? newStItem : ""} onFocus={() => { setEditingSt(r.id); setStSugFocused(true); }}
                                             onBlur={() => setTimeout(() => setStSugFocused(false), 150)}
                                             onChange={(e) => { setEditingSt(r.id); setNewStItem(e.target.value); }}
                                             onKeyDown={(e) => { if (e.key === "Enter") addStItem(stKey, r.area); }}
-                                            placeholder="Adicionar subtema…" style={{ ...inp(), flex: 1, padding: "5px 8px", fontSize: 11 }} />
+                                            placeholder="Adicionar subtema…" style={{ ...inp(), flex: 1, padding: "8px 12px", fontSize: 12 }} />
                                           <button onClick={() => addStItem(stKey, r.area)}
-                                            style={btn(C.purple, { padding: "5px 10px", fontSize: 11, opacity: (editingSt === r.id && newStItem.trim()) ? 1 : 0.4 })}>+</button>
+                                            style={btn(C.purple, { padding: "8px 14px", fontSize: 12, opacity: (editingSt === r.id && newStItem.trim()) ? 1 : 0.4 })}>+</button>
                                         </div>
                                         {stSugFocused && suggestions.length > 0 && (
-                                          <div style={{ position: "absolute", top: "100%", left: 0, right: 40, zIndex: 50, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, marginTop: 2, boxShadow: SH.lg, overflow: "hidden" }}>
+                                          <div style={{ position: "absolute", top: "100%", left: 14, right: 54, zIndex: 50, background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, marginTop: 2, boxShadow: SH.lg, overflow: "hidden" }}>
                                             {suggestions.map((s, si) => (
                                               <div key={si} onMouseDown={(e) => { e.preventDefault(); const existing = subtopics[stKey] || []; if (!existing.includes(s)) { onSaveSubtopics(r.area, stKey.split("__").slice(1).join("__"), [...existing, s]); } setNewStItem(""); }}
-                                                style={{ padding: "6px 10px", fontSize: 11, cursor: "pointer", borderBottom: si < suggestions.length - 1 ? `1px solid ${C.border}` : "none", color: C.text2 }}
+                                                style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", borderBottom: si < suggestions.length - 1 ? `1px solid ${C.border}` : "none", color: C.text2 }}
                                                 onMouseEnter={(e) => e.currentTarget.style.background = C.surface}
                                                 onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                                                 {s}

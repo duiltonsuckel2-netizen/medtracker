@@ -19,7 +19,7 @@ const Provas = React.lazy(() => import("./components/Provas.jsx").then(m => ({ d
 const Flashcards = React.lazy(() => import("./components/Flashcards.jsx").then(m => ({ default: m.Flashcards })));
 
 function App() {
-  const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem("rp26_dark") !== "false"; } catch { return true; } });
+  const [darkMode, setDarkMode] = useState(() => { try { const d = localStorage.getItem("rp26_dark") !== "false"; applyTheme(d); return d; } catch { return true; } });
   const [tab, setTab] = useState("dashboard");
   const [sessions, setSessions] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -36,7 +36,7 @@ function App() {
 
   useEffect(() => { injectKeyframes(); }, []);
   useEffect(() => { applyTheme(darkMode); }, [darkMode]);
-  const toggleTheme = () => { const next = !darkMode; setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
+  const toggleTheme = () => { const next = !darkMode; applyTheme(next); setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
   const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14","rp26_mig_v15","rp26_mig_v16"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) { try { data[k] = JSON.parse(v); } catch { data[k] = v; } } });

@@ -279,19 +279,15 @@ describe('Edge Cases — Dedup Logic', () => {
 });
 
 describe('Edge Cases — Auto-backup Rotation', () => {
-  it('rotates backups correctly: prev2→slot3, prev1→slot2, new→slot1', () => {
+  it('rotates backups correctly: prev1→slot2, new→slot1', () => {
     localStorage.setItem('rp26_auto_backup_1', JSON.stringify({ _savedAt: 'time1' }));
-    localStorage.setItem('rp26_auto_backup_2', JSON.stringify({ _savedAt: 'time2' }));
 
-    // Simulate rotation (same logic as App.jsx)
+    // Simulate rotation (same logic as App.jsx — 2 slots)
     const prev1 = localStorage.getItem('rp26_auto_backup_1');
-    const prev2 = localStorage.getItem('rp26_auto_backup_2');
-    if (prev2) localStorage.setItem('rp26_auto_backup_3', prev2);
     if (prev1) localStorage.setItem('rp26_auto_backup_2', prev1);
-    localStorage.setItem('rp26_auto_backup_1', JSON.stringify({ _savedAt: 'time3' }));
+    localStorage.setItem('rp26_auto_backup_1', JSON.stringify({ _savedAt: 'time2' }));
 
-    expect(JSON.parse(localStorage.getItem('rp26_auto_backup_1'))._savedAt).toBe('time3');
+    expect(JSON.parse(localStorage.getItem('rp26_auto_backup_1'))._savedAt).toBe('time2');
     expect(JSON.parse(localStorage.getItem('rp26_auto_backup_2'))._savedAt).toBe('time1');
-    expect(JSON.parse(localStorage.getItem('rp26_auto_backup_3'))._savedAt).toBe('time2');
   });
 });

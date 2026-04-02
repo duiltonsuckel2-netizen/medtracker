@@ -30,6 +30,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
   const [stSugFocused, setStSugFocused] = useState(false);
   const [expandedSt, setExpandedSt] = useState({}); // per-subtopic detail toggle
   const [confirmDelete, setConfirmDelete] = useState(null); // { stKey, area, theme, name }
+  const [hiddenSt, setHiddenSt] = useState(() => { try { return JSON.parse(localStorage.getItem("rp26_hidden_st") || "[]"); } catch { return []; } });
   const [viewMode, setViewMode] = useState(() => { try { return localStorage.getItem("rp26_temas_view") || "list"; } catch { return "list"; } });
 
   // Separate parent reviews from subtopic reviews
@@ -180,8 +181,17 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
     if (!actualKey) actualKey = stKey || `${area}__${theme}`;
     const topic = actualKey.split("__").slice(1).join("__");
     const existing = subtopics[actualKey] || [];
-    // Remove from subtopic dictionary only — do NOT touch review cards
+    // Remove from subtopic dictionary
     onSaveSubtopics(area, topic, existing.filter((s) => s.toLowerCase() !== name.toLowerCase()));
+    // Hide from all sources (revLogs, review cards) so it doesn't reappear
+    const hideKey = `${area}__${theme.toLowerCase().trim()}::${name.toLowerCase().trim()}`;
+    const newHidden = [...hiddenSt, hideKey];
+    setHiddenSt(newHidden);
+    try { localStorage.setItem("rp26_hidden_st", JSON.stringify(newHidden)); } catch {}
+    // Remove subtopic review card if it exists
+    if (onDeleteReviews) {
+      onDeleteReviews((prev) => prev.filter((r) => !(r.isSubtopic && r.key === hideKey)));
+    }
     setConfirmDelete(null);
   }
 
@@ -425,7 +435,10 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                             stItems.forEach(s => _allSet.set(s.toLowerCase(), s));
                             subRevs.forEach(s => { if (s.theme && !_allSet.has(s.theme.toLowerCase())) _allSet.set(s.theme.toLowerCase(), s.theme); });
                             _lsm.forEach((_, name) => { if (!_allSet.has(name.toLowerCase())) _allSet.set(name.toLowerCase(), name); });
-                            const allStItems = [..._allSet.values()];
+                            const allStItems = [..._allSet.values()].filter(name => {
+                              const hk = `${r.area}__${(r.theme || "").toLowerCase().trim()}::${name.toLowerCase().trim()}`;
+                              return !hiddenSt.includes(hk);
+                            });
                             // Sort worst → best performance
                             const _pctOf = (name) => { const sr = subRevs.find(s => s.theme?.toLowerCase() === name.toLowerCase()); if (sr) return sr.lastPerf; for (const [k, v] of _lsm) { if (k.toLowerCase() === name.toLowerCase()) return v; } return 999; };
                             allStItems.sort((a, b) => _pctOf(a) - _pctOf(b));

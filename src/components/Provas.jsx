@@ -679,6 +679,8 @@ function ExamCard({ exam, allLogs, isOpen, onToggle, onDel, onUpdate, knownTheme
   const [editDetails, setEditDetails] = useState({});
   const [filterArea, setFilterArea] = useState("all");
   const [searchQ, setSearchQ] = useState("");
+  const [editingDate, setEditingDate] = useState(false);
+  const [editDateVal, setEditDateVal] = useState("");
   const cats = exam.cats || {};
   const s = cats.soube?.length || 0; const c = cats.chutou?.length || 0; const ev = cats.errou_viu?.length || 0; const en = cats.errou_nao?.length || 0;
   const total = exam.total || (s + c + ev + en); const acertos = exam.acertos || (s + c); const geral = perc(acertos, total);
@@ -705,7 +707,15 @@ function ExamCard({ exam, allLogs, isOpen, onToggle, onDel, onUpdate, knownTheme
         <div style={{ width: 72, height: 72, borderRadius: R.xl, background: perfColor(geral) + "15", border: `2px solid ${perfColor(geral)}40`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: SH.glow(perfColor(geral)) }}><span style={{ fontSize: 22, fontWeight: 800, color: perfColor(geral), ...NUM, lineHeight: 1 }}>{geral}%</span><span style={{ fontSize: 10, color: C.text3, ...NUM, marginTop: 2 }}>{acertos}/{total}</span></div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.3, lineHeight: 1.3, marginBottom: 4 }}>{exam.name}</div>
-          <div style={{ fontSize: 12, color: C.text3, fontFamily: FM, marginBottom: 8 }}>{fmtDate(exam.date)} · {total} questões</div>
+          <div style={{ fontSize: 12, color: C.text3, fontFamily: FM, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                {editingDate ? (
+                  <input type="date" value={editDateVal} onChange={(e) => setEditDateVal(e.target.value)}
+                    onBlur={() => { if (editDateVal && editDateVal !== exam.date) onUpdate(exam.id, { date: editDateVal }); setEditingDate(false); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") { if (editDateVal && editDateVal !== exam.date) onUpdate(exam.id, { date: editDateVal }); setEditingDate(false); } if (e.key === "Escape") setEditingDate(false); }}
+                    autoFocus style={{ ...inp(), padding: "3px 8px", fontSize: 12, fontFamily: FM, width: 140 }} />
+                ) : (
+                  <span onClick={(e) => { e.stopPropagation(); setEditDateVal(exam.date || ""); setEditingDate(true); }} style={{ cursor: "pointer", borderBottom: `1px dashed ${C.text3}40` }}>{fmtDate(exam.date)}</span>
+                )} · {total} questões</div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
             {CATS.map((cat) => { const cnt = cats[cat.id]?.length || 0; if (!cnt) return null; return (<div key={cat.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: R.pill, background: cat.color + "14", border: `1px solid ${cat.color}25` }}><div style={{ width: 8, height: 8, borderRadius: "50%", background: cat.color, flexShrink: 0 }} /><span style={{ fontSize: 11, color: cat.color, fontWeight: 700, fontFamily: FN }}>{cnt}</span></div>); })}
           </div>

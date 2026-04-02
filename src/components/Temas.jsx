@@ -525,7 +525,8 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                         if (baseDate) estDue = addDays(baseDate, INTERVALS[estIdx]);
                                       }
                                       const daysLeft = estDue ? diffDays(estDue, today()) : null;
-                                      const isDueSt = daysLeft !== null && daysLeft <= 0;
+                                      // Only mark as overdue if there's an actual review card — estimated dates are informational only
+                                      const isDueSt = subRev ? (daysLeft !== null && daysLeft <= 0) : false;
                                       const stId = `${r.id}_${i}`;
                                       const isStExpanded = expandedSt[stId];
                                       const statusColor = displayPct === null ? C.text3 : displayPct >= 80 ? C.green : displayPct >= 60 ? C.yellow : C.red;

@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
-import { AREAS, BENCHMARKS, CATS, areaMap, EXAM_THEMES_DB, KNOWN_PDFS, UFCSPA_2026_ANALYSIS, EXAM_ANALYSES, generateExamAnalysis, computeGlobalPrevalence } from "../data.js";
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
+import { AREAS, BENCHMARKS, CATS, areaMap, EXAM_THEMES_DB, KNOWN_PDFS, UFCSPA_2026_ANALYSIS, EXAM_ANALYSES, generateExamAnalysis, computeGlobalPrevalence, _themesMatch } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, fmtDate, perc, uid, perfColor, perfLabel, catColor, mapThemeToSchedule, mapThemeToStudy, searchKnownPdf, defaultAreaForQuestion, buildDefaultQDetails } from "../utils.js";
 import { Fld, Empty, ChartTip } from "./UI.jsx";
@@ -19,6 +19,7 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
   const [sortMode, setSortMode] = useState("best");
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [expandedBlock, setExpandedBlock] = useState(0);
+  const [panoramaView, setPanoramaView] = useState(false);
   const allLogs = useMemo(() => [...revLogs, ...sessions.map((s) => ({ ...s, pct: perc(s.acertos, s.total) }))], [revLogs, sessions]);
   const knownThemes = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set(allLogs.filter((l) => l.area === a.id).map((l) => l.theme))].sort(); }); return o; }, [allLogs]);
   const reset = () => { setStep(0); setExamMeta({ date: today(), name: "", total: 120 }); setQMap({}); setQDetails({}); setSearchQuery(""); setSearchResults([]); setPdfStatus("idle"); setPdfMsg(""); setAiAnalysis(null); };
@@ -76,20 +77,25 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
       {step === 0 && <>
-        <button onClick={() => setStep(1)} style={{ ...btn(C.blue), padding: "12px 24px", fontSize: 14, fontWeight: 600, width: "100%", borderRadius: R.lg, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>📝 Registrar prova</button>
-        <div style={{ background: C.surface, borderRadius: R.lg, padding: "10px 14px", border: `1px solid ${C.border}`, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>Prevalência:</span>
-          {[{l:"Muito alta",c:C.green,d:"75%+ das provas"},{l:"Alta",c:"#60A5FA",d:"50%+"},{l:"Média",c:"#FBBF24",d:"25%+"},{l:"Baixa",c:C.text3,d:"raro/inédito"}].map((p,i)=>(
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.c }} />
-              <span style={{ fontSize: 9, color: p.c, fontWeight: 600 }}>{p.l}</span>
-              <span style={{ fontSize: 8, color: C.text3, fontFamily: FM }}>({p.d})</span>
-            </div>
-          ))}
-          <span style={{ fontSize: 8, color: C.text3, fontFamily: FM, marginLeft: "auto" }}>Base: {Object.keys(EXAM_THEMES_DB).length} provas · Diagnóstico conta apenas "soube"</span>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button onClick={() => setStep(1)} style={{ ...btn(C.blue), padding: "12px 24px", fontSize: 14, fontWeight: 600, flex: 1, borderRadius: R.lg, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>📝 Registrar prova</button>
+          {exams.length >= 2 && <button onClick={() => setPanoramaView(!panoramaView)} style={{ ...btn(panoramaView ? C.purple : C.card2), padding: "12px 18px", fontSize: 13, fontWeight: 600, borderRadius: R.lg, display: "flex", alignItems: "center", gap: 6, border: panoramaView ? "none" : `1px solid ${C.border}`, color: panoramaView ? "#fff" : C.purple }}>{panoramaView ? "← Provas" : "📊 Panorama Geral"}</button>}
         </div>
-        {exams.length >= 2 && <ExamComparison exams={exams} sortMode={sortMode} setSortMode={setSortMode} />}
-        {exams.length === 0 ? <Empty icon="📋" msg="Nenhuma prova registrada ainda. Registre sua primeira prova para acompanhar seu desempenho." /> : exams.map((exam) => <ExamCard key={exam.id} exam={exam} allLogs={allLogs} isOpen={detail === exam.id} onToggle={() => setDetail(detail === exam.id ? null : exam.id)} onDel={onDel} onUpdate={onUpdate} knownThemes={knownThemes} userSubtopics={userSubtopics} />)}
+        {panoramaView ? <PanoramaGeral exams={exams} /> : <>
+          <div style={{ background: C.surface, borderRadius: R.lg, padding: "10px 14px", border: `1px solid ${C.border}`, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>Prevalência:</span>
+            {[{l:"Muito alta",c:C.green,d:"75%+ das provas"},{l:"Alta",c:"#60A5FA",d:"50%+"},{l:"Média",c:"#FBBF24",d:"25%+"},{l:"Baixa",c:C.text3,d:"raro/inédito"}].map((p,i)=>(
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.c }} />
+                <span style={{ fontSize: 9, color: p.c, fontWeight: 600 }}>{p.l}</span>
+                <span style={{ fontSize: 8, color: C.text3, fontFamily: FM }}>({p.d})</span>
+              </div>
+            ))}
+            <span style={{ fontSize: 8, color: C.text3, fontFamily: FM, marginLeft: "auto" }}>Base: {Object.keys(EXAM_THEMES_DB).length} provas · Diagnóstico conta apenas "soube"</span>
+          </div>
+          {exams.length >= 2 && <ExamComparison exams={exams} sortMode={sortMode} setSortMode={setSortMode} />}
+          {exams.length === 0 ? <Empty icon="📋" msg="Nenhuma prova registrada ainda. Registre sua primeira prova para acompanhar seu desempenho." /> : exams.map((exam) => <ExamCard key={exam.id} exam={exam} allLogs={allLogs} isOpen={detail === exam.id} onToggle={() => setDetail(detail === exam.id ? null : exam.id)} onDel={onDel} onUpdate={onUpdate} knownThemes={knownThemes} userSubtopics={userSubtopics} />)}
+        </>}
       </>}
       {step === 1 && <div style={{ ...card, border: `1px solid ${C.blue}40`, display: "flex", flexDirection: "column", gap: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -238,6 +244,294 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
           })}
         </div>
         <button onClick={() => { if (!allAreasFilled) return alert("Preencha a área de todas as questões erradas."); buildExam(); }} style={btn(C.green)}>✓ Salvar prova</button>
+      </div>}
+    </div>
+  );
+}
+
+function PanoramaGeral({ exams }) {
+  const AC = { clinica: "#FACC15", cirurgia: "#FB923C", preventiva: "#2DD4BF", go: "#F472B6", ped: "#60A5FA" };
+  const AL = { clinica: "Clínica", cirurgia: "Cirurgia", go: "GO", ped: "Pediatria", preventiva: "Preventiva" };
+
+  // ── 1. Quick summary data ──
+  const summary = useMemo(() => {
+    if (!exams.length) return null;
+    const sorted = [...exams].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+    const pcts = sorted.map(e => perc(e.acertos || 0, e.total || 1));
+    const avg = Math.round(pcts.reduce((s, p) => s + p, 0) / pcts.length);
+    const bestIdx = pcts.indexOf(Math.max(...pcts));
+    const worstIdx = pcts.indexOf(Math.min(...pcts));
+    // Area aggregation
+    const areaAcc = {};
+    AREAS.forEach(a => { areaAcc[a.id] = { acertos: 0, total: 0 }; });
+    exams.forEach(e => {
+      if (!e.areaResults) return;
+      Object.entries(e.areaResults).forEach(([aId, r]) => {
+        if (!areaAcc[aId]) return;
+        areaAcc[aId].acertos += (r.soube || 0) + (r.chutou || 0);
+        areaAcc[aId].total += r.total || 0;
+      });
+    });
+    let strongest = null, weakest = null, sMax = -1, wMin = 101;
+    Object.entries(areaAcc).forEach(([aId, r]) => {
+      if (r.total < 3) return;
+      const p = perc(r.acertos, r.total);
+      if (p > sMax) { sMax = p; strongest = aId; }
+      if (p < wMin) { wMin = p; weakest = aId; }
+    });
+    return { total: exams.length, avg, best: sorted[bestIdx], worst: sorted[worstIdx], bestPct: pcts[bestIdx], worstPct: pcts[worstIdx], strongest, weakest, sMax, wMin, areaAcc };
+  }, [exams]);
+
+  // ── 2. Evolution chart data ──
+  const evoData = useMemo(() => {
+    return [...exams].sort((a, b) => (a.date || "").localeCompare(b.date || "")).map((e, i) => ({
+      name: (e.name || "").replace(/\s*\d{4}/, "").slice(0, 12),
+      fullName: e.name,
+      pct: perc(e.acertos || 0, e.total || 1),
+      date: e.date,
+      idx: i + 1
+    }));
+  }, [exams]);
+
+  // ── 3. Area performance cards ──
+  const areaPerf = useMemo(() => {
+    return AREAS.map(a => {
+      const perExam = [];
+      exams.forEach(e => {
+        if (!e.areaResults?.[a.id]) return;
+        const r = e.areaResults[a.id];
+        if (!r.total) return;
+        const ac = (r.soube || 0) + (r.chutou || 0);
+        perExam.push({ pct: perc(ac, r.total), date: e.date });
+      });
+      perExam.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      const avg = perExam.length > 0 ? Math.round(perExam.reduce((s, p) => s + p.pct, 0) / perExam.length) : 0;
+      // Trend: compare last 2 vs first 2
+      let trend = 0;
+      if (perExam.length >= 3) {
+        const last2 = perExam.slice(-2).reduce((s, p) => s + p.pct, 0) / 2;
+        const first2 = perExam.slice(0, 2).reduce((s, p) => s + p.pct, 0) / 2;
+        trend = Math.round(last2 - first2);
+      }
+      return { ...a, avg, perExam, trend, count: perExam.length };
+    }).filter(a => a.count > 0);
+  }, [exams]);
+
+  // ── 4. Error patterns ──
+  const errorPatterns = useMemo(() => {
+    const themeErrors = {};
+    let totalErros = 0, totalChutou = 0, totalSoube = 0, totalEV = 0, totalEN = 0;
+    exams.forEach(e => {
+      const cats = e.cats || {};
+      totalSoube += (cats.soube?.length || 0);
+      totalChutou += (cats.chutou?.length || 0);
+      totalEV += (cats.errou_viu?.length || 0);
+      totalEN += (cats.errou_nao?.length || 0);
+      [...(cats.errou_viu || []), ...(cats.errou_nao || [])].forEach(n => {
+        const d = e.qDetails?.[n];
+        if (!d?.theme) return;
+        const key = (d.theme || "").toLowerCase().trim();
+        if (!themeErrors[key]) themeErrors[key] = { theme: d.theme, area: d.area, count: 0, exams: new Set() };
+        themeErrors[key].count++;
+        themeErrors[key].exams.add(e.id);
+      });
+    });
+    totalErros = totalEV + totalEN;
+    const topThemes = Object.values(themeErrors).sort((a, b) => b.count - a.count).slice(0, 10);
+    const guessRate = (totalSoube + totalChutou) > 0 ? Math.round(totalChutou / (totalSoube + totalChutou) * 100) : 0;
+    return { topThemes, totalErros, totalEV, totalEN, totalChutou, totalSoube, guessRate };
+  }, [exams]);
+
+  // ── 5. Recurring gaps (10+ exam banks + 2+ user errors) ──
+  const recurringGaps = useMemo(() => {
+    // First: count user errors per theme
+    const userErrors = {};
+    exams.forEach(e => {
+      const cats = e.cats || {};
+      [...(cats.errou_viu || []), ...(cats.errou_nao || [])].forEach(n => {
+        const d = e.qDetails?.[n];
+        if (!d?.theme) return;
+        const key = (d.theme || "").toLowerCase().trim();
+        if (!userErrors[key]) userErrors[key] = { theme: d.theme, area: d.area, count: 0 };
+        userErrors[key].count++;
+      });
+    });
+    // Filter: user erred 2+ times
+    const candidates = Object.values(userErrors).filter(u => u.count >= 2);
+    if (!candidates.length) return [];
+    // Count how many exam banks each theme appears in
+    const allDBKeys = Object.keys(EXAM_THEMES_DB);
+    return candidates.map(c => {
+      let bankCount = 0;
+      for (const dbKey of allDBKeys) {
+        const dbData = EXAM_THEMES_DB[dbKey];
+        for (const q of Object.values(dbData)) {
+          if (_themesMatch(c.theme, q.t)) { bankCount++; break; }
+        }
+      }
+      return { ...c, bankCount };
+    }).filter(g => g.bankCount >= 10).sort((a, b) => b.bankCount - a.bankCount || b.count - a.count);
+  }, [exams]);
+
+  if (!summary) return <Empty icon="📊" msg="Registre pelo menos 2 provas para ver o Panorama Geral." />;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* ── RESUMO RÁPIDO ── */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <div style={{ width: 4, height: 18, borderRadius: 2, background: C.purple }} />
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Resumo Geral</span>
+          <span style={{ fontSize: 11, color: C.text3, fontFamily: FM, marginLeft: "auto" }}>{summary.total} provas</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+          <div style={{ background: C.surface, borderRadius: R.md, padding: "12px 14px", border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Média geral</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: perfColor(summary.avg), ...NUM }}>{summary.avg}%</div>
+          </div>
+          <div style={{ background: C.surface, borderRadius: R.md, padding: "12px 14px", border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Melhor prova</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: perfColor(summary.bestPct), ...NUM }}>{summary.bestPct}%</div>
+            <div style={{ fontSize: 10, color: C.text3, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary.best?.name}</div>
+          </div>
+          <div style={{ background: C.surface, borderRadius: R.md, padding: "12px 14px", border: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Pior prova</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: perfColor(summary.worstPct), ...NUM }}>{summary.worstPct}%</div>
+            <div style={{ fontSize: 10, color: C.text3, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary.worst?.name}</div>
+          </div>
+          {summary.strongest && <div style={{ background: C.surface, borderRadius: R.md, padding: "12px 14px", border: `1px solid ${AC[summary.strongest]}30` }}>
+            <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Mais forte</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: AC[summary.strongest] }}>{AL[summary.strongest]}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: perfColor(summary.sMax), ...NUM }}>{summary.sMax}%</div>
+          </div>}
+          {summary.weakest && <div style={{ background: C.surface, borderRadius: R.md, padding: "12px 14px", border: `1px solid ${AC[summary.weakest]}30` }}>
+            <div style={{ fontSize: 10, color: C.text3, fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>Mais fraca</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: AC[summary.weakest] }}>{AL[summary.weakest]}</div>
+            <div style={{ fontSize: 12, fontWeight: 800, color: perfColor(summary.wMin), ...NUM }}>{summary.wMin}%</div>
+          </div>}
+        </div>
+      </div>
+
+      {/* ── EVOLUÇÃO ── */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <div style={{ width: 4, height: 18, borderRadius: 2, background: C.blue }} />
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Evolução nas provas</span>
+        </div>
+        <div style={{ width: "100%", height: 220 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={evoData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={C.border} />
+              <XAxis dataKey="name" tick={{ fill: C.text3, fontSize: 10, fontFamily: FM }} axisLine={{ stroke: C.border }} interval={0} angle={-20} textAnchor="end" height={50} />
+              <YAxis domain={[0, 100]} tick={{ fill: C.text3, fontSize: 11, fontFamily: FM }} tickFormatter={v => v + "%"} axisLine={{ stroke: C.border }} />
+              <Tooltip content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                  <div style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: R.md, padding: "10px 14px", boxShadow: SH.lg }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 4 }}>{d.fullName}</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: perfColor(d.pct), fontFamily: FN }}>{d.pct}%</div>
+                    {d.date && <div style={{ fontSize: 10, color: C.text3, marginTop: 2 }}>{fmtDate(d.date)}</div>}
+                  </div>
+                );
+              }} />
+              <ReferenceLine y={summary.avg} stroke={C.purple} strokeDasharray="4 4" label={{ value: `Média ${summary.avg}%`, fill: C.purple, fontSize: 10, fontFamily: FM, position: "top" }} />
+              <Line type="monotone" dataKey="pct" stroke={C.blue} strokeWidth={2.5} dot={{ fill: C.blue, r: 4, strokeWidth: 2, stroke: C.card }} activeDot={{ r: 6, fill: C.blue, stroke: C.card, strokeWidth: 2 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── DESEMPENHO POR ÁREA ── */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <div style={{ width: 4, height: 18, borderRadius: 2, background: C.teal }} />
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Desempenho por área</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+          {areaPerf.map(a => (
+            <div key={a.id} style={{ background: C.surface, borderRadius: R.md, padding: "14px", border: `1px solid ${a.color}30`, borderLeft: `3px solid ${a.color}` }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: a.color }}>{a.short}</span>
+                {a.trend !== 0 && <span style={{ fontSize: 10, fontWeight: 600, color: a.trend > 0 ? C.green : C.red, fontFamily: FM, padding: "1px 6px", borderRadius: R.pill, background: (a.trend > 0 ? C.green : C.red) + "14" }}>{a.trend > 0 ? "+" : ""}{a.trend}pp</span>}
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: perfColor(a.avg), ...NUM, marginBottom: 4 }}>{a.avg}%</div>
+              <div style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{a.count} provas · {a.label}</div>
+              {a.perExam.length >= 2 && <div style={{ display: "flex", gap: 2, alignItems: "end", marginTop: 8, height: 24 }}>
+                {a.perExam.map((p, i) => (
+                  <div key={i} style={{ flex: 1, height: `${Math.max(4, p.pct * 0.24)}px`, background: perfColor(p.pct), borderRadius: 2, opacity: 0.7, minWidth: 3, maxWidth: 12 }} title={`${p.pct}%`} />
+                ))}
+              </div>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── PADRÕES DE ERRO ── */}
+      <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <div style={{ width: 4, height: 18, borderRadius: 2, background: C.red }} />
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Padrões de erro</span>
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+          {[
+            { label: "Errei (já vi)", count: errorPatterns.totalEV, color: "#EF4444" },
+            { label: "Errei (nunca vi)", count: errorPatterns.totalEN, color: "#F97316" },
+            { label: "Chutei certo", count: errorPatterns.totalChutou, color: "#F59E0B" },
+          ].map((s, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: R.pill, background: s.color + "14", border: `1px solid ${s.color}30` }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: s.color }} />
+              <span style={{ fontSize: 12, fontWeight: 700, color: s.color, fontFamily: FM }}>{s.count}</span>
+              <span style={{ fontSize: 11, color: C.text2 }}>{s.label}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: R.pill, background: C.yellow + "14", border: `1px solid ${C.yellow}30` }}>
+            <span style={{ fontSize: 11, color: C.yellow, fontWeight: 600 }}>Taxa de chute: <span style={{ fontFamily: FM, fontWeight: 800 }}>{errorPatterns.guessRate}%</span></span>
+          </div>
+        </div>
+        {errorPatterns.topThemes.length > 0 && <>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Top temas errados</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {errorPatterns.topThemes.map((t, i) => {
+              const a = areaMap[t.area];
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.surface, borderRadius: R.md, borderLeft: `3px solid ${a?.color || C.border}` }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, color: C.red, fontFamily: FM, minWidth: 22 }}>{t.count}x</span>
+                  <span style={{ flex: 1, fontSize: 12, color: C.text, lineHeight: 1.3 }}>{t.theme}</span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: a?.color || C.text3, fontFamily: FM, padding: "2px 8px", borderRadius: R.pill, background: (a?.color || C.text3) + "14" }}>{a?.short || "?"}</span>
+                  <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{t.exams.size} prova{t.exams.size > 1 ? "s" : ""}</span>
+                </div>
+              );
+            })}
+          </div>
+        </>}
+      </div>
+
+      {/* ── GAPS RECORRENTES ── */}
+      {recurringGaps.length > 0 && <div style={card}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <div style={{ width: 4, height: 18, borderRadius: 2, background: C.yellow }} />
+          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Gaps recorrentes</span>
+        </div>
+        <div style={{ fontSize: 11, color: C.text3, fontFamily: FM, marginBottom: 14 }}>Temas presentes em 10+ provas do banco e que você errou 2+ vezes</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {recurringGaps.map((g, i) => {
+            const a = areaMap[g.area];
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: `linear-gradient(135deg, ${C.yellow}08, ${C.red}06)`, borderRadius: R.md, border: `1px solid ${C.yellow}30` }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: C.red, fontFamily: FM }}>{g.count}x</span>
+                  <span style={{ fontSize: 8, color: C.text3 }}>erros</span>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{g.theme}</div>
+                  <div style={{ fontSize: 10, color: C.text3, fontFamily: FM, marginTop: 2 }}>Em {g.bankCount} provas do banco</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 600, color: a?.color || C.text3, fontFamily: FM, padding: "3px 10px", borderRadius: R.pill, background: (a?.color || C.text3) + "18", border: `1px solid ${a?.color || C.text3}30` }}>{a?.short || "?"}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>}
     </div>
   );

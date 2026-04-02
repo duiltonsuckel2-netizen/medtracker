@@ -1954,7 +1954,7 @@ function _prefixMatch(w1,w2,minLen=6) {
   }
   return 0;
 }
-function _themesMatch(t1,t2) {
+export function _themesMatch(t1,t2) {
   const a=_kw(t1), b=_kw(t2);
   if(!a.length||!b.length) return false;
   let matched=0, score=0;

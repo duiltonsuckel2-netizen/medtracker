@@ -180,13 +180,8 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
     if (!actualKey) actualKey = stKey || `${area}__${theme}`;
     const topic = actualKey.split("__").slice(1).join("__");
     const existing = subtopics[actualKey] || [];
-    // Remove from dictionary
+    // Remove from subtopic dictionary only — do NOT touch review cards
     onSaveSubtopics(area, topic, existing.filter((s) => s.toLowerCase() !== name.toLowerCase()));
-    // Also remove subtopic review card if it exists
-    if (onDeleteReviews) {
-      const subKey = `${area}__${theme.toLowerCase().trim()}::${name.toLowerCase().trim()}`;
-      onDeleteReviews((prev) => prev.filter((r) => !(r.isSubtopic && r.key === subKey)));
-    }
     setConfirmDelete(null);
   }
 

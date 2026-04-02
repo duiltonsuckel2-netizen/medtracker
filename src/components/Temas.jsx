@@ -165,9 +165,21 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
   function confirmRemoveSt() {
     if (!confirmDelete) return;
     const { stKey, area, theme, name } = confirmDelete;
-    const key = stKey || `${area}__${theme}`;
-    const topic = key.split("__").slice(1).join("__");
-    const existing = subtopics[key] || [];
+    // Find the actual dictionary key containing this subtopic
+    let actualKey = null;
+    if (stKey && subtopics[stKey]?.some((s) => s.toLowerCase() === name.toLowerCase())) {
+      actualKey = stKey;
+    }
+    if (!actualKey) {
+      // Search all keys for this area that contain the subtopic name
+      for (const [k, items] of Object.entries(subtopics)) {
+        if (!k.startsWith(area + "__")) continue;
+        if (items?.some((s) => s.toLowerCase() === name.toLowerCase())) { actualKey = k; break; }
+      }
+    }
+    if (!actualKey) actualKey = stKey || `${area}__${theme}`;
+    const topic = actualKey.split("__").slice(1).join("__");
+    const existing = subtopics[actualKey] || [];
     // Remove from dictionary
     onSaveSubtopics(area, topic, existing.filter((s) => s.toLowerCase() !== name.toLowerCase()));
     // Also remove subtopic review card if it exists

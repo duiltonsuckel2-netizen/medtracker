@@ -90,7 +90,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
       });
 
       const allRevs = aulas.flatMap((a) => a.reviews);
-      const overdueCount = aulas.filter((a) => a.reviews.some((r) => r.nextDue <= today())).length;
+      const overdueCount = aulas.filter((a) => a.reviews.some((r) => getEffDue(r) <= today())).length;
       const studiedCount = aulas.filter((a) => a.reviews.length > 0).length;
       const totalAulas = aulas.length;
 
@@ -152,6 +152,12 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
     return subtopicReviews.filter((s) => s.area === r.area && s.parentTheme === r.theme);
   }
 
+  // Effective due date: if subtopic review cards exist, use earliest; otherwise parent's nextDue
+  function getEffDue(r) {
+    const subs = subtopicReviews.filter((s) => s.area === r.area && s.parentTheme && r.theme && s.parentTheme.toLowerCase().trim() === r.theme.toLowerCase().trim());
+    return subs.length > 0 ? subs.map((s) => s.nextDue).sort()[0] : r.nextDue;
+  }
+
   function addStItem(stKey, area) {
     if (!newStItem.trim() || !stKey) return;
     const existing = subtopics[stKey] || [];
@@ -206,8 +212,9 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
         const k = rev ? `${rev.area}__${(rev.theme || "").toLowerCase().trim()}` : null;
         const logs = k ? (logsByTheme[k] || []) : [];
         const avg = logs.length > 0 ? Math.round(logs.reduce((s, l) => s + (l.pct || 0), 0) / logs.length) : null;
-        const isDue = rev ? rev.nextDue <= today() : false;
-        const days = rev ? diffDays(rev.nextDue, today()) : null;
+        const effDue = rev ? getEffDue(rev) : null;
+        const isDue = effDue ? effDue <= today() : false;
+        const days = effDue ? diffDays(effDue, today()) : null;
         const { items: stItems } = rev ? getSubtopicsForTheme(rev) : { items: [] };
         const subRevs = rev ? getSubReviewsForTheme(rev) : [];
         const stCount = Math.max(stItems.length, subRevs.length);
@@ -420,8 +427,9 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
 
                           {/* Reviews for this aula */}
                           {hasRevs ? aula.reviews.map((r) => {
-                            const isDue = r.nextDue <= today();
-                            const days = diffDays(r.nextDue, today());
+                            const _effDue = getEffDue(r);
+                            const isDue = _effDue <= today();
+                            const days = diffDays(_effDue, today());
                             let { key: stKey, items: stItems } = getSubtopicsForTheme(r);
                             // Ensure stKey always exists so editing/deleting works
                             if (!stKey) stKey = `${r.area}__${r.theme}`;

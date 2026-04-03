@@ -252,6 +252,15 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
 function PanoramaGeral({ exams }) {
   const AC = { clinica: "#FACC15", cirurgia: "#FB923C", preventiva: "#2DD4BF", go: "#F472B6", ped: "#60A5FA" };
   const AL = { clinica: "Clínica", cirurgia: "Cirurgia", go: "GO", ped: "Pediatria", preventiva: "Preventiva" };
+  const [gapReads, setGapReads] = useState(() => { try { return JSON.parse(localStorage.getItem("rp26_gap_reads") || "{}"); } catch { return {}; } });
+  const [showReadGaps, setShowReadGaps] = useState(false);
+  function markGapRead(themeKey) {
+    setGapReads(prev => {
+      const next = { ...prev, [themeKey]: (prev[themeKey] || 0) + 1 };
+      try { localStorage.setItem("rp26_gap_reads", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
 
   // ── 1. Quick summary data ──
   const summary = useMemo(() => {
@@ -508,31 +517,59 @@ function PanoramaGeral({ exams }) {
       </div>
 
       {/* ── GAPS RECORRENTES ── */}
-      {recurringGaps.length > 0 && <div style={card}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-          <div style={{ width: 4, height: 18, borderRadius: 2, background: C.yellow }} />
-          <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Gaps recorrentes</span>
-        </div>
-        <div style={{ fontSize: 11, color: C.text3, fontFamily: FM, marginBottom: 14 }}>Temas presentes em 10+ provas do banco e que você errou 2+ vezes</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {recurringGaps.map((g, i) => {
-            const a = areaMap[g.area];
-            return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: `linear-gradient(135deg, ${C.yellow}08, ${C.red}06)`, borderRadius: R.md, border: `1px solid ${C.yellow}30` }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: C.red, fontFamily: FM }}>{g.count}x</span>
-                  <span style={{ fontSize: 8, color: C.text3 }}>erros</span>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{g.theme}</div>
-                  <div style={{ fontSize: 10, color: C.text3, fontFamily: FM, marginTop: 2 }}>Em {g.bankCount} provas do banco</div>
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 600, color: a?.color || C.text3, fontFamily: FM, padding: "3px 10px", borderRadius: R.pill, background: (a?.color || C.text3) + "18", border: `1px solid ${a?.color || C.text3}30` }}>{a?.short || "?"}</span>
+      {recurringGaps.length > 0 && (() => {
+        const unread = recurringGaps.filter(g => (gapReads[g.theme.toLowerCase().trim()] || 0) < 10);
+        const read = recurringGaps.filter(g => (gapReads[g.theme.toLowerCase().trim()] || 0) >= 10);
+        const GapCard = ({ g, i, faded }) => {
+          const a = areaMap[g.area];
+          const k = g.theme.toLowerCase().trim();
+          const reads = gapReads[k] || 0;
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: faded ? C.surface : `linear-gradient(135deg, ${C.yellow}08, ${C.red}06)`, borderRadius: R.md, border: `1px solid ${faded ? C.border : C.yellow + "30"}`, opacity: faded ? 0.7 : 1 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 36 }}>
+                <span style={{ fontSize: 14, fontWeight: 800, color: C.red, fontFamily: FM }}>{g.count}x</span>
+                <span style={{ fontSize: 8, color: C.text3 }}>erros</span>
               </div>
-            );
-          })}
-        </div>
-      </div>}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{g.theme}</div>
+                <div style={{ fontSize: 10, color: C.text3, fontFamily: FM, marginTop: 2 }}>Em {g.bankCount} provas · {reads}/10 leituras</div>
+              </div>
+              <span style={{ fontSize: 10, fontWeight: 600, color: a?.color || C.text3, fontFamily: FM, padding: "3px 10px", borderRadius: R.pill, background: (a?.color || C.text3) + "18", border: `1px solid ${a?.color || C.text3}30`, flexShrink: 0 }}>{a?.short || "?"}</span>
+              <button onClick={(e) => { e.stopPropagation(); markGapRead(k); }} style={{ background: reads >= 9 ? C.green + "18" : C.blue + "14", border: `1px solid ${reads >= 9 ? C.green : C.blue}30`, borderRadius: R.sm, cursor: "pointer", padding: "5px 10px", fontSize: 10, fontWeight: 600, color: reads >= 9 ? C.green : C.blue, fontFamily: F, flexShrink: 0, whiteSpace: "nowrap" }}>
+                {reads >= 9 ? "Concluir" : "Li"}
+              </button>
+            </div>
+          );
+        };
+        return (
+          <div style={card}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <div style={{ width: 4, height: 18, borderRadius: 2, background: C.yellow }} />
+              <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.3 }}>Gaps recorrentes</span>
+              {read.length > 0 && <span style={{ ...tag(C.green), marginLeft: "auto" }}>{read.length} concluído{read.length > 1 ? "s" : ""}</span>}
+            </div>
+            <div style={{ fontSize: 11, color: C.text3, fontFamily: FM, marginBottom: 14 }}>Caderno de erros · marque "Li" a cada revisão · após 10 leituras vai para "Lidos"</div>
+            {unread.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {unread.map((g, i) => <GapCard key={i} g={g} i={i} faded={false} />)}
+              </div>
+            ) : (
+              <div style={{ padding: 16, textAlign: "center", color: C.green, fontSize: 13, fontWeight: 600 }}>Todos os gaps foram revisados 10x!</div>
+            )}
+            {read.length > 0 && <>
+              <button onClick={() => setShowReadGaps(!showReadGaps)} style={{ marginTop: 14, background: "transparent", border: `1px solid ${C.border}`, borderRadius: R.md, cursor: "pointer", padding: "8px 14px", fontSize: 12, fontWeight: 600, color: C.text3, fontFamily: F, width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <span>{showReadGaps ? "▼" : "▶"}</span>
+                Lidos ({read.length})
+              </button>
+              {showReadGaps && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+                  {read.map((g, i) => <GapCard key={i} g={g} i={i} faded={true} />)}
+                </div>
+              )}
+            </>}
+          </div>
+        );
+      })()}
     </div>
   );
 }

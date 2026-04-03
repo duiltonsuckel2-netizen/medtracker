@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
-import { AREAS, BENCHMARKS, CATS, areaMap, EXAM_THEMES_DB, KNOWN_PDFS, UFCSPA_2026_ANALYSIS, EXAM_ANALYSES, generateExamAnalysis, computeGlobalPrevalence, _themesMatch } from "../data.js";
+import { AREAS, BENCHMARKS, CATS, areaMap, EXAM_THEMES_DB, KNOWN_PDFS, UFCSPA_2026_ANALYSIS, EXAM_ANALYSES, generateExamAnalysis, computeGlobalPrevalence, _themesMatch, _INST_ALIASES } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, fmtDate, perc, uid, perfColor, perfLabel, catColor, mapThemeToSchedule, mapThemeToStudy, searchKnownPdf, defaultAreaForQuestion, buildDefaultQDetails } from "../utils.js";
 import { Fld, Empty, ChartTip } from "./UI.jsx";
@@ -37,11 +37,36 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
     const nome = examMeta.name.trim();
     const qtotal = Number(examMeta.total) || 100;
     if (!nome) return alert("Selecione ou preencha o nome da prova.");
-    const searchKey = nome.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
-    let dbKey = Object.keys(EXAM_THEMES_DB).find((k) => {
-      const kn = k.toLowerCase();
-      return searchKey.includes(kn) || kn.includes(searchKey) || searchKey.split(" ").every((w) => kn.includes(w));
-    });
+    const normalize = (s) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    const searchKey = normalize(nome);
+    const yearMatch = searchKey.match(/\b(20\d{2})\b/);
+    const year = yearMatch ? yearMatch[1] : null;
+    const dbKeys = Object.keys(EXAM_THEMES_DB);
+    let dbKey = null;
+    if (year) {
+      // Resolve institution via aliases (e.g. "usp sp" → "uspsp", "sus-sp" → "sus sp")
+      const prefix = searchKey.replace(year, "").trim();
+      let canonInst = null;
+      const prefixWords = prefix.split(/\s+/).filter(w => w.length >= 2);
+      for (const [alias, canon] of _INST_ALIASES) {
+        // Require exact word match or prefix equals alias (not substring of longer word)
+        if (prefix === alias || prefixWords.includes(alias) || alias.split(/\s+/).every(aw => prefixWords.includes(aw))) { canonInst = canon; break; }
+      }
+      if (canonInst) {
+        const resolved = `${canonInst} ${year}`;
+        if (EXAM_THEMES_DB[resolved]) dbKey = resolved;
+      }
+      // Fallback: exact match
+      if (!dbKey) dbKey = dbKeys.find(k => normalize(k) === searchKey);
+      // Fallback: DB key words all present in searchKey with same year
+      if (!dbKey) {
+        dbKey = dbKeys.find(k => {
+          const kn = normalize(k);
+          if (!kn.includes(year)) return false;
+          return kn.split(/\s+/).every(w => searchKey.split(/\s+/).includes(w));
+        });
+      }
+    }
     if (dbKey && EXAM_THEMES_DB[dbKey]) {
       const dbThemes = EXAM_THEMES_DB[dbKey];
       const det = {};

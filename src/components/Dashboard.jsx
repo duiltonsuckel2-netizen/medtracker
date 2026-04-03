@@ -65,7 +65,17 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
     });
     return Object.entries(byW).sort((a, b) => a[0].localeCompare(b[0])).map(([wk, v]) => ({ name: fmtDate(wk), "% geral": Math.round(v.sum / v.n) }));
   }, [revLogs]);
-  const totalQ = revLogs.reduce((s, x) => s + (x.total || 0), 0) + sessions.reduce((s, x) => s + (x.total || 0), 0) + exams.reduce((s, x) => s + (x.total || 0), 0);
+  const totalQ = useMemo(() => {
+    const SEED = { "2026-01": 126, "2026-02": 1244 };
+    const appCounts = {};
+    revLogs.forEach(l => { if (l.date && l.total) { const m = l.date.slice(0, 7); appCounts[m] = (appCounts[m] || 0) + l.total; } });
+    sessions.forEach(s => { const m = (s.date || s.createdAt || "").slice(0, 7); if (m && s.total) appCounts[m] = (appCounts[m] || 0) + s.total; });
+    exams.forEach(e => { const m = (e.date || "").slice(0, 7); if (m && e.total) appCounts[m] = (appCounts[m] || 0) + e.total; });
+    const allMonths = new Set([...Object.keys(SEED), ...Object.keys(appCounts)]);
+    let total = 0;
+    allMonths.forEach(m => { total += Math.max(SEED[m] || 0, appCounts[m] || 0); });
+    return total;
+  }, [revLogs, sessions, exams]);
   const barData = AREAS.map((a) => ({ area: a.short, "% questões": revAreaAvg[a.id] ?? 0 }));
   const START_DATE = "2026-02-02";
   const allStudyDates = useMemo(() => {

@@ -119,7 +119,7 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
             <span style={{ fontSize: 8, color: C.text3, fontFamily: FM, marginLeft: "auto" }}>Base: {Object.keys(EXAM_THEMES_DB).length} provas · Diagnóstico conta apenas "soube"</span>
           </div>
           {exams.length >= 2 && <ExamComparison exams={exams} sortMode={sortMode} setSortMode={setSortMode} />}
-          {exams.length === 0 ? <Empty icon="📋" msg="Nenhuma prova registrada ainda. Registre sua primeira prova para acompanhar seu desempenho." /> : exams.map((exam) => <ExamCard key={exam.id} exam={exam} allLogs={allLogs} isOpen={detail === exam.id} onToggle={() => setDetail(detail === exam.id ? null : exam.id)} onDel={onDel} onUpdate={onUpdate} knownThemes={knownThemes} userSubtopics={userSubtopics} />)}
+          {exams.length === 0 ? <Empty icon="📋" msg="Nenhuma prova registrada ainda. Registre sua primeira prova para acompanhar seu desempenho." /> : [...exams].sort((a, b) => (b.date || "").localeCompare(a.date || "")).map((exam) => <ExamCard key={exam.id} exam={exam} allLogs={allLogs} isOpen={detail === exam.id} onToggle={() => setDetail(detail === exam.id ? null : exam.id)} onDel={onDel} onUpdate={onUpdate} knownThemes={knownThemes} userSubtopics={userSubtopics} />)}
         </>}
       </>}
       {step === 1 && <div style={{ ...card, border: `1px solid ${C.blue}40`, display: "flex", flexDirection: "column", gap: 16 }}>

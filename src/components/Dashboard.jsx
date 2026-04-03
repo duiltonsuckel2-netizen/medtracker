@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
-import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES, EXAM_THEMES_DB } from "../data.js";
+import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES, EXAM_THEMES_DB, _themesMatch } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit } from "../theme.js";
 import { today, addDays, diffDays, fmtDate, perc, perfColor, weekDates, mapThemeToSchedule } from "../utils.js";
 import { loadKey, saveKey } from "../storage.js";
@@ -125,6 +125,11 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   function findSummary(theme) {
     const t = theme.toLowerCase().trim();
     if (THEME_SUMMARIES[t]) return THEME_SUMMARIES[t];
+    // Try _themesMatch (robust fuzzy matching)
+    for (const [key, val] of Object.entries(THEME_SUMMARIES)) {
+      if (_themesMatch(t, key)) return val;
+    }
+    // Fallback: word overlap scoring
     let best = null, bestScore = 0;
     for (const [key, val] of Object.entries(THEME_SUMMARIES)) {
       const kWords = key.split(/[\s,./()—-]+/).filter((w) => w.length > 3);

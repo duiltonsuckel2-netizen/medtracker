@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useMemo } from "react";
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Cell } from "recharts";
-import { AREAS, BENCHMARKS, CATS, areaMap, EXAM_THEMES_DB, KNOWN_PDFS, UFCSPA_2026_ANALYSIS, EXAM_ANALYSES, generateExamAnalysis, computeGlobalPrevalence, _themesMatch, _INST_ALIASES } from "../data.js";
+import { AREAS, BENCHMARKS, CATS, areaMap, EXAM_THEMES_DB, KNOWN_PDFS, UFCSPA_2026_ANALYSIS, EXAM_ANALYSES, generateExamAnalysis, computeGlobalPrevalence, _themesMatch, _INST_ALIASES, THEME_SUMMARIES } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
 import { today, fmtDate, perc, uid, perfColor, perfLabel, catColor, mapThemeToSchedule, mapThemeToStudy, searchKnownPdf, defaultAreaForQuestion, buildDefaultQDetails } from "../utils.js";
 import { Fld, Empty, ChartTip } from "./UI.jsx";
@@ -407,6 +407,22 @@ function PanoramaGeral({ exams }) {
     }).filter(g => g.bankCount >= 10).sort((a, b) => b.bankCount - a.bankCount || b.count - a.count);
   }, [exams]);
 
+  // Pre-compute THEME_SUMMARIES lookup for gap cards
+  const gapSummaryMap = useMemo(() => {
+    const map = {};
+    const tsKeys = Object.keys(THEME_SUMMARIES);
+    recurringGaps.forEach(g => {
+      const k = g.theme.toLowerCase().trim();
+      // Try exact match first
+      if (THEME_SUMMARIES[k]) { map[k] = THEME_SUMMARIES[k]; return; }
+      // Fuzzy match via _themesMatch
+      for (const tsKey of tsKeys) {
+        if (_themesMatch(g.theme, tsKey)) { map[k] = THEME_SUMMARIES[tsKey]; return; }
+      }
+    });
+    return map;
+  }, [recurringGaps]);
+
   if (!summary) return <Empty icon="📊" msg="Registre pelo menos 2 provas para ver o Panorama Geral." />;
 
   return (
@@ -549,20 +565,27 @@ function PanoramaGeral({ exams }) {
           const a = areaMap[g.area];
           const k = g.theme.toLowerCase().trim();
           const reads = gapReads[k] || 0;
+          const ts = gapSummaryMap[k];
           return (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: faded ? C.surface : `linear-gradient(135deg, ${C.yellow}08, ${C.red}06)`, borderRadius: R.md, border: `1px solid ${faded ? C.border : C.yellow + "30"}`, opacity: faded ? 0.7 : 1 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 36 }}>
-                <span style={{ fontSize: 14, fontWeight: 800, color: C.red, fontFamily: FM }}>{g.count}x</span>
-                <span style={{ fontSize: 8, color: C.text3 }}>erros</span>
+            <div key={i} style={{ display: "flex", flexDirection: "column", gap: 0, padding: "10px 14px", background: faded ? C.surface : `linear-gradient(135deg, ${C.yellow}08, ${C.red}06)`, borderRadius: R.md, border: `1px solid ${faded ? C.border : C.yellow + "30"}`, opacity: faded ? 0.7 : 1 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 36 }}>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: C.red, fontFamily: FM }}>{g.count}x</span>
+                  <span style={{ fontSize: 8, color: C.text3 }}>erros</span>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{g.theme}</div>
+                  <div style={{ fontSize: 10, color: C.text3, fontFamily: FM, marginTop: 2 }}>Em {g.bankCount} provas · {reads}/10 leituras</div>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 600, color: a?.color || C.text3, fontFamily: FM, padding: "3px 10px", borderRadius: R.pill, background: (a?.color || C.text3) + "18", border: `1px solid ${a?.color || C.text3}30`, flexShrink: 0 }}>{a?.short || "?"}</span>
+                <button onClick={(e) => { e.stopPropagation(); markGapRead(k); }} style={{ background: reads >= 9 ? C.green + "18" : C.blue + "14", border: `1px solid ${reads >= 9 ? C.green : C.blue}30`, borderRadius: R.sm, cursor: "pointer", padding: "5px 10px", fontSize: 10, fontWeight: 600, color: reads >= 9 ? C.green : C.blue, fontFamily: F, flexShrink: 0, whiteSpace: "nowrap" }}>
+                  {reads >= 9 ? "Concluir" : "Li"}
+                </button>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: C.text, lineHeight: 1.3 }}>{g.theme}</div>
-                <div style={{ fontSize: 10, color: C.text3, fontFamily: FM, marginTop: 2 }}>Em {g.bankCount} provas · {reads}/10 leituras</div>
-              </div>
-              <span style={{ fontSize: 10, fontWeight: 600, color: a?.color || C.text3, fontFamily: FM, padding: "3px 10px", borderRadius: R.pill, background: (a?.color || C.text3) + "18", border: `1px solid ${a?.color || C.text3}30`, flexShrink: 0 }}>{a?.short || "?"}</span>
-              <button onClick={(e) => { e.stopPropagation(); markGapRead(k); }} style={{ background: reads >= 9 ? C.green + "18" : C.blue + "14", border: `1px solid ${reads >= 9 ? C.green : C.blue}30`, borderRadius: R.sm, cursor: "pointer", padding: "5px 10px", fontSize: 10, fontWeight: 600, color: reads >= 9 ? C.green : C.blue, fontFamily: F, flexShrink: 0, whiteSpace: "nowrap" }}>
-                {reads >= 9 ? "Concluir" : "Li"}
-              </button>
+              {ts?.resumo && <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.5, marginTop: 8, padding: "8px 10px", background: C.surface, borderRadius: R.sm, border: `1px solid ${C.border}` }}>{ts.resumo}</div>}
+              {ts?.topicos?.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6, paddingLeft: 2 }}>
+                {ts.topicos.map((tp, j) => <span key={j} title={tp.d} style={{ fontSize: 9, color: C.text3, fontFamily: FM, padding: "2px 7px", borderRadius: R.pill, background: C.bg2 || C.surface, border: `1px solid ${C.border}`, cursor: tp.d ? "help" : "default" }}>{tp.t}</span>)}
+              </div>}
             </div>
           );
         };

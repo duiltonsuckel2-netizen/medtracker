@@ -1893,7 +1893,7 @@ export const UFCSPA_2026_ANALYSIS = {
 // Cross-references an exam's themes against other years of the same institution
 // in EXAM_THEMES_RAW to produce comparative analysis (resumo, destaques, sempreCAI, prev).
 // Sorted longest-first to avoid partial matches (e.g. "unicamp" before "amp")
-const _INST_ALIASES = [
+export const _INST_ALIASES = [
   ["unicamp","unicamp"],["unifesp","unifesp"],["ufcspa","ufcspa"],
   ["usp sp","uspsp"],["usp-sp","uspsp"],["uspsp","uspsp"],
   ["usp rp","usp rp"],["usp-rp","usp rp"],["usprp","usp rp"],

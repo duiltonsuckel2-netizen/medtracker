@@ -853,15 +853,9 @@ function App() {
 
   const { dueR, upR } = useMemo(() => {
     const parentRevs = reviews.filter((r) => !r.isSubtopic);
-    const getEffDue = (r) => {
-      // If parent was reviewed today, trust its own nextDue (subtopics are implicitly covered)
-      if (r.lastStudied === t) return r.nextDue;
-      const subs = reviews.filter((s) => s.isSubtopic && s.parentTheme && r.theme && s.area === r.area && s.parentTheme.toLowerCase().trim() === r.theme.toLowerCase().trim());
-      return subs.length > 0 ? subs.map((s) => s.nextDue).sort()[0] : r.nextDue;
-    };
     const t = today();
-    const due = parentRevs.filter((r) => getEffDue(r) <= t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
-    const up = parentRevs.filter((r) => getEffDue(r) > t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
+    const due = parentRevs.filter((r) => r.nextDue <= t).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+    const up = parentRevs.filter((r) => r.nextDue > t).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
     return { dueR: due, upR: up };
   }, [reviews]);
 

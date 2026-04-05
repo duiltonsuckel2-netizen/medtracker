@@ -698,8 +698,21 @@ function App() {
     const key = `${areaId}__${theme.toLowerCase().trim()}`;
     persistReviews((prevReviews) => {
       const ex = prevReviews.find((r) => r.key === key);
-      if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); return prevReviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r); }
-      return [{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...prevReviews];
+      let newReviews;
+      if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); newReviews = prevReviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r); }
+      else { newReviews = [{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...prevReviews]; }
+      // Advance overdue subtopic cards for this parent theme
+      const t = today();
+      const updatedParent = newReviews.find((r) => r.key === key && !r.isSubtopic);
+      const parentNextDue = updatedParent?.nextDue || addDays(t, INTERVALS[0]);
+      newReviews = newReviews.map((r) => {
+        if (!r.isSubtopic) return r;
+        if (r.area !== areaId) return r;
+        if (!r.parentTheme || r.parentTheme.toLowerCase().trim() !== theme.toLowerCase().trim()) return r;
+        if (r.nextDue > t) return r;
+        return { ...r, nextDue: parentNextDue, lastStudied: t };
+      });
+      return newReviews;
     });
     notify("✓ Revisão registrada");
   }

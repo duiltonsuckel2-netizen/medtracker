@@ -705,10 +705,13 @@ function App() {
       const t = today();
       const updatedParent = newReviews.find((r) => r.key === key && !r.isSubtopic);
       const parentNextDue = updatedParent?.nextDue || addDays(t, INTERVALS[0]);
+      const keyPrefix = key + "::";
       newReviews = newReviews.map((r) => {
         if (!r.isSubtopic) return r;
         if (r.area !== areaId) return r;
-        if (!r.parentTheme || r.parentTheme.toLowerCase().trim() !== theme.toLowerCase().trim()) return r;
+        const matchesParent = r.parentTheme && r.parentTheme.toLowerCase().trim() === theme.toLowerCase().trim();
+        const matchesKey = r.key && r.key.startsWith(keyPrefix);
+        if (!matchesParent && !matchesKey) return r;
         if (r.nextDue > t) return r;
         return { ...r, nextDue: parentNextDue, lastStudied: t };
       });
@@ -751,12 +754,16 @@ function App() {
       }
       // Advance overdue subtopic cards that were NOT scored in this review
       // They follow the parent's new schedule (reviewed together)
+      // Match by parentTheme OR key prefix to catch all creation paths
       const t = today();
       const parentNextDue = addDays(t, INTERVALS[niInner]);
+      const keyPrefix = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::`;
       newReviews = newReviews.map((r) => {
         if (!r.isSubtopic || scoredSubKeys.has(r.key)) return r;
         if (r.area !== prevRev.area) return r;
-        if (!r.parentTheme || r.parentTheme.toLowerCase().trim() !== prevRev.theme.toLowerCase().trim()) return r;
+        const matchesParent = r.parentTheme && r.parentTheme.toLowerCase().trim() === prevRev.theme.toLowerCase().trim();
+        const matchesKey = r.key && r.key.startsWith(keyPrefix);
+        if (!matchesParent && !matchesKey) return r;
         // Only advance if this subtopic is currently overdue
         if (r.nextDue > t) return r;
         // Move to parent's next due date (keeps its own intervalIndex for future progression)
@@ -854,8 +861,20 @@ function App() {
   const { dueR, upR } = useMemo(() => {
     const parentRevs = reviews.filter((r) => !r.isSubtopic);
     const t = today();
-    const due = parentRevs.filter((r) => r.nextDue <= t).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
-    const up = parentRevs.filter((r) => r.nextDue > t).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+    const getEffDue = (r) => {
+      // Find subtopics by parentTheme OR by key prefix (catches all creation paths)
+      const keyPrefix = `${r.area}__${r.theme.toLowerCase().trim()}::`;
+      const subs = reviews.filter((s) => s.isSubtopic && s.area === r.area && (
+        (s.parentTheme && r.theme && s.parentTheme.toLowerCase().trim() === r.theme.toLowerCase().trim()) ||
+        (s.key && s.key.startsWith(keyPrefix))
+      ));
+      if (subs.length === 0) return r.nextDue;
+      const earliestSub = subs.map((s) => s.nextDue).sort()[0];
+      // Use parent's own nextDue if it's later (more overdue) than subtopics
+      return r.nextDue < earliestSub ? r.nextDue : earliestSub;
+    };
+    const due = parentRevs.filter((r) => getEffDue(r) <= t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
+    const up = parentRevs.filter((r) => getEffDue(r) > t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
     return { dueR: due, upR: up };
   }, [reviews]);
 

@@ -947,23 +947,34 @@ function App() {
       if (toRemove.size > 0) result = result.filter((r) => !toRemove.has(r.id));
       // 2) Recalculate intervalIndex from history for each subtopic
       result = result.map((r) => {
-        if (!r.isSubtopic || !r.history || r.history.length === 0) return r;
-        // Find parent to count reviews before subtopic was created
+        if (!r.isSubtopic) return r;
+        // Build subtopic's own history: prefer card history, fallback to revLog scores
+        let subHist = r.history && r.history.length > 0 ? r.history : [];
+        if (subHist.length === 0) {
+          // Reconstruct from revLogs
+          const stNameNorm = r.theme.toLowerCase().trim();
+          revLogs.forEach((l) => {
+            if (l.area !== r.area) return;
+            if (l.subtopicScores) {
+              const m = l.subtopicScores.find((s) => s.name.toLowerCase().trim() === stNameNorm);
+              if (m) subHist.push({ date: l.date, pct: m.pct });
+            }
+          });
+          subHist.sort((a, b) => a.date.localeCompare(b.date));
+        }
+        // Find parent
         const parent = result.find((p) => !p.isSubtopic && p.area === r.area &&
           p.theme && r.parentTheme && p.theme.toLowerCase().trim() === r.parentTheme.toLowerCase().trim());
         const parentHist = parent?.history || [];
-        const firstSubDate = r.history[0]?.date;
-        // Parent reviews before subtopic existed count as starting point
-        const parentRevsBefore = firstSubDate ? parentHist.filter((h) => h.date < firstSubDate).length : 0;
-        // Start from parent's progression, then apply subtopic's own history
-        let idx = Math.min(parentRevsBefore > 0 ? parentRevsBefore - 1 : 0, INTERVALS.length - 1);
-        // Advance based on parent reviews before subtopic
-        if (parentRevsBefore > 0) {
-          idx = 0;
+        const firstSubDate = subHist.length > 0 ? subHist[0].date : null;
+        // Replay parent reviews before subtopic existed (using parent's pct)
+        let idx = 0;
+        if (firstSubDate) {
           parentHist.filter((h) => h.date < firstSubDate).forEach((h) => { idx = nxtIdx(idx, h.pct); });
         }
-        // Then apply subtopic's own reviews
-        r.history.forEach((h) => { idx = nxtIdx(idx, h.pct); });
+        // Then replay subtopic's own reviews
+        subHist.forEach((h) => { idx = nxtIdx(idx, h.pct); });
+        if (subHist.length === 0 && parentHist.length > 0) return r; // no data to recalc
         if (idx !== r.intervalIndex) {
           fixed++;
           const nd = addDays(r.lastStudied || today(), INTERVALS[idx]);

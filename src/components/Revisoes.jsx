@@ -251,8 +251,7 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 4 }}>
                     <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: -0.2 }}>{r.theme}</span>
                     <span style={tag(a?.color || "#6B7280")}>{a?.label}</span>
-                    <span style={tag(C.red)}>{days === 0 ? "hoje" : `${Math.abs(days)}d atraso`}</span>
-                    <span style={tag(C.text3)}>{INT_LABELS[r.intervalIndex]}</span>
+                    {(() => { const hasSubs = resolveSubtopicsWithScores(r).length > 0; return hasSubs ? null : <><span style={tag(C.red)}>{days === 0 ? "hoje" : `${Math.abs(days)}d atraso`}</span><span style={tag(C.text3)}>{INT_LABELS[r.intervalIndex]}</span></>; })()}
                   </div>
                   <div style={{ fontSize: 11, color: C.text3, fontFamily: FM }}>Último: <span style={{ color: perfColor(r.lastPerf) }}>{r.lastPerf}%</span> em {fmtDate(r.lastStudied)} · {r.history?.length || 0}× revisado</div>
                   {(() => { const allSubs = resolveSubtopicsWithScores(r); const dueSubs = allSubs.filter(s => s.isDue); const otherSubs = allSubs.filter(s => !s.isDue); return allSubs.length > 0 ? (
@@ -349,11 +348,12 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                     {/* Content */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4, lineHeight: 1.3, letterSpacing: -0.2 }}>{r.theme}</div>
+                      {(() => { const hasSubs = resolveSubtopicsWithScores(r).length > 0; return (
                       <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ ...tag(aColor), borderLeft: `2px solid ${aColor}` }}>{a?.short}</span>
-                        <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[r.intervalIndex]}</span>
+                        {!hasSubs && <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[r.intervalIndex]}</span>}
                         <span style={{ fontSize: 10, color: C.text3 }}>{fmtDate(r._effDue || r.nextDue)}</span>
-                      </div>
+                      </div>); })()}
                       {(() => { const allSubs = resolveSubtopicsWithScores(r); const dueSubs = allSubs.filter(s => s.isDue); const otherSubs = allSubs.filter(s => !s.isDue); return allSubs.length > 0 ? (
                         <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 3 }}>
                           {dueSubs.length > 0 && <div style={{ display: "flex", gap: 3, flexWrap: "wrap", alignItems: "center" }}>

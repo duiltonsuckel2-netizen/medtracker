@@ -47,17 +47,20 @@ export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   const dayIds = Object.keys(dates);
   const weekStart = dates.sab;
   const weekEnd = dates.sex;
-  // Dedup parent reviews by base theme (strip Sem. suffix)
+  // Dedup parent reviews by base theme (strip Sem. suffix), keep most recently studied
   const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
-  const seenThemes = new Set();
+  const dedupMap = new Map();
   const parentRevs = allReviews.filter((r) => !r.isSubtopic);
   parentRevs.forEach((r) => {
     if (!r.nextDue) return;
-    const effDue = getEffDueUtil(r, allReviews);
-    // Dedup by area + base theme
     const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
-    if (seenThemes.has(dk)) return;
-    seenThemes.add(dk);
+    const existing = dedupMap.get(dk);
+    if (existing) {
+      if ((r.lastStudied || "") > (existing.lastStudied || "")) dedupMap.set(dk, r);
+    } else { dedupMap.set(dk, r); }
+  });
+  [...dedupMap.values()].forEach((r) => {
+    const effDue = getEffDueUtil(r, allReviews);
     // Include if due within this week OR overdue (before this week)
     if (effDue <= weekEnd) {
       const dayId = dayIds.find((k) => dates[k] === effDue);
@@ -76,7 +79,7 @@ export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   (alertThemes || []).forEach((at) => {
     // Skip if already added as overdue review
     const dk = `${at.area}__${stripSem((at.theme || "").toLowerCase().trim())}`;
-    if (seenThemes.has(dk)) return;
+    if (dedupMap.has(dk)) return;
     const best = targetDays.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
     rbd[best].push({ id: uid(), text: `🎯 Revisar: ${at.theme} (${areaMap[at.area]?.short || at.area})`, done: false, fixed: false, isReview: true });
   });

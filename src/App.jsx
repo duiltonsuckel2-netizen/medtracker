@@ -1185,10 +1185,8 @@ function App() {
       const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
       const existing = seen.get(dk);
       if (existing) {
-        // Keep the one with more history or more recent activity
-        const keep = (r.history?.length || 0) > (existing.history?.length || 0) ? r :
-                     (r.history?.length || 0) < (existing.history?.length || 0) ? existing :
-                     (r.lastStudied || "") >= (existing.lastStudied || "") ? r : existing;
+        // Keep the most recently studied card (has the correct schedule)
+        const keep = (r.lastStudied || "") >= (existing.lastStudied || "") ? r : existing;
         seen.set(dk, keep);
       } else { seen.set(dk, r); }
     });

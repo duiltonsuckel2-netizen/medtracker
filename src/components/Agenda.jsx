@@ -229,19 +229,20 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
         const dates = satStr ? weekDates(satStr) : {};
         const weekDateSet = new Set(Object.values(dates));
         const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
-        const seenRevThemes = new Set();
-        const revs = reviews.filter((r) => !r.isSubtopic && r.nextDue).map((r) => {
+        // Dedup by base theme, keeping the most recently studied card
+        const revDedupMap = new Map();
+        reviews.filter((r) => !r.isSubtopic && r.nextDue).forEach((r) => {
+          const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
+          const existing = revDedupMap.get(dk);
+          if (existing) {
+            if ((r.lastStudied || "") > (existing.lastStudied || "")) revDedupMap.set(dk, r);
+          } else { revDedupMap.set(dk, r); }
+        });
+        const revs = [...revDedupMap.values()].map((r) => {
           const effDue = getEffDueUtil(r, reviews);
           return { theme: r.theme, area: r.area, nextDue: effDue };
-        }).filter((r) => {
-          // Include if due within this week OR overdue (before this week)
-          if (r.nextDue > dates.sex) return false;
-          // Dedup by base theme
-          const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
-          if (seenRevThemes.has(dk)) return false;
-          seenRevThemes.add(dk);
-          return true;
-        }).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+        }).filter((r) => r.nextDue <= dates.sex)
+          .sort((a, b) => a.nextDue.localeCompare(b.nextDue));
         return (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.lg, padding: `${S.xl}px`, boxShadow: SH.sm }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: S.lg }}>{semana.semana} — aulas + revisões agendadas</div>

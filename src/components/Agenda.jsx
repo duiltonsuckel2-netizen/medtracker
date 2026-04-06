@@ -85,79 +85,30 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
       setHistory(nh.slice(0, 12));
     });
   }, []);
-  // Auto-sync: update review items in agenda when reviews change
-  useEffect(() => {
-    if (!week) return;
-    const satKey = currentSatKey();
+  function refreshReviews() {
+    // Rebuild the week template with current reviews, preserving done states
     const sem = SEMANAS[semIdx];
-    if (!sem) return;
-    const satStr = SEM_SAT[sem.semana] || satKey;
-    const dates = weekDates(satStr);
-    const weekEnd = dates.sex;
-    const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
-    // Build set of review texts that SHOULD be in the agenda now
-    const seenThemes = new Set();
-    const parentRevs = reviews.filter((r) => !r.isSubtopic && r.nextDue);
-    const currentRevTexts = new Map(); // dayId -> Set of review text
-    parentRevs.forEach((r) => {
-      const effDue = getEffDueUtil(r, reviews);
-      if (effDue > weekEnd) return;
-      const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
-      if (seenThemes.has(dk)) return;
-      seenThemes.add(dk);
-      const dayIds = Object.keys(dates);
-      const dayId = dayIds.find((k) => dates[k] === effDue);
-      const targetDay = dayId || "seg"; // overdue → default to seg (will be balanced below)
-      const text = dayId ? `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`
-                         : `⚠️ 🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`;
-      if (!currentRevTexts.has(targetDay)) currentRevTexts.set(targetDay, []);
-      currentRevTexts.get(targetDay).push(text);
+    if (!sem || !week) return;
+    const satKey = SEM_SAT[sem.semana] || currentSatKey();
+    const fresh = buildWeekTemplate(semIdx, reviews, alertThemes);
+    // Preserve done states from current week by matching item text
+    const merged = fresh.map((freshDay) => {
+      const oldDay = week.find((d) => d.id === freshDay.id);
+      if (!oldDay) return freshDay;
+      const oldDone = new Set(oldDay.items.filter((it) => it.done).map((it) => it.text));
+      // Keep old manual (non-review, non-fixed) items that aren't in fresh
+      const oldManual = oldDay.items.filter((it) => !it.isReview && !it.fixed && !freshDay.items.some((fi) => fi.text === it.text));
+      return {
+        ...freshDay,
+        items: [
+          ...freshDay.items.map((it) => oldDone.has(it.text) ? { ...it, done: true } : it),
+          ...oldManual
+        ]
+      };
     });
-    // Balance overdue across seg-qui
-    const overdueItems = [];
-    week.forEach((day) => {
-      if (!currentRevTexts.has(day.id)) return;
-      const items = currentRevTexts.get(day.id);
-      const overdueHere = items.filter((t) => t.startsWith("⚠️"));
-      overdueItems.push(...overdueHere);
-    });
-    // Update each day: keep non-review items + done reviews, sync undone reviews
-    let changed = false;
-    const targetDays = ["seg", "ter", "qua", "qui"];
-    const updatedWeek = week.map((day) => {
-      const nonReviewItems = day.items.filter((it) => !it.isReview);
-      const doneReviews = day.items.filter((it) => it.isReview && it.done);
-      const doneTexts = new Set(doneReviews.map((it) => it.text.replace(/^⚠️\s*/, "")));
-      // Get reviews that should be on this day
-      const shouldBeHere = (currentRevTexts.get(day.id) || []).filter((t) => !t.startsWith("⚠️"));
-      // Add overdue reviews balanced across target days
-      const overdueForDay = [];
-      if (targetDays.includes(day.id)) {
-        const dayTargetIdx = targetDays.indexOf(day.id);
-        overdueItems.forEach((t, i) => {
-          if (i % targetDays.length === dayTargetIdx) overdueForDay.push(t);
-        });
-      }
-      const allShouldBe = [...shouldBeHere, ...overdueForDay];
-      // Build new review items: keep done ones, add new undone ones
-      const newReviewItems = [];
-      allShouldBe.forEach((text) => {
-        const cleanText = text.replace(/^⚠️\s*/, "");
-        if (doneTexts.has(cleanText) || doneTexts.has(text)) return; // already done, kept above
-        // Check if already exists as undone review
-        const existing = day.items.find((it) => it.isReview && !it.done && (it.text === text || it.text.replace(/^⚠️\s*/, "") === cleanText));
-        if (existing) { newReviewItems.push(existing); }
-        else { newReviewItems.push({ id: uid(), text, done: false, fixed: false, isReview: true }); changed = true; }
-      });
-      const oldUndoneReviews = day.items.filter((it) => it.isReview && !it.done);
-      if (oldUndoneReviews.length !== newReviewItems.length) changed = true;
-      return { ...day, items: [...nonReviewItems, ...doneReviews, ...newReviewItems] };
-    });
-    if (changed) {
-      setWeek(updatedWeek);
-      saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: sem.semana, days: updatedWeek });
-    }
-  }, [reviews]);
+    setWeek(merged);
+    saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: sem.semana, days: merged });
+  }
   function rebuildForSem(ni) {
     setSemIdx(ni);
     const satKey = SEM_SAT[SEMANAS[ni]?.semana] || currentSatKey();
@@ -270,6 +221,7 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
         <select value={semIdx} onChange={(e) => rebuildForSem(Number(e.target.value))} style={{ ...inp(), width: "auto", fontSize: 11, padding: "6px 10px" }}>
           {SEMANAS.map((s, i) => <option key={i} value={i}>{s.semana} — {s.aulas.map((a) => a.area).join(" + ")}</option>)}
         </select>
+        <button onClick={refreshReviews} style={btn(C.purple, { padding: "7px 12px", fontSize: 12 })} title="Atualizar revisões na agenda">{"🔄"}</button>
         <button onClick={() => { if (confirm("Arquivar semana atual e ir para a próxima?")) archiveAndReset(); }} style={btn(C.blue, { padding: "7px 16px", fontSize: 12 })}>Próxima semana →</button>
       </div>
       {view === "current" && semana && (() => {

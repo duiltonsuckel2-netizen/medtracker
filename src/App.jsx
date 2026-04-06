@@ -37,7 +37,7 @@ function App() {
   useEffect(() => { injectKeyframes(); }, []);
   useEffect(() => { applyTheme(darkMode); }, [darkMode]);
   const toggleTheme = () => { const next = !darkMode; applyTheme(next); setDarkMode(next); try { localStorage.setItem("rp26_dark", String(next)); } catch {} };
-  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14","rp26_mig_v15","rp26_mig_v16"];
+  const BACKUP_KEYS = ["rp26_sessions","rp26_reviews","rp26_revlogs","rp26_exams","rp26_subtopics","rp26_flashcards","rp26_seeded12","rp26_dark","rp_agenda_v7","rp_agenda_history","rp_streak_start","rp_max_streak","rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14","rp26_mig_v15","rp26_mig_v16","rp26_mig_v17","rp26_mig_v18","rp26_mig_v19","rp26_mig_v20","rp26_mig_v21","rp26_mig_v22"];
   function exportBackup() {
     const data = {}; BACKUP_KEYS.forEach(k => { const v = localStorage.getItem(k); if (v !== null) { try { data[k] = JSON.parse(v); } catch { data[k] = v; } } });
     data._exportDate = new Date().toISOString(); data._version = "medtracker-backup-v1";
@@ -54,7 +54,7 @@ function App() {
       if (!confirm(`Restaurar backup de ${data._exportDate ? new Date(data._exportDate).toLocaleDateString("pt-BR") : "data desconhecida"}? Isso vai substituir todos os dados atuais.`)) return;
       BACKUP_KEYS.forEach(k => { if (data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data[k])); });
       // Mark all migrations as done — imported data is already migrated
-      ["rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9"].forEach(k => localStorage.setItem(k, "1"));
+      ["rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14","rp26_mig_v15","rp26_mig_v16","rp26_mig_v17","rp26_mig_v18","rp26_mig_v19","rp26_mig_v20","rp26_mig_v21","rp26_mig_v22"].forEach(k => localStorage.setItem(k, "1"));
       notify("Backup restaurado! Recarregando..."); setTimeout(() => window.location.reload(), 1000);
     } catch { alert("Erro ao ler o arquivo."); } }; reader.readAsText(f); };
     input.click();
@@ -616,12 +616,18 @@ function App() {
                 const jContainsI = jParts.some(p => p === nameI);
                 const exactMatch = nameI === nameJ;
                 if (!iContainsJ && !jContainsI && !exactMatch) continue;
-                // Target = the one with MORE history (keeps its intervalIndex/nextDue)
+                // Target = the card with the CLEAN name (without |); if both clean, keep the one with more history
                 let target, source;
-                const iHist = (group[i].history || []).length;
-                const jHist = (group[j].history || []).length;
-                if (iHist >= jHist) { target = group[i]; source = group[j]; }
-                else { target = group[j]; source = group[i]; }
+                const iHasPipe = nameI.includes("|");
+                const jHasPipe = nameJ.includes("|");
+                if (iHasPipe && !jHasPipe) { target = group[j]; source = group[i]; }
+                else if (jHasPipe && !iHasPipe) { target = group[i]; source = group[j]; }
+                else { // both clean or both pipe — keep more history
+                  const iHist = (group[i].history || []).length;
+                  const jHist = (group[j].history || []).length;
+                  if (iHist >= jHist) { target = group[i]; source = group[j]; }
+                  else { target = group[j]; source = group[i]; }
+                }
                 // Merge history: add source entries that don't clash with target dates
                 const existingDates = new Set((target.history || []).map(h => h.date));
                 let addedEntries = 0;

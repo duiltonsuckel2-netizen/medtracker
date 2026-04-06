@@ -582,6 +582,82 @@ function App() {
           }
         }
 
+        // Migration v21: Merge duplicate subtopics with overlapping names (e.g. "Financiamento da saúde | Leis e emendas do SUS" + "Leis e emendas do SUS")
+        if (!localStorage.getItem("rp26_mig_v21")) {
+          localStorage.setItem("rp26_mig_v21", "1");
+          let v21Merged = 0;
+          const subs = loadedReviews.filter(r => r.isSubtopic && r.parentTheme);
+          // Group subtopics by parent key
+          const byParent = {};
+          subs.forEach(s => {
+            const pk = `${s.area}__${(s.parentTheme || "").toLowerCase().trim()}`;
+            if (!byParent[pk]) byParent[pk] = [];
+            byParent[pk].push(s);
+          });
+          const toRemove = new Set();
+          Object.values(byParent).forEach(group => {
+            if (group.length < 2) return;
+            for (let i = 0; i < group.length; i++) {
+              if (toRemove.has(group[i].id)) continue;
+              const nameI = (group[i].theme || "").toLowerCase().trim();
+              for (let j = i + 1; j < group.length; j++) {
+                if (toRemove.has(group[j].id)) continue;
+                const nameJ = (group[j].theme || "").toLowerCase().trim();
+                // Check if one contains the other (pipe-separated duplicates)
+                const iParts = nameI.split("|").map(p => p.trim());
+                const jParts = nameJ.split("|").map(p => p.trim());
+                const iContainsJ = iParts.some(p => p === nameJ) || nameI.includes(nameJ);
+                const jContainsI = jParts.some(p => p === nameI) || nameJ.includes(nameI);
+                if (!iContainsJ && !jContainsI) continue;
+                // Merge: keep the one with more history, absorb the other
+                let target, source;
+                const iHist = (group[i].history || []).length;
+                const jHist = (group[j].history || []).length;
+                if (iHist >= jHist) { target = group[i]; source = group[j]; }
+                else { target = group[j]; source = group[i]; }
+                // Merge history entries (avoid duplicate dates)
+                const existingDates = new Set((target.history || []).map(h => h.date));
+                (source.history || []).forEach(h => {
+                  if (!existingDates.has(h.date)) {
+                    target.history = target.history || [];
+                    target.history.push(h);
+                  }
+                });
+                // Sort history by date
+                if (target.history) target.history.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+                // Recalculate stats from merged history
+                if (target.history && target.history.length > 0) {
+                  const last = target.history[target.history.length - 1];
+                  target.lastStudied = last.date;
+                  target.lastPerf = last.pct;
+                  // Recalculate interval progression
+                  let idx = 0;
+                  target.history.forEach(h => { idx = nxtIdx(idx, h.pct); });
+                  target.intervalIndex = idx;
+                  target.nextDue = addDays(last.date, INTERVALS[idx]);
+                }
+                toRemove.add(source.id);
+                v21Merged++;
+                // Also merge revLogs: transfer source's subtopic logs to target's theme name
+                loadedLogs.forEach(l => {
+                  if (l.isSubtopic && l.area === source.area && l.subtema &&
+                      l.subtema.toLowerCase().trim() === (source.theme || "").toLowerCase().trim() &&
+                      (l.parentTheme || "").toLowerCase().trim() === (source.parentTheme || "").toLowerCase().trim()) {
+                    l.subtema = target.theme;
+                    l.theme = `${target.parentTheme} › ${target.theme}`;
+                  }
+                });
+              }
+            }
+          });
+          if (toRemove.size > 0) {
+            loadedReviews = loadedReviews.filter(r => !toRemove.has(r.id));
+            console.log(`Migration v21: merged ${v21Merged} duplicate subtopic pairs, removed ${toRemove.size} duplicates`);
+            saveKey("rp26_reviews", loadedReviews);
+            saveKey("rp26_revlogs", loadedLogs);
+          }
+        }
+
         setSessions(loadedSessions); setReviews(loadedReviews); setRevLogs(loadedLogs); setExams([...loadedExams]); setSubtopics(loadedSt);
         // Auto-generate or merge flashcards on every load (picks up new THEME_SUMMARIES)
         if (loadedExams.length > 0) {

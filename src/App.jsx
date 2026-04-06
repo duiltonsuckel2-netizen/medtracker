@@ -582,63 +582,67 @@ function App() {
           }
         }
 
-        // Migration v21: Merge duplicate subtopics with overlapping names (e.g. "Financiamento da saúde | Leis e emendas do SUS" + "Leis e emendas do SUS")
+        // Migration v21: Merge duplicate subtopics with overlapping names
+        // e.g. "Financiamento da saúde | Leis e emendas do SUS" + "Leis e emendas do SUS"
         if (!localStorage.getItem("rp26_mig_v21")) {
           localStorage.setItem("rp26_mig_v21", "1");
           let v21Merged = 0;
-          const subs = loadedReviews.filter(r => r.isSubtopic && r.parentTheme);
-          // Group subtopics by parent key
-          const byParent = {};
-          subs.forEach(s => {
+          const subs21 = loadedReviews.filter(r => r.isSubtopic && r.parentTheme);
+          const byParent21 = {};
+          subs21.forEach(s => {
             const pk = `${s.area}__${(s.parentTheme || "").toLowerCase().trim()}`;
-            if (!byParent[pk]) byParent[pk] = [];
-            byParent[pk].push(s);
+            if (!byParent21[pk]) byParent21[pk] = [];
+            byParent21[pk].push(s);
           });
-          const toRemove = new Set();
-          Object.values(byParent).forEach(group => {
+          const toRemove21 = new Set();
+          Object.values(byParent21).forEach(group => {
             if (group.length < 2) return;
             for (let i = 0; i < group.length; i++) {
-              if (toRemove.has(group[i].id)) continue;
+              if (toRemove21.has(group[i].id)) continue;
               const nameI = (group[i].theme || "").toLowerCase().trim();
               for (let j = i + 1; j < group.length; j++) {
-                if (toRemove.has(group[j].id)) continue;
+                if (toRemove21.has(group[j].id)) continue;
                 const nameJ = (group[j].theme || "").toLowerCase().trim();
-                // Check if one contains the other (pipe-separated duplicates)
+                // Only merge if one is a pipe-separated version of the other
                 const iParts = nameI.split("|").map(p => p.trim());
                 const jParts = nameJ.split("|").map(p => p.trim());
-                const iContainsJ = iParts.some(p => p === nameJ) || nameI.includes(nameJ);
-                const jContainsI = jParts.some(p => p === nameI) || nameJ.includes(nameI);
-                if (!iContainsJ && !jContainsI) continue;
-                // Merge: keep the one with more history, absorb the other
+                // Require pipe separator in at least one name (avoid merging exact dupes or unrelated)
+                if (iParts.length === 1 && jParts.length === 1) {
+                  // Both have no pipe — only merge if exact same name
+                  if (nameI !== nameJ) continue;
+                }
+                const iContainsJ = iParts.some(p => p === nameJ);
+                const jContainsI = jParts.some(p => p === nameI);
+                const exactMatch = nameI === nameJ;
+                if (!iContainsJ && !jContainsI && !exactMatch) continue;
+                // Target = the one with MORE history (keeps its intervalIndex/nextDue)
                 let target, source;
                 const iHist = (group[i].history || []).length;
                 const jHist = (group[j].history || []).length;
                 if (iHist >= jHist) { target = group[i]; source = group[j]; }
                 else { target = group[j]; source = group[i]; }
-                // Merge history entries (avoid duplicate dates)
+                // Merge history: add source entries that don't clash with target dates
                 const existingDates = new Set((target.history || []).map(h => h.date));
+                let addedEntries = 0;
                 (source.history || []).forEach(h => {
                   if (!existingDates.has(h.date)) {
                     target.history = target.history || [];
                     target.history.push(h);
+                    addedEntries++;
                   }
                 });
-                // Sort history by date
                 if (target.history) target.history.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
-                // Recalculate stats from merged history
-                if (target.history && target.history.length > 0) {
-                  const last = target.history[target.history.length - 1];
-                  target.lastStudied = last.date;
-                  target.lastPerf = last.pct;
-                  // Recalculate interval progression
-                  let idx = 0;
-                  target.history.forEach(h => { idx = nxtIdx(idx, h.pct); });
-                  target.intervalIndex = idx;
-                  target.nextDue = addDays(last.date, INTERVALS[idx]);
+                // PRESERVE target's intervalIndex and nextDue — don't recalculate from zero
+                // Only update lastStudied/lastPerf if source had a more recent review
+                if (addedEntries > 0 && source.lastStudied && target.lastStudied && source.lastStudied > target.lastStudied) {
+                  target.lastStudied = source.lastStudied;
+                  target.lastPerf = source.lastPerf;
+                  target.nextDue = addDays(source.lastStudied, INTERVALS[target.intervalIndex]);
                 }
-                toRemove.add(source.id);
+                toRemove21.add(source.id);
                 v21Merged++;
-                // Also merge revLogs: transfer source's subtopic logs to target's theme name
+                console.log(`Migration v21: merging "${source.theme}" into "${target.theme}" (added ${addedEntries} history entries)`);
+                // Transfer source's subtopic revLogs to target's name
                 loadedLogs.forEach(l => {
                   if (l.isSubtopic && l.area === source.area && l.subtema &&
                       l.subtema.toLowerCase().trim() === (source.theme || "").toLowerCase().trim() &&
@@ -650,9 +654,9 @@ function App() {
               }
             }
           });
-          if (toRemove.size > 0) {
-            loadedReviews = loadedReviews.filter(r => !toRemove.has(r.id));
-            console.log(`Migration v21: merged ${v21Merged} duplicate subtopic pairs, removed ${toRemove.size} duplicates`);
+          if (toRemove21.size > 0) {
+            loadedReviews = loadedReviews.filter(r => !toRemove21.has(r.id));
+            console.log(`Migration v21: merged ${v21Merged} pairs, removed ${toRemove21.size} duplicates`);
             saveKey("rp26_reviews", loadedReviews);
             saveKey("rp26_revlogs", loadedLogs);
           }

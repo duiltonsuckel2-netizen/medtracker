@@ -2,7 +2,7 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { AREAS, areaMap, AREA_SHORT_MAP, SEMANAS, SEM_SAT } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
-import { today, fmtDate, uid, weekDates, buildWeekTemplate } from "../utils.js";
+import { today, fmtDate, uid, weekDates, buildWeekTemplate, getEffDueUtil } from "../utils.js";
 import { loadKey, saveKey } from "../storage.js";
 import { debouncedPush } from "../sync.js";
 import { Empty } from "./UI.jsx";
@@ -85,6 +85,79 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
       setHistory(nh.slice(0, 12));
     });
   }, []);
+  // Auto-sync: update review items in agenda when reviews change
+  useEffect(() => {
+    if (!week) return;
+    const satKey = currentSatKey();
+    const sem = SEMANAS[semIdx];
+    if (!sem) return;
+    const satStr = SEM_SAT[sem.semana] || satKey;
+    const dates = weekDates(satStr);
+    const weekEnd = dates.sex;
+    const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+    // Build set of review texts that SHOULD be in the agenda now
+    const seenThemes = new Set();
+    const parentRevs = reviews.filter((r) => !r.isSubtopic && r.nextDue);
+    const currentRevTexts = new Map(); // dayId -> Set of review text
+    parentRevs.forEach((r) => {
+      const effDue = getEffDueUtil(r, reviews);
+      if (effDue > weekEnd) return;
+      const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
+      if (seenThemes.has(dk)) return;
+      seenThemes.add(dk);
+      const dayIds = Object.keys(dates);
+      const dayId = dayIds.find((k) => dates[k] === effDue);
+      const targetDay = dayId || "seg"; // overdue → default to seg (will be balanced below)
+      const text = dayId ? `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`
+                         : `⚠️ 🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`;
+      if (!currentRevTexts.has(targetDay)) currentRevTexts.set(targetDay, []);
+      currentRevTexts.get(targetDay).push(text);
+    });
+    // Balance overdue across seg-qui
+    const overdueItems = [];
+    week.forEach((day) => {
+      if (!currentRevTexts.has(day.id)) return;
+      const items = currentRevTexts.get(day.id);
+      const overdueHere = items.filter((t) => t.startsWith("⚠️"));
+      overdueItems.push(...overdueHere);
+    });
+    // Update each day: keep non-review items + done reviews, sync undone reviews
+    let changed = false;
+    const targetDays = ["seg", "ter", "qua", "qui"];
+    const updatedWeek = week.map((day) => {
+      const nonReviewItems = day.items.filter((it) => !it.isReview);
+      const doneReviews = day.items.filter((it) => it.isReview && it.done);
+      const doneTexts = new Set(doneReviews.map((it) => it.text.replace(/^⚠️\s*/, "")));
+      // Get reviews that should be on this day
+      const shouldBeHere = (currentRevTexts.get(day.id) || []).filter((t) => !t.startsWith("⚠️"));
+      // Add overdue reviews balanced across target days
+      const overdueForDay = [];
+      if (targetDays.includes(day.id)) {
+        const dayTargetIdx = targetDays.indexOf(day.id);
+        overdueItems.forEach((t, i) => {
+          if (i % targetDays.length === dayTargetIdx) overdueForDay.push(t);
+        });
+      }
+      const allShouldBe = [...shouldBeHere, ...overdueForDay];
+      // Build new review items: keep done ones, add new undone ones
+      const newReviewItems = [];
+      allShouldBe.forEach((text) => {
+        const cleanText = text.replace(/^⚠️\s*/, "");
+        if (doneTexts.has(cleanText) || doneTexts.has(text)) return; // already done, kept above
+        // Check if already exists as undone review
+        const existing = day.items.find((it) => it.isReview && !it.done && (it.text === text || it.text.replace(/^⚠️\s*/, "") === cleanText));
+        if (existing) { newReviewItems.push(existing); }
+        else { newReviewItems.push({ id: uid(), text, done: false, fixed: false, isReview: true }); changed = true; }
+      });
+      const oldUndoneReviews = day.items.filter((it) => it.isReview && !it.done);
+      if (oldUndoneReviews.length !== newReviewItems.length) changed = true;
+      return { ...day, items: [...nonReviewItems, ...doneReviews, ...newReviewItems] };
+    });
+    if (changed) {
+      setWeek(updatedWeek);
+      saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: sem.semana, days: updatedWeek });
+    }
+  }, [reviews]);
   function rebuildForSem(ni) {
     setSemIdx(ni);
     const satKey = SEM_SAT[SEMANAS[ni]?.semana] || currentSatKey();
@@ -203,7 +276,20 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
         const satStr = SEM_SAT[semana.semana];
         const dates = satStr ? weekDates(satStr) : {};
         const weekDateSet = new Set(Object.values(dates));
-        const revs = reviews.filter((r) => !r.isSubtopic && r.nextDue && weekDateSet.has(r.nextDue)).map((r) => ({ theme: r.theme, area: r.area, nextDue: r.nextDue })).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+        const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+        const seenRevThemes = new Set();
+        const revs = reviews.filter((r) => !r.isSubtopic && r.nextDue).map((r) => {
+          const effDue = getEffDueUtil(r, reviews);
+          return { theme: r.theme, area: r.area, nextDue: effDue };
+        }).filter((r) => {
+          // Include if due within this week OR overdue (before this week)
+          if (r.nextDue > dates.sex) return false;
+          // Dedup by base theme
+          const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
+          if (seenRevThemes.has(dk)) return false;
+          seenRevThemes.add(dk);
+          return true;
+        }).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
         return (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.lg, padding: `${S.xl}px`, boxShadow: SH.sm }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: S.lg }}>{semana.semana} — aulas + revisões agendadas</div>

@@ -808,24 +808,39 @@ function App() {
     persistLogs((prevLogs) => [{ id: uid(), date: today(), area: areaId, theme, total, acertos, pct }, ...prevLogs]);
     const key = `${areaId}__${theme.toLowerCase().trim()}`;
     persistReviews((prevReviews) => {
-      const ex = prevReviews.find((r) => r.key === key);
+      let ex = prevReviews.find((r) => r.key === key && !r.isSubtopic);
+      // Fuzzy fallback: match ignoring "(Sem. XX)" suffix differences
+      if (!ex) {
+        const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+        const baseNorm = stripSem(theme.toLowerCase().trim());
+        ex = prevReviews.find((r) => !r.isSubtopic && r.area === areaId && stripSem((r.theme || "").toLowerCase().trim()) === baseNorm);
+      }
+      const useKey = ex?.key || key;
       let newReviews;
-      if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); newReviews = prevReviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r); }
-      else { const ni0 = pct > 85 ? 1 : 0; newReviews = [{ id: uid(), key, area: areaId, theme, intervalIndex: ni0, nextDue: addDays(today(), INTERVALS[ni0]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...prevReviews]; }
+      if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); newReviews = prevReviews.map((r) => r.key === useKey && !r.isSubtopic ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r); }
+      else { const ni0 = pct > 85 ? 1 : 0; newReviews = [{ id: uid(), key: useKey, area: areaId, theme, intervalIndex: ni0, nextDue: addDays(today(), INTERVALS[ni0]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...prevReviews]; }
       // Advance overdue subtopic cards for this parent theme
       const t = today();
-      const updatedParent = newReviews.find((r) => r.key === key && !r.isSubtopic);
+      const updatedParent = newReviews.find((r) => r.key === useKey && !r.isSubtopic);
       const parentNextDue = updatedParent?.nextDue || addDays(t, INTERVALS[0]);
-      const keyPrefix = key + "::";
+      const keyPrefix = useKey + "::";
       newReviews = newReviews.map((r) => {
         if (!r.isSubtopic) return r;
         if (r.area !== areaId) return r;
-        const matchesParent = r.parentTheme && r.parentTheme.toLowerCase().trim() === theme.toLowerCase().trim();
+        const parentThemeNorm = (ex?.theme || theme).toLowerCase().trim();
+        const matchesParent = r.parentTheme && r.parentTheme.toLowerCase().trim() === parentThemeNorm;
         const matchesKey = r.key && r.key.startsWith(keyPrefix);
         if (!matchesParent && !matchesKey) return r;
         if (r.nextDue > t) return r;
-        // Only advance nextDue — don't change lastStudied since subtopic wasn't individually reviewed
         return { ...r, nextDue: parentNextDue };
+      });
+      // Sync duplicate parent cards (same base theme, different Sem. suffix)
+      const stripSem2 = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+      const baseTheme = stripSem2((ex?.theme || theme).toLowerCase().trim());
+      newReviews = newReviews.map((r) => {
+        if (r.isSubtopic || r.key === useKey || r.area !== areaId) return r;
+        if (stripSem2((r.theme || "").toLowerCase().trim()) !== baseTheme) return r;
+        return { ...r, intervalIndex: updatedParent.intervalIndex, nextDue: parentNextDue, lastPerf: pct, lastStudied: today() };
       });
       return newReviews;
     });
@@ -901,6 +916,15 @@ function App() {
         if (r.nextDue > t) return r;
         // Move to parent's next due date — don't change lastStudied since subtopic wasn't individually reviewed
         return { ...r, nextDue: parentNextDue };
+      });
+      // Also sync duplicate parent cards (same base theme, different Sem. suffix)
+      const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+      const baseTheme = stripSem(prevRev.theme.toLowerCase().trim());
+      newReviews = newReviews.map((r) => {
+        if (r.isSubtopic || r.id === revId || r.area !== prevRev.area) return r;
+        if (stripSem((r.theme || "").toLowerCase().trim()) !== baseTheme) return r;
+        // This is a duplicate parent — sync its schedule to match
+        return { ...r, intervalIndex: niInner, nextDue: parentNextDue, lastPerf: pct, lastStudied: t };
       });
       return newReviews;
     });
@@ -1152,11 +1176,25 @@ function App() {
         return false;
       });
       if (subs.length === 0) return r.nextDue;
-      // When subtopics exist, they define when to review (not the parent date)
       return subs.map((s) => s.nextDue).sort()[0];
     };
-    const due = parentRevs.filter((r) => getEffDue(r) <= t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
-    const up = parentRevs.filter((r) => getEffDue(r) > t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
+    // Dedup parent cards with same base theme (strip "Sem. XX" suffix)
+    const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+    const seen = new Map();
+    parentRevs.forEach((r) => {
+      const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
+      const existing = seen.get(dk);
+      if (existing) {
+        // Keep the one with more history or more recent activity
+        const keep = (r.history?.length || 0) > (existing.history?.length || 0) ? r :
+                     (r.history?.length || 0) < (existing.history?.length || 0) ? existing :
+                     (r.lastStudied || "") >= (existing.lastStudied || "") ? r : existing;
+        seen.set(dk, keep);
+      } else { seen.set(dk, r); }
+    });
+    const dedupedParents = [...seen.values()];
+    const due = dedupedParents.filter((r) => getEffDue(r) <= t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
+    const up = dedupedParents.filter((r) => getEffDue(r) > t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
     return { dueR: due, upR: up };
   }, [reviews]);
 
@@ -1167,7 +1205,12 @@ function App() {
       </div>
     </div>
   );
-  const alertThemes = [];
+  // alertThemes: overdue reviews with poor performance that need extra attention
+  const alertThemes = useMemo(() => {
+    const t = today();
+    return reviews.filter((r) => !r.isSubtopic && r.nextDue && r.nextDue <= t && (r.lastPerf || 0) < 60)
+      .map((r) => ({ theme: r.theme, area: r.area }));
+  }, [reviews]);
   const TAB_ICONS = {
     agenda: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
     dashboard: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>,

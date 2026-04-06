@@ -22,6 +22,20 @@ export function weekDates(satStr) {
   return dates;
 }
 
+export function getEffDueUtil(r, allReviews) {
+  if (!r.theme) return r.nextDue;
+  const rNorm = r.theme.toLowerCase().trim();
+  const keyPrefix = r.key ? r.key + "::" : `${r.area}__${rNorm}::`;
+  const subs = allReviews.filter((s) => {
+    if (!s.isSubtopic || s.area !== r.area) return false;
+    if (s.key && s.key.startsWith(keyPrefix)) return true;
+    if (s.parentTheme && s.parentTheme.toLowerCase().trim() === rNorm) return true;
+    return false;
+  });
+  if (subs.length === 0) return r.nextDue;
+  return subs.map((s) => s.nextDue).sort()[0];
+}
+
 export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   const sem = SEMANAS[semIdx] || SEMANAS[0];
   const satStr = SEM_SAT[sem.semana] || today();
@@ -30,15 +44,39 @@ export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   const a2 = sem.aulas[1] || null;
   const nextSem = SEMANAS[semIdx + 1];
   const rbd = { sab: [], dom: [], seg: [], ter: [], qua: [], qui: [], sex: [] };
-  allReviews.forEach((r) => {
-    if (!r.nextDue || r.isSubtopic) return;
-    const dayId = Object.keys(dates).find((k) => dates[k] === r.nextDue);
-    if (dayId) {
-      rbd[dayId].push({ id: uid(), text: `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true });
+  const dayIds = Object.keys(dates);
+  const weekStart = dates.sab;
+  const weekEnd = dates.sex;
+  // Dedup parent reviews by base theme (strip Sem. suffix)
+  const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+  const seenThemes = new Set();
+  const parentRevs = allReviews.filter((r) => !r.isSubtopic);
+  parentRevs.forEach((r) => {
+    if (!r.nextDue) return;
+    const effDue = getEffDueUtil(r, allReviews);
+    // Dedup by area + base theme
+    const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
+    if (seenThemes.has(dk)) return;
+    seenThemes.add(dk);
+    // Include if due within this week OR overdue (before this week)
+    if (effDue <= weekEnd) {
+      const dayId = dayIds.find((k) => dates[k] === effDue);
+      if (dayId) {
+        // Due on a specific day this week
+        rbd[dayId].push({ id: uid(), text: `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true });
+      } else if (effDue < weekStart) {
+        // Overdue from before this week — distribute across seg-qui
+        const targetDays = ["seg", "ter", "qua", "qui"];
+        const best = targetDays.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
+        rbd[best].push({ id: uid(), text: `⚠️ 🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true });
+      }
     }
   });
   const targetDays = ["seg", "ter", "qua", "qui"];
   (alertThemes || []).forEach((at) => {
+    // Skip if already added as overdue review
+    const dk = `${at.area}__${stripSem((at.theme || "").toLowerCase().trim())}`;
+    if (seenThemes.has(dk)) return;
     const best = targetDays.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
     rbd[best].push({ id: uid(), text: `🎯 Revisar: ${at.theme} (${areaMap[at.area]?.short || at.area})`, done: false, fixed: false, isReview: true });
   });

@@ -149,7 +149,8 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
   }
 
   function getSubReviewsForTheme(r) {
-    return subtopicReviews.filter((s) => s.area === r.area && s.parentTheme === r.theme);
+    const rNorm = r.theme ? r.theme.toLowerCase().trim() : "";
+    return subtopicReviews.filter((s) => s.area === r.area && s.parentTheme && s.parentTheme.toLowerCase().trim() === rNorm);
   }
 
   // Effective due date: if subtopic review cards exist, use earliest; otherwise parent's nextDue
@@ -319,7 +320,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                     {/* Footer: interval + subtopics */}
                     {rev && (
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                        <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[rev.intervalIndex]}</span>
+                        {stCount === 0 && <span style={{ fontSize: 10, color: C.text3, fontFamily: FM }}>{INT_LABELS[rev.intervalIndex]}</span>}
                         {stCount > 0 && <span style={{ fontSize: 10, color: C.purple, fontFamily: FM, fontWeight: 600 }}>{stCount} sub</span>}
                         {avg !== null && <span style={{ fontSize: 10, color: C.text3 }}>μ {avg}%</span>}
                       </div>

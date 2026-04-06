@@ -120,23 +120,10 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
         map.set(s.name.toLowerCase(), { name: s.name, pct: s.pct, isDue: estDue ? estDue <= today() : false, intervalIndex: estIdx, nextDue: estDue, days: estDays });
       }
     });
-    // Priority 3: dictionary names — use parent's overall perf + lastStudied as baseline
+    // Priority 3: dictionary names — no individual data, show as unknown (don't use parent's perf)
     stNames.forEach(n => {
       if (!map.has(n.toLowerCase())) {
-        if (r.lastPerf != null && r.lastStudied) {
-          // Use parent's previous intervalIndex from last history entry
-          let prevIdx = 0;
-          if (r.history?.length > 0) {
-            const last = r.history[r.history.length - 1];
-            if (last?._prev?.intervalIndex != null) prevIdx = last._prev.intervalIndex;
-          }
-          const estIdx = nxtIdx(prevIdx, r.lastPerf);
-          const estDue = addDays(r.lastStudied, INTERVALS[estIdx]);
-          const estDays = diffDays(estDue, today());
-          map.set(n.toLowerCase(), { name: n, pct: r.lastPerf, isDue: estDue <= today(), intervalIndex: estIdx, nextDue: estDue, days: estDays });
-        } else {
-          map.set(n.toLowerCase(), { name: n, pct: null, isDue: false, intervalIndex: null, nextDue: null, days: null });
-        }
+        map.set(n.toLowerCase(), { name: n, pct: null, isDue: false, intervalIndex: null, nextDue: null, days: null });
       }
     });
 

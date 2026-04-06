@@ -722,7 +722,11 @@ function App() {
     const key = `${area}__${parentTheme.toLowerCase().trim()}::${subtema.toLowerCase().trim()}`;
     persistReviews((prevReviews) => {
       const ex = prevReviews.find((r) => r.key === key);
-      const ni = nxtIdx(ex?.intervalIndex || 0, pct);
+      // If no existing card, inherit parent's intervalIndex as starting point
+      const parentKey = `${area}__${parentTheme.toLowerCase().trim()}`;
+      const parent = !ex ? prevReviews.find((r) => r.key === parentKey && !r.isSubtopic) : null;
+      const startIdx = ex ? ex.intervalIndex : (parent ? parent.intervalIndex : 0);
+      const ni = nxtIdx(startIdx, pct);
       const rev = {
         id: ex?.id || uid(), key, area, theme: subtema, parentTheme,
         isSubtopic: true,
@@ -754,9 +758,9 @@ function App() {
         const subNames = session.subtopicScores.map((st) => st.name);
         // Store subtopicNames on parent review card so Revisoes can find them
         newReviews = newReviews.map((r) => r.key === key ? { ...r, subtopicNames: subNames } : r);
-        // Count parent reviews to determine subtopic starting intervalIndex
+        // Use parent's intervalIndex to determine subtopic starting interval
         const parentCard = newReviews.find(r => r.key === key && !r.isSubtopic);
-        const parentRevCount = parentCard ? (parentCard.history || []).length : 1;
+        const parentIdx = parentCard ? parentCard.intervalIndex : 0;
         const sessionKeyPrefix = `${session.area}__${session.theme.toLowerCase().trim()}::`;
         session.subtopicScores.forEach((st) => {
           const sKey = `${session.area}__${session.theme.toLowerCase().trim()}::${st.name.toLowerCase().trim()}`;
@@ -770,8 +774,8 @@ function App() {
             }
             return false;
           });
-          // If subtopic has no card yet, inherit parent's review progression
-          const startIdx = exSub ? exSub.intervalIndex : Math.min(parentRevCount - 1, INTERVALS.length - 1);
+          // If subtopic has no card yet, inherit parent's current intervalIndex
+          const startIdx = exSub ? exSub.intervalIndex : parentIdx;
           const sni = nxtIdx(startIdx, st.pct);
           const useKey = exSub?.key || sKey;
           const sRev = {
@@ -799,7 +803,7 @@ function App() {
       const ex = prevReviews.find((r) => r.key === key);
       let newReviews;
       if (ex) { const ni = nxtIdx(ex.intervalIndex, pct); newReviews = prevReviews.map((r) => r.key === key ? { ...r, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), { date: today(), pct }] } : r); }
-      else { newReviews = [{ id: uid(), key, area: areaId, theme, intervalIndex: nxtIdx(0, pct), nextDue: addDays(today(), INTERVALS[nxtIdx(0, pct)]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...prevReviews]; }
+      else { const ni0 = pct > 85 ? 1 : 0; newReviews = [{ id: uid(), key, area: areaId, theme, intervalIndex: ni0, nextDue: addDays(today(), INTERVALS[ni0]), lastPerf: pct, lastStudied: today(), history: [{ date: today(), pct }] }, ...prevReviews]; }
       // Advance overdue subtopic cards for this parent theme
       const t = today();
       const updatedParent = newReviews.find((r) => r.key === key && !r.isSubtopic);
@@ -812,7 +816,8 @@ function App() {
         const matchesKey = r.key && r.key.startsWith(keyPrefix);
         if (!matchesParent && !matchesKey) return r;
         if (r.nextDue > t) return r;
-        return { ...r, nextDue: parentNextDue, lastStudied: t };
+        // Only advance nextDue — don't change lastStudied since subtopic wasn't individually reviewed
+        return { ...r, nextDue: parentNextDue };
       });
       return newReviews;
     });
@@ -827,13 +832,21 @@ function App() {
     persistReviews((prevReviews) => {
       const prevRev = prevReviews.find((r) => r.id === revId); if (!prevRev) return prevReviews;
       const niInner = nxtIdx(prevRev.intervalIndex, pct);
-      const entry = { date: today(), pct, _prev: { intervalIndex: prevRev.intervalIndex, nextDue: prevRev.nextDue, lastPerf: prevRev.lastPerf, lastStudied: prevRev.lastStudied } };
+      // Capture subtopic state before changes for undo
+      const keyPrefix = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::`;
+      const prevSubStates = prevReviews.filter((r) => {
+        if (!r.isSubtopic || r.area !== prevRev.area) return false;
+        if (r.key && r.key.startsWith(keyPrefix)) return true;
+        if (r.parentTheme && r.parentTheme.toLowerCase().trim() === prevRev.theme.toLowerCase().trim()) return true;
+        return false;
+      }).map((r) => ({ ...r }));
+      const entry = { date: today(), pct, _prev: { intervalIndex: prevRev.intervalIndex, nextDue: prevRev.nextDue, lastPerf: prevRev.lastPerf, lastStudied: prevRev.lastStudied, _subStates: prevSubStates } };
       let newReviews = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: niInner, nextDue: addDays(today(), INTERVALS[niInner]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
       // Update subtopic cards that were explicitly scored
       const scoredSubKeys = new Set();
-      // Count parent reviews to determine subtopic starting intervalIndex
+      // Use parent's intervalIndex to determine subtopic starting interval
       const updatedParent = newReviews.find(r => r.id === revId);
-      const parentHistLen = updatedParent ? (updatedParent.history || []).length : 1;
+      const parentIdx = updatedParent ? updatedParent.intervalIndex : 0;
       if (subtopicScores && subtopicScores.length > 0) {
         const parentKeyPrefix = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::`;
         subtopicScores.forEach((s) => {
@@ -852,8 +865,8 @@ function App() {
             return false;
           });
           scoredSubKeys.add(ex?.key || sKey);
-          // If subtopic has no card yet, inherit parent's review progression
-          const startIdx = ex ? ex.intervalIndex : Math.min(parentHistLen - 1, INTERVALS.length - 1);
+          // If subtopic has no card yet, inherit parent's current intervalIndex
+          const startIdx = ex ? ex.intervalIndex : parentIdx;
           const sni = nxtIdx(startIdx, s.pct);
           const useKey = ex?.key || sKey;
           const sRev = {
@@ -870,7 +883,6 @@ function App() {
       // Match by parentTheme OR key prefix to catch all creation paths
       const t = today();
       const parentNextDue = addDays(t, INTERVALS[niInner]);
-      const keyPrefix = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::`;
       newReviews = newReviews.map((r) => {
         if (!r.isSubtopic || scoredSubKeys.has(r.key)) return r;
         if (r.area !== prevRev.area) return r;
@@ -879,8 +891,8 @@ function App() {
         if (!matchesParent && !matchesKey) return r;
         // Only advance if this subtopic is currently overdue
         if (r.nextDue > t) return r;
-        // Move to parent's next due date (keeps its own intervalIndex for future progression)
-        return { ...r, nextDue: parentNextDue, lastStudied: t };
+        // Move to parent's next due date — don't change lastStudied since subtopic wasn't individually reviewed
+        return { ...r, nextDue: parentNextDue };
       });
       return newReviews;
     });
@@ -910,11 +922,36 @@ function App() {
       if (h.length === 0) return prevReviews;
       const last = h[h.length - 1];
       const prev = last._prev;
+      let result;
       if (prev) {
-        return prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: h.slice(0, -1) });
+        result = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: prev.intervalIndex, nextDue: prev.nextDue, lastPerf: prev.lastPerf, lastStudied: prev.lastStudied, history: h.slice(0, -1) });
+      } else {
+        const prevEntry = h.length >= 2 ? h[h.length - 2] : null;
+        result = prevReviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: h.slice(0, -1) });
       }
-      const prevEntry = h.length >= 2 ? h[h.length - 2] : null;
-      return prevReviews.map((r) => r.id !== revId ? r : { ...r, nextDue: today(), lastPerf: prevEntry?.pct ?? rev.lastPerf, lastStudied: prevEntry?.date ?? rev.lastStudied, history: h.slice(0, -1) });
+      // Restore subtopic cards to their previous state
+      if (prev?._subStates) {
+        const subMap = new Map(prev._subStates.map((s) => [s.id, s]));
+        // Restore existing subtopics, remove newly created ones
+        result = result.map((r) => {
+          if (!r.isSubtopic) return r;
+          const saved = subMap.get(r.id);
+          if (saved) { subMap.delete(r.id); return saved; }
+          return r;
+        });
+        // Remove subtopic cards that didn't exist before (created during this markReview)
+        const keyPrefix = `${rev.area}__${rev.theme.toLowerCase().trim()}::`;
+        const existedBefore = new Set(prev._subStates.map((s) => s.id));
+        result = result.filter((r) => {
+          if (!r.isSubtopic) return true;
+          if (existedBefore.has(r.id)) return true;
+          // Only remove subtopics belonging to this parent
+          if (r.key && r.key.startsWith(keyPrefix)) return false;
+          if (r.parentTheme && r.parentTheme.toLowerCase().trim() === rev.theme.toLowerCase().trim() && r.area === rev.area) return false;
+          return true;
+        });
+      }
+      return result;
     });
     persistLogs((prevLogs) => {
       if (logId) return prevLogs.filter((l) => l.id !== logId);
@@ -953,10 +990,13 @@ function App() {
         // Build subtopic's own history: prefer card history, fallback to revLog scores
         let subHist = r.history && r.history.length > 0 ? r.history : [];
         if (subHist.length === 0) {
-          // Reconstruct from revLogs
+          // Reconstruct from revLogs — must match both subtopic name AND parent theme
           const stNameNorm = r.theme.toLowerCase().trim();
+          const parentNorm = r.parentTheme ? r.parentTheme.toLowerCase().trim() : null;
           revLogs.forEach((l) => {
             if (l.area !== r.area) return;
+            // Verify this log belongs to the correct parent theme
+            if (parentNorm && l.theme && l.theme.toLowerCase().trim() !== parentNorm) return;
             if (l.subtopicScores) {
               const m = l.subtopicScores.find((s) => s.name.toLowerCase().trim() === stNameNorm);
               if (m) subHist.push({ date: l.date, pct: m.pct });
@@ -979,7 +1019,9 @@ function App() {
         if (subHist.length === 0 && parentHist.length > 0) return r; // no data to recalc
         if (idx !== r.intervalIndex) {
           fixed++;
-          const nd = addDays(r.lastStudied || today(), INTERVALS[idx]);
+          // Use the last history entry date (more reliable than lastStudied which can be changed by advance-overdue)
+          const lastHistDate = subHist.length > 0 ? subHist[subHist.length - 1].date : (r.lastStudied || today());
+          const nd = addDays(lastHistDate, INTERVALS[idx]);
           return { ...r, intervalIndex: idx, nextDue: nd };
         }
         return r;

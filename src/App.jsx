@@ -950,12 +950,15 @@ function App() {
     const parentRevs = reviews.filter((r) => !r.isSubtopic);
     const t = today();
     const getEffDue = (r) => {
-      // Find subtopics by parentTheme OR by key prefix (catches all creation paths)
-      const keyPrefix = `${r.area}__${r.theme.toLowerCase().trim()}::`;
-      const subs = reviews.filter((s) => s.isSubtopic && s.area === r.area && (
-        (s.parentTheme && r.theme && s.parentTheme.toLowerCase().trim() === r.theme.toLowerCase().trim()) ||
-        (s.key && s.key.startsWith(keyPrefix))
-      ));
+      if (!r.theme) return r.nextDue;
+      const rNorm = r.theme.toLowerCase().trim();
+      const keyPrefix = r.key ? r.key + "::" : `${r.area}__${rNorm}::`;
+      const subs = reviews.filter((s) => {
+        if (!s.isSubtopic || s.area !== r.area) return false;
+        if (s.key && s.key.startsWith(keyPrefix)) return true;
+        if (s.parentTheme && s.parentTheme.toLowerCase().trim() === rNorm) return true;
+        return false;
+      });
       if (subs.length === 0) return r.nextDue;
       // When subtopics exist, they define when to review (not the parent date)
       return subs.map((s) => s.nextDue).sort()[0];

@@ -957,9 +957,8 @@ function App() {
         (s.key && s.key.startsWith(keyPrefix))
       ));
       if (subs.length === 0) return r.nextDue;
-      const earliestSub = subs.map((s) => s.nextDue).sort()[0];
-      // Use the EARLIEST date so subtopic due dates pull the parent forward
-      return earliestSub < r.nextDue ? earliestSub : r.nextDue;
+      // When subtopics exist, they define when to review (not the parent date)
+      return subs.map((s) => s.nextDue).sort()[0];
     };
     const due = parentRevs.filter((r) => getEffDue(r) <= t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
     const up = parentRevs.filter((r) => getEffDue(r) > t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));

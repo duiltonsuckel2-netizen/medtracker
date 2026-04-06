@@ -1,7 +1,7 @@
 import React from "react";
 import { useState, useMemo, useEffect } from "react";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine } from "recharts";
-import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES, EXAM_THEMES_DB, _themesMatch } from "../data.js";
+import { AREAS, BENCHMARKS, areaMap, SEMANAS, SEM_SAT, AREA_SHORT_MAP, THEME_SUMMARIES, EXAM_THEMES_DB } from "../data.js";
 import { C, DARK, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM, numUnit } from "../theme.js";
 import { today, addDays, diffDays, fmtDate, perc, perfColor, weekDates, mapThemeToSchedule } from "../utils.js";
 import { loadKey, saveKey } from "../storage.js";
@@ -125,20 +125,25 @@ function Dashboard({ revLogs, sessions, exams, reviews, dueCount, onNotionSync, 
   function findSummary(theme) {
     const t = theme.toLowerCase().trim();
     if (THEME_SUMMARIES[t]) return THEME_SUMMARIES[t];
-    // Try _themesMatch (robust fuzzy matching)
+    const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    const STOP = new Set(["de","da","do","das","dos","em","na","no","nas","nos","e","ou","com","por","para","uma","um","parte","sem"]);
+    const tn = normalize(theme);
+    // Normalized containment check
     for (const [key, val] of Object.entries(THEME_SUMMARIES)) {
-      if (_themesMatch(t, key)) return val;
+      const kn = normalize(key);
+      if (tn === kn || tn.includes(kn) || kn.includes(tn)) return val;
     }
-    // Fallback: word overlap scoring
+    // Strict word overlap: exact matches, no stops, >= 50% of key words
+    const tWords = new Set(tn.split(" ").filter((w) => w.length >= 3 && !STOP.has(w)));
     let best = null, bestScore = 0;
     for (const [key, val] of Object.entries(THEME_SUMMARIES)) {
-      const kWords = key.split(/[\s,./()—-]+/).filter((w) => w.length > 3);
-      const tWords = t.split(/[\s,./()—-]+/).filter((w) => w.length > 3);
-      let score = 0;
-      for (const tw of tWords) for (const kw of kWords) { if (tw === kw || kw.includes(tw) || tw.includes(kw)) score += Math.max(tw.length, kw.length); }
-      if (score > bestScore) { bestScore = score; best = val; }
+      const kWords = normalize(key).split(" ").filter((w) => w.length >= 3 && !STOP.has(w));
+      let score = 0, matches = 0;
+      for (const kw of kWords) { if (tWords.has(kw)) { score += kw.length; matches++; } }
+      const ratio = kWords.length > 0 ? matches / kWords.length : 0;
+      if (ratio >= 0.5 && score > bestScore) { bestScore = score; best = val; }
     }
-    return bestScore >= 6 ? best : null;
+    return bestScore >= 5 ? best : null;
   }
   // Helper: build history for a theme from revLogs + sessions
   function themeHistory(area, theme) {

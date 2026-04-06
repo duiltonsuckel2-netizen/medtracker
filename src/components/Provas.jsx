@@ -410,15 +410,28 @@ function PanoramaGeral({ exams }) {
   // Pre-compute THEME_SUMMARIES lookup for gap cards
   const gapSummaryMap = useMemo(() => {
     const map = {};
-    const tsKeys = Object.keys(THEME_SUMMARIES);
+    const normalize = (s) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+    const STOP = new Set(["de","da","do","das","dos","em","na","no","nas","nos","e","ou","com","por","para","uma","um","parte","sem"]);
     recurringGaps.forEach(g => {
       const k = g.theme.toLowerCase().trim();
-      // Try exact match first
       if (THEME_SUMMARIES[k]) { map[k] = THEME_SUMMARIES[k]; return; }
-      // Fuzzy match via _themesMatch
-      for (const tsKey of tsKeys) {
-        if (_themesMatch(g.theme, tsKey)) { map[k] = THEME_SUMMARIES[tsKey]; return; }
+      const tn = normalize(g.theme);
+      // Normalized containment
+      for (const [tsKey, val] of Object.entries(THEME_SUMMARIES)) {
+        const kn = normalize(tsKey);
+        if (tn === kn || tn.includes(kn) || kn.includes(tn)) { map[k] = val; return; }
       }
+      // Strict word overlap
+      const tWords = new Set(tn.split(" ").filter(w => w.length >= 3 && !STOP.has(w)));
+      let best = null, bestScore = 0;
+      for (const [tsKey, val] of Object.entries(THEME_SUMMARIES)) {
+        const kWords = normalize(tsKey).split(" ").filter(w => w.length >= 3 && !STOP.has(w));
+        let score = 0, matches = 0;
+        for (const kw of kWords) { if (tWords.has(kw)) { score += kw.length; matches++; } }
+        const ratio = kWords.length > 0 ? matches / kWords.length : 0;
+        if (ratio >= 0.5 && score > bestScore) { bestScore = score; best = val; }
+      }
+      if (bestScore >= 5) map[k] = best;
     });
     return map;
   }, [recurringGaps]);

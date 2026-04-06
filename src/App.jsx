@@ -957,9 +957,8 @@ function App() {
       ));
       if (subs.length === 0) return r.nextDue;
       const earliestSub = subs.map((s) => s.nextDue).sort()[0];
-      // Theme is overdue only when BOTH parent and subtopics need review
-      // If either was reviewed recently (future nextDue), theme is not urgent
-      return earliestSub > r.nextDue ? earliestSub : r.nextDue;
+      // Use the EARLIEST date so subtopic due dates pull the parent forward
+      return earliestSub < r.nextDue ? earliestSub : r.nextDue;
     };
     const due = parentRevs.filter((r) => getEffDue(r) <= t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));
     const up = parentRevs.filter((r) => getEffDue(r) > t).map((r) => ({ ...r, _effDue: getEffDue(r) })).sort((a, b) => (a._effDue || a.nextDue).localeCompare(b._effDue || b.nextDue));

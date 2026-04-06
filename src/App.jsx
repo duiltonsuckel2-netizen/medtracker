@@ -926,6 +926,8 @@ function App() {
   }
   function editReview(revId, ni, nd) { persistReviews((prev) => prev.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd || addDays(r.lastStudied || today(), INTERVALS[ni]) })); notify("✓ Corrigido"); }
   function recalcSubtopicIntervals() {
+    // Backup current reviews before recalculating
+    try { localStorage.setItem("rp26_reviews_backup", JSON.stringify(reviews)); } catch (e) { console.warn("Backup failed", e); }
     let fixed = 0, dupsRemoved = 0;
     persistReviews((prev) => {
       let result = [...prev];
@@ -986,6 +988,18 @@ function App() {
     });
     notify(`✓ Recalculado: ${fixed} intervalos corrigidos, ${dupsRemoved} duplicatas removidas`);
   }
+  function undoRecalc() {
+    try {
+      const backup = localStorage.getItem("rp26_reviews_backup");
+      if (!backup) { notify("⚠ Nenhum backup encontrado"); return false; }
+      const restored = JSON.parse(backup);
+      persistReviews(() => restored);
+      localStorage.removeItem("rp26_reviews_backup");
+      notify("↩ Recálculo desfeito — revisões restauradas");
+      return true;
+    } catch (e) { notify("⚠ Erro ao restaurar backup"); return false; }
+  }
+  function hasRecalcBackup() { return !!localStorage.getItem("rp26_reviews_backup"); }
   function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; persistExams(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); persistFlashcards(merged); }, 100); }
   function delSession(id) { persistSessions((prev) => prev.filter((s) => s.id !== id)); }
   function delExam(id) { persistExams((prev) => prev.filter((e) => e.id !== id)); }
@@ -1200,7 +1214,7 @@ function App() {
             {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
             {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} onUndoMark={undoMarkReview} />}
             {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} subtopics={subtopics} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
-            {tab === "temas" && <Temas reviews={reviews} revLogs={revLogs} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} onDeleteReviews={persistReviews} onRecalcIntervals={recalcSubtopicIntervals} />}
+            {tab === "temas" && <Temas reviews={reviews} revLogs={revLogs} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} onDeleteReviews={persistReviews} onRecalcIntervals={recalcSubtopicIntervals} onUndoRecalc={undoRecalc} hasRecalcBackup={hasRecalcBackup} />}
             {tab === "flashcards" && <Flashcards decks={flashcardDecks} onReview={handleFlashcardReview} />}
           </Suspense>
         </div>

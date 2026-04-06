@@ -18,7 +18,7 @@ function parseWeekLabel(label) {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, onDeleteReviews, onRecalcIntervals }) {
+function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, onDeleteReviews, onRecalcIntervals, onUndoRecalc, hasRecalcBackup }) {
   const [filterArea, setFilterArea] = useState("all");
   const [search, setSearch] = useState("");
   const [collapsedWeeks, setCollapsedWeeks] = useState({});
@@ -244,6 +244,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
           ))}
         </div>
         {onRecalcIntervals && <button onClick={() => { if (confirm("Recalcular intervalos de todos os subtemas baseado no histórico? Também remove duplicatas.")) onRecalcIntervals(); }} style={btn(C.purple, { padding: "6px 14px", fontSize: 11, whiteSpace: "nowrap" })}>Recalcular intervalos</button>}
+        {onUndoRecalc && hasRecalcBackup && hasRecalcBackup() && <button onClick={() => { if (confirm("Desfazer o último recálculo e restaurar as revisões anteriores?")) onUndoRecalc(); }} style={btn(C.red, { padding: "6px 14px", fontSize: 11, whiteSpace: "nowrap" })}>Desfazer recálculo</button>}
       </div>
 
       {/* ── View Toggle ── */}

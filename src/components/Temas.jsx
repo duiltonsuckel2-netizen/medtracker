@@ -18,7 +18,7 @@ function parseWeekLabel(label) {
   return m ? parseInt(m[1], 10) : 0;
 }
 
-function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, onDeleteReviews }) {
+function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, onDeleteReviews, onRecalcIntervals }) {
   const [filterArea, setFilterArea] = useState("all");
   const [search, setSearch] = useState("");
   const [collapsedWeeks, setCollapsedWeeks] = useState({});
@@ -243,6 +243,7 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
             <button key={a.id} onClick={() => setFilterArea(a.id)} style={btn(filterArea === a.id ? a.color : C.card, { padding: "6px 14px", fontSize: 11, border: `1px solid ${filterArea === a.id ? a.color : C.border}`, whiteSpace: "nowrap", flexShrink: 0 })}>{a.short}</button>
           ))}
         </div>
+        {onRecalcIntervals && <button onClick={() => { if (confirm("Recalcular intervalos de todos os subtemas baseado no histórico? Também remove duplicatas.")) onRecalcIntervals(); }} style={btn(C.purple, { padding: "6px 14px", fontSize: 11, whiteSpace: "nowrap" })}>Recalcular intervalos</button>}
       </div>
 
       {/* ── View Toggle ── */}

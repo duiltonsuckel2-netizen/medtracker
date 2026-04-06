@@ -925,6 +925,56 @@ function App() {
     notify("↩ Revisão desfeita — voltou para hoje");
   }
   function editReview(revId, ni, nd) { persistReviews((prev) => prev.map((r) => r.id !== revId ? r : { ...r, intervalIndex: ni, nextDue: nd || addDays(r.lastStudied || today(), INTERVALS[ni]) })); notify("✓ Corrigido"); }
+  function recalcSubtopicIntervals() {
+    let fixed = 0, dupsRemoved = 0;
+    persistReviews((prev) => {
+      let result = [...prev];
+      // 1) Remove duplicate subtopic cards (same name+parent, keep most recent)
+      const seen = new Map();
+      const toRemove = new Set();
+      result.forEach((r) => {
+        if (!r.isSubtopic) return;
+        const dk = `${r.area}__${(r.parentTheme || "").toLowerCase().trim()}::${r.theme.toLowerCase().trim()}`;
+        const existing = seen.get(dk);
+        if (existing) {
+          const keepR = (r.lastStudied || "") >= (existing.lastStudied || "") ? r : existing;
+          const removeR = keepR === r ? existing : r;
+          toRemove.add(removeR.id);
+          seen.set(dk, keepR);
+          dupsRemoved++;
+        } else { seen.set(dk, r); }
+      });
+      if (toRemove.size > 0) result = result.filter((r) => !toRemove.has(r.id));
+      // 2) Recalculate intervalIndex from history for each subtopic
+      result = result.map((r) => {
+        if (!r.isSubtopic || !r.history || r.history.length === 0) return r;
+        // Find parent to count reviews before subtopic was created
+        const parent = result.find((p) => !p.isSubtopic && p.area === r.area &&
+          p.theme && r.parentTheme && p.theme.toLowerCase().trim() === r.parentTheme.toLowerCase().trim());
+        const parentHist = parent?.history || [];
+        const firstSubDate = r.history[0]?.date;
+        // Parent reviews before subtopic existed count as starting point
+        const parentRevsBefore = firstSubDate ? parentHist.filter((h) => h.date < firstSubDate).length : 0;
+        // Start from parent's progression, then apply subtopic's own history
+        let idx = Math.min(parentRevsBefore > 0 ? parentRevsBefore - 1 : 0, INTERVALS.length - 1);
+        // Advance based on parent reviews before subtopic
+        if (parentRevsBefore > 0) {
+          idx = 0;
+          parentHist.filter((h) => h.date < firstSubDate).forEach((h) => { idx = nxtIdx(idx, h.pct); });
+        }
+        // Then apply subtopic's own reviews
+        r.history.forEach((h) => { idx = nxtIdx(idx, h.pct); });
+        if (idx !== r.intervalIndex) {
+          fixed++;
+          const nd = addDays(r.lastStudied || today(), INTERVALS[idx]);
+          return { ...r, intervalIndex: idx, nextDue: nd };
+        }
+        return r;
+      });
+      return result;
+    });
+    notify(`✓ Recalculado: ${fixed} intervalos corrigidos, ${dupsRemoved} duplicatas removidas`);
+  }
   function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; persistExams(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); persistFlashcards(merged); }, 100); }
   function delSession(id) { persistSessions((prev) => prev.filter((s) => s.id !== id)); }
   function delExam(id) { persistExams((prev) => prev.filter((e) => e.id !== id)); }
@@ -1139,7 +1189,7 @@ function App() {
             {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
             {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} onUndoMark={undoMarkReview} />}
             {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} subtopics={subtopics} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
-            {tab === "temas" && <Temas reviews={reviews} revLogs={revLogs} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} onDeleteReviews={persistReviews} />}
+            {tab === "temas" && <Temas reviews={reviews} revLogs={revLogs} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} onDeleteReviews={persistReviews} onRecalcIntervals={recalcSubtopicIntervals} />}
             {tab === "flashcards" && <Flashcards decks={flashcardDecks} onReview={handleFlashcardReview} />}
           </Suspense>
         </div>

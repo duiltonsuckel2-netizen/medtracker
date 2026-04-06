@@ -25,11 +25,17 @@ export function weekDates(satStr) {
 export function getEffDueUtil(r, allReviews) {
   if (!r.theme) return r.nextDue;
   const rNorm = r.theme.toLowerCase().trim();
+  const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+  const rBase = stripSem(rNorm);
   const keyPrefix = r.key ? r.key + "::" : `${r.area}__${rNorm}::`;
+  const keyPrefixBase = `${r.area}__${rBase}::`;
   const subs = allReviews.filter((s) => {
     if (!s.isSubtopic || s.area !== r.area) return false;
-    if (s.key && s.key.startsWith(keyPrefix)) return true;
-    if (s.parentTheme && s.parentTheme.toLowerCase().trim() === rNorm) return true;
+    if (s.key && (s.key.startsWith(keyPrefix) || s.key.startsWith(keyPrefixBase))) return true;
+    if (s.parentTheme) {
+      const pNorm = s.parentTheme.toLowerCase().trim();
+      if (pNorm === rNorm || stripSem(pNorm) === rBase) return true;
+    }
     return false;
   });
   if (subs.length === 0) return r.nextDue;

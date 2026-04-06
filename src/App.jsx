@@ -823,20 +823,20 @@ function App() {
       const t = today();
       const updatedParent = newReviews.find((r) => r.key === useKey && !r.isSubtopic);
       const parentNextDue = updatedParent?.nextDue || addDays(t, INTERVALS[0]);
-      const keyPrefix = useKey + "::";
+      const parentThemeNorm = (ex?.theme || theme).toLowerCase().trim();
+      const parentThemeBase = stripSem(parentThemeNorm);
+      const rlKeyPrefix = useKey + "::";
+      const rlKeyPrefixBase = `${areaId}__${parentThemeBase}::`;
       newReviews = newReviews.map((r) => {
-        if (!r.isSubtopic) return r;
-        if (r.area !== areaId) return r;
-        const parentThemeNorm = (ex?.theme || theme).toLowerCase().trim();
-        const matchesParent = r.parentTheme && r.parentTheme.toLowerCase().trim() === parentThemeNorm;
-        const matchesKey = r.key && r.key.startsWith(keyPrefix);
+        if (!r.isSubtopic || r.area !== areaId) return r;
+        const matchesKey = r.key && (r.key.startsWith(rlKeyPrefix) || r.key.startsWith(rlKeyPrefixBase));
+        const matchesParent = r.parentTheme && (r.parentTheme.toLowerCase().trim() === parentThemeNorm || stripSem(r.parentTheme.toLowerCase().trim()) === parentThemeBase);
         if (!matchesParent && !matchesKey) return r;
         if (r.nextDue > t) return r;
         return { ...r, nextDue: parentNextDue };
       });
       // Sync duplicate parent cards (same base theme, different Sem. suffix)
-      const stripSem2 = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
-      const baseTheme = stripSem2((ex?.theme || theme).toLowerCase().trim());
+      const baseTheme = parentThemeBase;
       newReviews = newReviews.map((r) => {
         if (r.isSubtopic || r.key === useKey || r.area !== areaId) return r;
         if (stripSem2((r.theme || "").toLowerCase().trim()) !== baseTheme) return r;
@@ -856,13 +856,21 @@ function App() {
       const prevRev = prevReviews.find((r) => r.id === revId); if (!prevRev) return prevReviews;
       const niInner = nxtIdx(prevRev.intervalIndex, pct);
       // Capture subtopic state before changes for undo
-      const keyPrefix = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::`;
-      const prevSubStates = prevReviews.filter((r) => {
+      const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+      const parentNorm = prevRev.theme.toLowerCase().trim();
+      const parentBase = stripSem(parentNorm);
+      const keyPrefix = `${prevRev.area}__${parentNorm}::`;
+      const keyPrefixBase = `${prevRev.area}__${parentBase}::`;
+      const isChildOf = (r) => {
         if (!r.isSubtopic || r.area !== prevRev.area) return false;
-        if (r.key && r.key.startsWith(keyPrefix)) return true;
-        if (r.parentTheme && r.parentTheme.toLowerCase().trim() === prevRev.theme.toLowerCase().trim()) return true;
+        if (r.key && (r.key.startsWith(keyPrefix) || r.key.startsWith(keyPrefixBase))) return true;
+        if (r.parentTheme) {
+          const pn = r.parentTheme.toLowerCase().trim();
+          if (pn === parentNorm || stripSem(pn) === parentBase) return true;
+        }
         return false;
-      }).map((r) => ({ ...r }));
+      };
+      const prevSubStates = prevReviews.filter(isChildOf).map((r) => ({ ...r }));
       const entry = { date: today(), pct, _prev: { intervalIndex: prevRev.intervalIndex, nextDue: prevRev.nextDue, lastPerf: prevRev.lastPerf, lastStudied: prevRev.lastStudied, _subStates: prevSubStates } };
       let newReviews = prevReviews.map((r) => r.id !== revId ? r : { ...r, intervalIndex: niInner, nextDue: addDays(today(), INTERVALS[niInner]), lastPerf: pct, lastStudied: today(), history: [...(r.history || []), entry] });
       // Update subtopic cards that were explicitly scored
@@ -871,20 +879,15 @@ function App() {
       const updatedParent = newReviews.find(r => r.id === revId);
       const parentIdx = updatedParent ? updatedParent.intervalIndex : 0;
       if (subtopicScores && subtopicScores.length > 0) {
-        const parentKeyPrefix = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::`;
         subtopicScores.forEach((s) => {
-          const sKey = `${prevRev.area}__${prevRev.theme.toLowerCase().trim()}::${s.name.toLowerCase().trim()}`;
+          const sKey = `${prevRev.area}__${parentNorm}::${s.name.toLowerCase().trim()}`;
+          const sKeyBase = `${prevRev.area}__${parentBase}::${s.name.toLowerCase().trim()}`;
           const sNameNorm = s.name.toLowerCase().trim();
-          // Find existing card by key match OR by name+parentTheme match
+          // Find existing card by key match OR by name+parentTheme match (fuzzy)
           const ex = newReviews.find((r) => {
             if (!r.isSubtopic || r.area !== prevRev.area) return false;
-            if (r.key === sKey) return true;
-            // Match by name within same parent (catches key mismatches from renames)
-            if (r.theme && r.theme.toLowerCase().trim() === sNameNorm) {
-              const matchesParent = r.parentTheme && r.parentTheme.toLowerCase().trim() === prevRev.theme.toLowerCase().trim();
-              const matchesKeyPrefix = r.key && r.key.startsWith(parentKeyPrefix);
-              if (matchesParent || matchesKeyPrefix) return true;
-            }
+            if (r.key === sKey || r.key === sKeyBase) return true;
+            if (r.theme && r.theme.toLowerCase().trim() === sNameNorm && isChildOf(r)) return true;
             return false;
           });
           scoredSubKeys.add(ex?.key || sKey);
@@ -902,24 +905,18 @@ function App() {
         });
       }
       // Advance overdue subtopic cards that were NOT scored in this review
-      // They follow the parent's new schedule (reviewed together)
-      // Match by parentTheme OR key prefix to catch all creation paths
       const t = today();
       const parentNextDue = addDays(t, INTERVALS[niInner]);
       newReviews = newReviews.map((r) => {
-        if (!r.isSubtopic || scoredSubKeys.has(r.key)) return r;
-        if (r.area !== prevRev.area) return r;
-        const matchesParent = r.parentTheme && r.parentTheme.toLowerCase().trim() === prevRev.theme.toLowerCase().trim();
-        const matchesKey = r.key && r.key.startsWith(keyPrefix);
-        if (!matchesParent && !matchesKey) return r;
+        if (scoredSubKeys.has(r.key)) return r;
+        if (!isChildOf(r)) return r;
         // Only advance if this subtopic is currently overdue
         if (r.nextDue > t) return r;
         // Move to parent's next due date — don't change lastStudied since subtopic wasn't individually reviewed
         return { ...r, nextDue: parentNextDue };
       });
       // Also sync duplicate parent cards (same base theme, different Sem. suffix)
-      const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
-      const baseTheme = stripSem(prevRev.theme.toLowerCase().trim());
+      const baseTheme = parentBase;
       newReviews = newReviews.map((r) => {
         if (r.isSubtopic || r.id === revId || r.area !== prevRev.area) return r;
         if (stripSem((r.theme || "").toLowerCase().trim()) !== baseTheme) return r;
@@ -1174,14 +1171,20 @@ function App() {
   const { dueR, upR } = useMemo(() => {
     const parentRevs = reviews.filter((r) => !r.isSubtopic);
     const t = today();
+    const stripSemF = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
     const getEffDue = (r) => {
       if (!r.theme) return r.nextDue;
       const rNorm = r.theme.toLowerCase().trim();
+      const rBase = stripSemF(rNorm);
       const keyPrefix = r.key ? r.key + "::" : `${r.area}__${rNorm}::`;
+      const keyPrefixBase = `${r.area}__${rBase}::`;
       const subs = reviews.filter((s) => {
         if (!s.isSubtopic || s.area !== r.area) return false;
-        if (s.key && s.key.startsWith(keyPrefix)) return true;
-        if (s.parentTheme && s.parentTheme.toLowerCase().trim() === rNorm) return true;
+        if (s.key && (s.key.startsWith(keyPrefix) || s.key.startsWith(keyPrefixBase))) return true;
+        if (s.parentTheme) {
+          const pNorm = s.parentTheme.toLowerCase().trim();
+          if (pNorm === rNorm || stripSemF(pNorm) === rBase) return true;
+        }
         return false;
       });
       if (subs.length === 0) return r.nextDue;

@@ -155,7 +155,13 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
 
   // Effective due date: if subtopic review cards exist, use earliest; otherwise parent's nextDue
   function getEffDue(r) {
-    const subs = subtopicReviews.filter((s) => s.area === r.area && s.parentTheme && r.theme && s.parentTheme.toLowerCase().trim() === r.theme.toLowerCase().trim());
+    const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+    const rBase = r.theme ? stripSem(r.theme.toLowerCase().trim()) : "";
+    const subs = subtopicReviews.filter((s) => {
+      if (s.area !== r.area || !s.parentTheme || !r.theme) return false;
+      const pNorm = s.parentTheme.toLowerCase().trim();
+      return pNorm === r.theme.toLowerCase().trim() || stripSem(pNorm) === rBase;
+    });
     return subs.length > 0 ? subs.map((s) => s.nextDue).sort()[0] : r.nextDue;
   }
 

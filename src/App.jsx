@@ -582,10 +582,11 @@ function App() {
           }
         }
 
-        // Migration v21: Merge duplicate subtopics with overlapping names
+        // Migration v22: Merge duplicate subtopics with overlapping names
         // e.g. "Financiamento da saúde | Leis e emendas do SUS" + "Leis e emendas do SUS"
-        if (!localStorage.getItem("rp26_mig_v21")) {
-          localStorage.setItem("rp26_mig_v21", "1");
+        // (replaces v21 which had a bug + key was burned after backup restore)
+        if (!localStorage.getItem("rp26_mig_v22")) {
+          localStorage.setItem("rp26_mig_v22", "1");
           let v21Merged = 0;
           const subs21 = loadedReviews.filter(r => r.isSubtopic && r.parentTheme);
           const byParent21 = {};

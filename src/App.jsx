@@ -748,28 +748,36 @@ function App() {
     if (session.subtopicScores && session.subtopicScores.length > 0) logEntry.subtopicScores = session.subtopicScores;
     persistLogs((prevLogs) => [logEntry, ...prevLogs]);
     persistReviews((prevReviews) => {
-      const ex = prevReviews.find((r) => r.key === key);
+      let ex = prevReviews.find((r) => r.key === key && !r.isSubtopic);
+      // Fuzzy fallback: match ignoring "(Sem. XX)" suffix differences
+      if (!ex) {
+        const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+        const baseNorm = stripSem(session.theme.toLowerCase().trim());
+        ex = prevReviews.find((r) => !r.isSubtopic && r.area === session.area && stripSem((r.theme || "").toLowerCase().trim()) === baseNorm);
+      }
       // D0: >85% → 14d, otherwise → 7d
       const ni = pct > 85 ? 1 : 0;
-      const rev = { id: ex?.id || uid(), key, area: session.area, theme: session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
-      let newReviews = ex ? prevReviews.map((r) => r.key === key ? rev : r) : [rev, ...prevReviews];
+      const useKey = ex?.key || key;
+      const rev = { id: ex?.id || uid(), key: useKey, area: session.area, theme: ex?.theme || session.theme, intervalIndex: ni, nextDue: addDays(today(), INTERVALS[ni]), lastPerf: pct, lastStudied: today(), history: [...(ex?.history || []), { date: today(), pct }] };
+      let newReviews = ex ? prevReviews.map((r) => r.key === useKey ? rev : r) : [rev, ...prevReviews];
       // Create subtopic review cards if subtopics provided
       if (session.subtopicScores && session.subtopicScores.length > 0) {
         const subNames = session.subtopicScores.map((st) => st.name);
         // Store subtopicNames on parent review card so Revisoes can find them
-        newReviews = newReviews.map((r) => r.key === key ? { ...r, subtopicNames: subNames } : r);
+        newReviews = newReviews.map((r) => r.key === useKey ? { ...r, subtopicNames: subNames } : r);
         // Use parent's intervalIndex to determine subtopic starting interval
-        const parentCard = newReviews.find(r => r.key === key && !r.isSubtopic);
+        const parentCard = newReviews.find(r => r.key === useKey && !r.isSubtopic);
         const parentIdx = parentCard ? parentCard.intervalIndex : 0;
-        const sessionKeyPrefix = `${session.area}__${session.theme.toLowerCase().trim()}::`;
+        const parentThemeNorm = (parentCard?.theme || session.theme).toLowerCase().trim();
+        const sessionKeyPrefix = `${session.area}__${parentThemeNorm}::`;
         session.subtopicScores.forEach((st) => {
-          const sKey = `${session.area}__${session.theme.toLowerCase().trim()}::${st.name.toLowerCase().trim()}`;
+          const sKey = `${session.area}__${parentThemeNorm}::${st.name.toLowerCase().trim()}`;
           const stNameNorm = st.name.toLowerCase().trim();
           const exSub = newReviews.find((r) => {
             if (!r.isSubtopic || r.area !== session.area) return false;
             if (r.key === sKey) return true;
             if (r.theme && r.theme.toLowerCase().trim() === stNameNorm) {
-              if (r.parentTheme && r.parentTheme.toLowerCase().trim() === session.theme.toLowerCase().trim()) return true;
+              if (r.parentTheme && r.parentTheme.toLowerCase().trim() === parentThemeNorm) return true;
               if (r.key && r.key.startsWith(sessionKeyPrefix)) return true;
             }
             return false;
@@ -777,14 +785,14 @@ function App() {
           // If subtopic has no card yet, inherit parent's current intervalIndex
           const startIdx = exSub ? exSub.intervalIndex : parentIdx;
           const sni = nxtIdx(startIdx, st.pct);
-          const useKey = exSub?.key || sKey;
+          const stUseKey = exSub?.key || sKey;
           const sRev = {
-            id: exSub?.id || uid(), key: useKey, area: session.area, theme: st.name, parentTheme: session.theme,
+            id: exSub?.id || uid(), key: stUseKey, area: session.area, theme: st.name, parentTheme: parentCard?.theme || session.theme,
             isSubtopic: true, intervalIndex: sni, nextDue: addDays(today(), INTERVALS[sni]),
             lastPerf: st.pct, lastStudied: today(),
             history: [...(exSub?.history || []), { date: today(), pct: st.pct }]
           };
-          newReviews = exSub ? newReviews.map((r) => r.key === useKey ? sRev : r) : [sRev, ...newReviews];
+          newReviews = exSub ? newReviews.map((r) => r.key === stUseKey ? sRev : r) : [sRev, ...newReviews];
         });
       }
       return newReviews;
@@ -984,6 +992,48 @@ function App() {
         } else { seen.set(dk, r); }
       });
       if (toRemove.size > 0) result = result.filter((r) => !toRemove.has(r.id));
+      // 1b) Remove duplicate parent cards (same theme ignoring "(Sem. XX)" suffix, keep most complete)
+      const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+      const parentSeen = new Map();
+      const parentRemove = new Set();
+      result.forEach((r) => {
+        if (r.isSubtopic) return;
+        const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
+        const existing = parentSeen.get(dk);
+        if (existing) {
+          // Keep the one with more history, or more recent activity
+          const keepR = (r.history?.length || 0) > (existing.history?.length || 0) ? r :
+                        (r.history?.length || 0) < (existing.history?.length || 0) ? existing :
+                        (r.lastStudied || "") >= (existing.lastStudied || "") ? r : existing;
+          const removeR = keepR === r ? existing : r;
+          // Merge histories
+          const mergedHist = [...(keepR.history || []), ...(removeR.history || [])];
+          mergedHist.sort((a, b) => a.date.localeCompare(b.date));
+          // Deduplicate history entries with same date
+          const uniqueHist = [];
+          const histSeen = new Set();
+          mergedHist.forEach((h) => { const hk = `${h.date}_${h.pct}`; if (!histSeen.has(hk)) { histSeen.add(hk); uniqueHist.push(h); } });
+          keepR.history = uniqueHist;
+          // Merge subtopicNames
+          if (removeR.subtopicNames || keepR.subtopicNames) {
+            keepR.subtopicNames = [...new Set([...(keepR.subtopicNames || []), ...(removeR.subtopicNames || [])])];
+          }
+          // Re-point orphaned subtopics from removed parent to kept parent
+          result.forEach((sr) => {
+            if (sr.isSubtopic && sr.area === removeR.area && sr.parentTheme &&
+                sr.parentTheme.toLowerCase().trim() === (removeR.theme || "").toLowerCase().trim()) {
+              sr.parentTheme = keepR.theme;
+              // Fix key prefix to match kept parent
+              const stName = sr.key.split("::")[1];
+              if (stName) sr.key = `${keepR.area}__${keepR.theme.toLowerCase().trim()}::${stName}`;
+            }
+          });
+          parentRemove.add(removeR.id);
+          parentSeen.set(dk, keepR);
+          dupsRemoved++;
+        } else { parentSeen.set(dk, r); }
+      });
+      if (parentRemove.size > 0) result = result.filter((r) => !parentRemove.has(r.id));
       // 2) Recalculate intervalIndex from history for each subtopic
       result = result.map((r) => {
         if (!r.isSubtopic) return r;

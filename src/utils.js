@@ -31,7 +31,7 @@ export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   const nextSem = SEMANAS[semIdx + 1];
   const rbd = { sab: [], dom: [], seg: [], ter: [], qua: [], qui: [], sex: [] };
   allReviews.forEach((r) => {
-    if (!r.nextDue) return;
+    if (!r.nextDue || r.isSubtopic) return;
     const dayId = Object.keys(dates).find((k) => dates[k] === r.nextDue);
     if (dayId) {
       rbd[dayId].push({ id: uid(), text: `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true });

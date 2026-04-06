@@ -107,11 +107,16 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
     // Priority 2: revLog scores (use the log's own date + parent's intervalIndex at that time)
     if (lastLog) lastLog.subtopicScores.forEach(s => {
       if (!map.has(s.name.toLowerCase())) {
-        // Find parent's intervalIndex at the time of this log
+        // Find parent's intervalIndex at the time of this log by replaying history
         let prevIdx = 0;
         if (r.history) {
           const hEntry = r.history.find(h => h.date === lastLog.date);
-          if (hEntry?._prev?.intervalIndex != null) prevIdx = hEntry._prev.intervalIndex;
+          if (hEntry?._prev?.intervalIndex != null) {
+            prevIdx = hEntry._prev.intervalIndex;
+          } else {
+            // Fallback: replay parent history up to (not including) this log date
+            r.history.filter(h => h.date < lastLog.date).forEach(h => { prevIdx = nxtIdx(prevIdx, h.pct); });
+          }
         }
         const estIdx = nxtIdx(prevIdx, s.pct);
         const baseDate = lastLog.date;

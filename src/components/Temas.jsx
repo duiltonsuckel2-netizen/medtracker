@@ -543,8 +543,16 @@ function Temas({ reviews, revLogs, subtopics, onEditInterval, onSaveSubtopics, o
                                       let estIdx = null, estDue = null;
                                       if (subRev) { estIdx = subRev.intervalIndex; estDue = subRev.nextDue; }
                                       else if (displayPct !== null) {
-                                        const startIdx = Math.min(Math.max(parentRevsBefore, 0), INTERVALS.length - 1);
-                                        estIdx = nxtIdx(startIdx, displayPct);
+                                        // Replay parent history before subtopic existed through nxtIdx
+                                        const parentHist = r.history || [];
+                                        let replayIdx = 0;
+                                        if (firstStDate) {
+                                          parentHist.filter(h => h.date < firstStDate).forEach(h => { replayIdx = nxtIdx(replayIdx, h.pct); });
+                                        } else {
+                                          // No subtopic date — use parent's current intervalIndex
+                                          replayIdx = r.intervalIndex || 0;
+                                        }
+                                        estIdx = nxtIdx(replayIdx, displayPct);
                                         const baseDate = stScores.length > 0 ? stScores[0].date : r.lastStudied;
                                         if (baseDate) estDue = addDays(baseDate, INTERVALS[estIdx]);
                                       }

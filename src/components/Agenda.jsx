@@ -203,7 +203,7 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
         const satStr = SEM_SAT[semana.semana];
         const dates = satStr ? weekDates(satStr) : {};
         const weekDateSet = new Set(Object.values(dates));
-        const revs = reviews.filter((r) => r.nextDue && weekDateSet.has(r.nextDue)).map((r) => ({ theme: r.theme, area: r.area, nextDue: r.nextDue })).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+        const revs = reviews.filter((r) => !r.isSubtopic && r.nextDue && weekDateSet.has(r.nextDue)).map((r) => ({ theme: r.theme, area: r.area, nextDue: r.nextDue })).sort((a, b) => a.nextDue.localeCompare(b.nextDue));
         return (
           <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.lg, padding: `${S.xl}px`, boxShadow: SH.sm }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: S.lg }}>{semana.semana} — aulas + revisões agendadas</div>

@@ -1025,10 +1025,8 @@ function App() {
         const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
         const existing = parentSeen.get(dk);
         if (existing) {
-          // Keep the one with more history, or more recent activity
-          const keepR = (r.history?.length || 0) > (existing.history?.length || 0) ? r :
-                        (r.history?.length || 0) < (existing.history?.length || 0) ? existing :
-                        (r.lastStudied || "") >= (existing.lastStudied || "") ? r : existing;
+          // Keep the most recently studied card
+          const keepR = (r.lastStudied || "") >= (existing.lastStudied || "") ? r : existing;
           const removeR = keepR === r ? existing : r;
           // Merge histories
           const mergedHist = [...(keepR.history || []), ...(removeR.history || [])];
@@ -1038,6 +1036,17 @@ function App() {
           const histSeen = new Set();
           mergedHist.forEach((h) => { const hk = `${h.date}_${h.pct}`; if (!histSeen.has(hk)) { histSeen.add(hk); uniqueHist.push(h); } });
           keepR.history = uniqueHist;
+          // Replay merged history to get correct intervalIndex
+          let replayIdx = 0;
+          uniqueHist.forEach((h) => { replayIdx = nxtIdx(replayIdx, h.pct); });
+          keepR.intervalIndex = replayIdx;
+          // Recompute nextDue from last history entry
+          const lastH = uniqueHist.length > 0 ? uniqueHist[uniqueHist.length - 1] : null;
+          if (lastH) {
+            keepR.nextDue = addDays(lastH.date, INTERVALS[replayIdx]);
+            keepR.lastPerf = lastH.pct;
+            keepR.lastStudied = lastH.date;
+          }
           // Merge subtopicNames
           if (removeR.subtopicNames || keepR.subtopicNames) {
             keepR.subtopicNames = [...new Set([...(keepR.subtopicNames || []), ...(removeR.subtopicNames || [])])];

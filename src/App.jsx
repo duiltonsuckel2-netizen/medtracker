@@ -54,6 +54,7 @@ function App() {
       if (!confirm(`Restaurar backup de ${data._exportDate ? new Date(data._exportDate).toLocaleDateString("pt-BR") : "data desconhecida"}? Isso vai substituir todos os dados atuais.`)) return;
       BACKUP_KEYS.forEach(k => { if (data[k] !== undefined) localStorage.setItem(k, JSON.stringify(data[k])); });
       // Mark all migrations as done — imported data is already migrated
+      // NOTE: v23 (subtopic merge) is intentionally excluded — safe to re-run on imported data
       ["rp26_mig_v4","rp26_mig_v5","rp26_mig_v6","rp26_mig_v7","rp26_mig_v8","rp26_mig_v9","rp26_mig_v10b","rp26_mig_v11","rp26_mig_v12b","rp26_mig_v13","rp26_mig_v14","rp26_mig_v15","rp26_mig_v16","rp26_mig_v17","rp26_mig_v18","rp26_mig_v19","rp26_mig_v20","rp26_mig_v21","rp26_mig_v22"].forEach(k => localStorage.setItem(k, "1"));
       notify("Backup restaurado! Recarregando..."); setTimeout(() => window.location.reload(), 1000);
     } catch { alert("Erro ao ler o arquivo."); } }; reader.readAsText(f); };
@@ -582,11 +583,11 @@ function App() {
           }
         }
 
-        // Migration v22: Merge duplicate subtopics with overlapping names
+        // Migration v23: Merge duplicate subtopics with overlapping pipe-separated names
         // e.g. "Financiamento da saúde | Leis e emendas do SUS" + "Leis e emendas do SUS"
-        // (replaces v21 which had a bug + key was burned after backup restore)
-        if (!localStorage.getItem("rp26_mig_v22")) {
-          localStorage.setItem("rp26_mig_v22", "1");
+        // Safe to re-run: only merges if duplicates exist. NOT in import "mark done" list.
+        if (!localStorage.getItem("rp26_mig_v23")) {
+          localStorage.setItem("rp26_mig_v23", "1");
           let v21Merged = 0;
           const subs21 = loadedReviews.filter(r => r.isSubtopic && r.parentTheme);
           const byParent21 = {};

@@ -6,7 +6,7 @@ import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js
 import { today, fmtDate, perc, uid, perfColor, perfLabel, catColor, mapThemeToSchedule, mapThemeToStudy, searchKnownPdf, defaultAreaForQuestion, buildDefaultQDetails } from "../utils.js";
 import { Fld, Empty, ChartTip } from "./UI.jsx";
 
-function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onDel, onUpdate }) {
+function Provas({ exams, revLogs, sessions, reviews, subtopics: userSubtopics, onAdd, onDel, onUpdate, onCreateCardsFromGap }) {
   const [step, setStep] = useState(0);
   const [detail, setDetail] = useState(null);
   const [examMeta, setExamMeta] = useState({ date: today(), name: "", total: 120 });
@@ -106,7 +106,7 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
           <button onClick={() => setStep(1)} style={{ ...btn(C.blue), padding: "12px 24px", fontSize: 14, fontWeight: 600, flex: 1, borderRadius: R.lg, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>📝 Registrar prova</button>
           {exams.length >= 2 && <button onClick={() => setPanoramaView(!panoramaView)} style={{ ...btn(panoramaView ? C.purple : C.card2), padding: "12px 18px", fontSize: 13, fontWeight: 600, borderRadius: R.lg, display: "flex", alignItems: "center", gap: 6, border: panoramaView ? "none" : `1px solid ${C.border}`, color: panoramaView ? "#fff" : C.purple }}>{panoramaView ? "← Provas" : "📊 Panorama Geral"}</button>}
         </div>
-        {panoramaView ? <PanoramaGeral exams={exams} /> : <>
+        {panoramaView ? <PanoramaGeral exams={exams} revLogs={revLogs} reviews={reviews} userSubtopics={userSubtopics} onCreateCardsFromGap={onCreateCardsFromGap} /> : <>
           <div style={{ background: C.surface, borderRadius: R.lg, padding: "10px 14px", border: `1px solid ${C.border}`, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
             <span style={{ fontSize: 10, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>Prevalência:</span>
             {[{l:"Muito alta",c:C.green,d:"75%+ das provas"},{l:"Alta",c:"#60A5FA",d:"50%+"},{l:"Média",c:"#FBBF24",d:"25%+"},{l:"Baixa",c:C.text3,d:"raro/inédito"}].map((p,i)=>(
@@ -274,7 +274,7 @@ function Provas({ exams, revLogs, sessions, subtopics: userSubtopics, onAdd, onD
   );
 }
 
-function PanoramaGeral({ exams }) {
+function PanoramaGeral({ exams, revLogs, reviews, userSubtopics, onCreateCardsFromGap }) {
   const AC = { clinica: "#FACC15", cirurgia: "#FB923C", preventiva: "#2DD4BF", go: "#F472B6", ped: "#60A5FA" };
   const AL = { clinica: "Clínica", cirurgia: "Cirurgia", go: "GO", ped: "Pediatria", preventiva: "Preventiva" };
   const [gapReads, setGapReads] = useState(() => { try { return JSON.parse(localStorage.getItem("rp26_gap_reads") || "{}"); } catch { return {}; } });
@@ -436,6 +436,96 @@ function PanoramaGeral({ exams }) {
     return map;
   }, [recurringGaps]);
 
+  // For each gap, analyze user's registered subtopics and compute per-subtopic performance.
+  // Returns { parentKey, parentTheme, subtopics: [{name, avg, pcts, isPoor}], poorNames, cardExists }.
+  const gapSubtopicAnalysis = useMemo(() => {
+    const map = {};
+    const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+    recurringGaps.forEach((g) => {
+      const gKey = g.theme.toLowerCase().trim();
+      const gBase = stripSem(gKey);
+      // Find user's parent theme that matches this gap via keyword match
+      let parentKey = null, parentTheme = null, subNames = [];
+      if (userSubtopics) {
+        for (const [key, items] of Object.entries(userSubtopics)) {
+          if (!items?.length) continue;
+          const [kArea] = key.split("__");
+          if (kArea !== g.area) continue;
+          const pt = key.slice(kArea.length + 2);
+          if (_themesMatch(g.theme, pt)) {
+            if (!parentKey || items.length > subNames.length) {
+              parentKey = key; parentTheme = pt; subNames = items;
+            }
+          }
+        }
+      }
+      // Compute per-subtopic avg performance
+      const subAnalysis = subNames.map((name) => {
+        const nNorm = name.toLowerCase().trim();
+        const pcts = [];
+        // From revLogs' subtopicScores where log theme matches parent
+        (revLogs || []).forEach((l) => {
+          if (l.area !== g.area || !l.subtopicScores) return;
+          if (!_themesMatch(l.theme || "", parentTheme || g.theme)) return;
+          const s = l.subtopicScores.find((ss) => ss.name.toLowerCase().trim() === nNorm);
+          if (s && typeof s.pct === "number") pcts.push(s.pct);
+        });
+        // From existing subtopic review history for this parent
+        (reviews || []).forEach((r) => {
+          if (!r.isSubtopic || r.area !== g.area) return;
+          if (r.theme.toLowerCase().trim() !== nNorm) return;
+          const rpn = (r.parentTheme || "").toLowerCase().trim();
+          if (parentTheme && rpn && rpn !== parentTheme.toLowerCase().trim() && stripSem(rpn) !== stripSem(parentTheme.toLowerCase().trim())) return;
+          (r.history || []).forEach((h) => { if (typeof h.pct === "number") pcts.push(h.pct); });
+        });
+        const avg = pcts.length ? Math.round(pcts.reduce((s, p) => s + p, 0) / pcts.length) : null;
+        const isPoor = avg !== null && avg < 75;
+        return { name, avg, pcts, isPoor };
+      });
+      const poorSubs = subAnalysis.filter((s) => s.isPoor);
+      // Check if cards already exist
+      const parentExists = (reviews || []).some((r) => {
+        if (r.isSubtopic || r.area !== g.area) return false;
+        const rt = (r.theme || "").toLowerCase().trim();
+        if (rt === gKey || stripSem(rt) === gBase) return true;
+        if (parentTheme && _themesMatch(r.theme, parentTheme)) return true;
+        return false;
+      });
+      const createdSubs = new Set();
+      (reviews || []).forEach((r) => {
+        if (!r.isSubtopic || r.area !== g.area) return;
+        const rpn = (r.parentTheme || "").toLowerCase().trim();
+        if (!parentTheme) return;
+        const pn = parentTheme.toLowerCase().trim();
+        if (rpn === pn || stripSem(rpn) === stripSem(pn)) {
+          createdSubs.add(r.theme.toLowerCase().trim());
+        }
+      });
+      const poorPending = poorSubs.filter((s) => !createdSubs.has(s.name.toLowerCase().trim()));
+      map[gKey] = {
+        parentKey, parentTheme, subtopics: subAnalysis,
+        poorSubs, poorPending, parentExists, createdSubs
+      };
+    });
+    return map;
+  }, [recurringGaps, userSubtopics, revLogs, reviews]);
+
+  function handleCreateGapCard(g) {
+    if (!onCreateCardsFromGap) return;
+    const a = gapSubtopicAnalysis[g.theme.toLowerCase().trim()];
+    // Strategy:
+    // - If we found a parent theme in userSubtopics AND have poor subtopics → create subtopic cards for poor ones
+    // - Else create a parent card for the gap theme
+    if (a && a.poorPending && a.poorPending.length > 0) {
+      onCreateCardsFromGap(g.area, a.parentTheme, a.poorPending.map((s) => s.name));
+    } else if (a && a.parentKey && a.subtopics.length > 0 && a.poorSubs.length === 0) {
+      // User registered subtopics but all are fine — create parent card as fallback
+      onCreateCardsFromGap(g.area, a.parentTheme || g.theme, null);
+    } else {
+      onCreateCardsFromGap(g.area, g.theme, null);
+    }
+  }
+
   if (!summary) return <Empty icon="📊" msg="Registre pelo menos 2 provas para ver o Panorama Geral." />;
 
   return (
@@ -579,6 +669,22 @@ function PanoramaGeral({ exams }) {
           const k = g.theme.toLowerCase().trim();
           const reads = gapReads[k] || 0;
           const ts = gapSummaryMap[k];
+          const analysis = gapSubtopicAnalysis[k];
+          const poorPending = analysis?.poorPending || [];
+          const parentExists = analysis?.parentExists;
+          // Button label
+          let btnLabel = "+ Criar card";
+          let btnDisabled = false;
+          if (poorPending.length > 0) {
+            btnLabel = poorPending.length === 1 ? "+ 1 subtema" : `+ ${poorPending.length} subtemas`;
+          } else if (analysis?.parentKey && analysis.subtopics.length > 0 && analysis.poorSubs.length === 0) {
+            // All subtopics are OK — disable (user doesn't need card)
+            btnLabel = "✓ Subtemas OK";
+            btnDisabled = true;
+          } else if (parentExists) {
+            btnLabel = "✓ Card criado";
+            btnDisabled = true;
+          }
           return (
             <div key={i} style={{ display: "flex", flexDirection: "column", gap: 0, padding: "10px 14px", background: faded ? C.surface : `linear-gradient(135deg, ${C.yellow}08, ${C.red}06)`, borderRadius: R.md, border: `1px solid ${faded ? C.border : C.yellow + "30"}`, opacity: faded ? 0.7 : 1 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -595,6 +701,38 @@ function PanoramaGeral({ exams }) {
                   {reads >= 9 ? "Concluir" : "Li"}
                 </button>
               </div>
+              {/* Subtopic analysis line */}
+              {analysis?.parentKey && analysis.subtopics.length > 0 && (
+                <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.4, marginRight: 2 }}>Subtemas:</span>
+                  {analysis.subtopics.map((s, j) => {
+                    const tone = s.avg === null ? C.text3 : (s.isPoor ? C.red : C.green);
+                    return (
+                      <span key={j} style={{ fontSize: 10, fontWeight: 600, color: tone, fontFamily: FM, padding: "2px 8px", borderRadius: R.pill, background: tone + "14", border: `1px solid ${tone}33` }}>
+                        {s.name}{s.avg !== null ? ` ${s.avg}%` : ""}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              {/* Create card button */}
+              {onCreateCardsFromGap && !faded && (
+                <div style={{ marginTop: 8 }}>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); if (!btnDisabled) handleCreateGapCard(g); }}
+                    disabled={btnDisabled}
+                    style={{
+                      background: btnDisabled ? C.surface : C.purple + "18",
+                      border: `1px solid ${btnDisabled ? C.border : C.purple + "55"}`,
+                      borderRadius: R.sm, cursor: btnDisabled ? "default" : "pointer",
+                      padding: "5px 12px", fontSize: 10, fontWeight: 700,
+                      color: btnDisabled ? C.text3 : C.purple, fontFamily: F
+                    }}
+                  >
+                    {btnLabel}
+                  </button>
+                </div>
+              )}
               {ts?.resumo && <div style={{ fontSize: 11, color: C.text2, lineHeight: 1.5, marginTop: 8, padding: "8px 10px", background: C.surface, borderRadius: R.sm, border: `1px solid ${C.border}` }}>{ts.resumo}</div>}
               {ts?.topicos?.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6, paddingLeft: 2 }}>
                 {ts.topicos.map((tp, j) => <span key={j} title={tp.d} style={{ fontSize: 9, color: C.text3, fontFamily: FM, padding: "2px 7px", borderRadius: R.pill, background: C.bg2 || C.surface, border: `1px solid ${C.border}`, cursor: tp.d ? "help" : "default" }}>{tp.t}</span>)}

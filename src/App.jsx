@@ -1123,6 +1123,70 @@ function App() {
   }
   function hasRecalcBackup() { return !!localStorage.getItem("rp26_reviews_backup"); }
   function addExam(exam) { const newExams = [{ ...exam, id: uid() }, ...exams]; persistExams(newExams); notify("✓ Prova registrada"); setTimeout(() => { const newDecks = generateFlashcardDecks(newExams, reviews, sessions); const merged = mergeDecks(flashcardDecks, newDecks); persistFlashcards(merged); }, 100); }
+  // Create review cards from a recurring gap. If subNames provided, create subtopic cards for each;
+  // otherwise create a parent card for the theme. Skips items that already have a card. Returns { created, skipped }.
+  function createCardsFromGap(area, parentTheme, subNames) {
+    if (!area || !parentTheme) return;
+    const t = today();
+    let created = 0, skipped = 0;
+    const createdNames = [];
+    persistReviews((prev) => {
+      let next = [...prev];
+      const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+      const pNorm = parentTheme.toLowerCase().trim();
+      const pBase = stripSem(pNorm);
+      if (subNames && subNames.length > 0) {
+        // Create subtopic cards
+        subNames.forEach((name) => {
+          const nNorm = name.toLowerCase().trim();
+          const sKey = `${area}__${pNorm}::${nNorm}`;
+          const sKeyBase = `${area}__${pBase}::${nNorm}`;
+          // Check if already exists (exact or fuzzy)
+          const exists = next.some((r) => {
+            if (!r.isSubtopic || r.area !== area) return false;
+            if (r.key === sKey || r.key === sKeyBase) return true;
+            if (r.theme && r.theme.toLowerCase().trim() === nNorm && r.parentTheme) {
+              const rpn = r.parentTheme.toLowerCase().trim();
+              if (rpn === pNorm || stripSem(rpn) === pBase) return true;
+            }
+            return false;
+          });
+          if (exists) { skipped++; return; }
+          next = [{
+            id: uid(), key: sKey, area, theme: name, parentTheme,
+            isSubtopic: true, intervalIndex: 0, nextDue: t,
+            lastPerf: null, lastStudied: null, history: []
+          }, ...next];
+          created++;
+          createdNames.push(name);
+        });
+      } else {
+        // Create parent card for the gap theme
+        const pKey = `${area}__${pNorm}`;
+        const exists = next.some((r) => !r.isSubtopic && r.area === area && (
+          r.key === pKey || stripSem((r.theme || "").toLowerCase().trim()) === pBase
+        ));
+        if (exists) { skipped++; }
+        else {
+          next = [{
+            id: uid(), key: pKey, area, theme: parentTheme,
+            intervalIndex: 0, nextDue: t,
+            lastPerf: null, lastStudied: null, history: []
+          }, ...next];
+          created++;
+          createdNames.push(parentTheme);
+        }
+      }
+      return next;
+    });
+    if (created > 0) {
+      const label = created === 1 ? "1 card criado" : `${created} cards criados`;
+      notify(`✓ ${label}${skipped > 0 ? ` (${skipped} já existia${skipped > 1 ? "m" : ""})` : ""}`);
+    } else if (skipped > 0) {
+      notify(`⚠ Card já existia${skipped > 1 ? "m" : ""}`);
+    }
+    return { created, skipped, createdNames };
+  }
   function delSession(id) { persistSessions((prev) => prev.filter((s) => s.id !== id)); }
   function delExam(id) { persistExams((prev) => prev.filter((e) => e.id !== id)); }
   function updateExam(id, updates) { persistExams((prev) => prev.map((e) => e.id !== id ? e : { ...e, ...updates })); notify("✓ Prova atualizada"); regenerateFlashcards(); }
@@ -1359,7 +1423,7 @@ function App() {
             {tab === "alertas" && <Dashboard revLogs={revLogs} sessions={sessions} exams={exams} reviews={reviews} dueCount={dueR.length} onNotionSync={handleNotionSync} onNewSession={() => setShowSessionModal(true)} onAlerts={() => switchTab("alertas")} forceTab="alerts" flashcardDecks={flashcardDecks} onNavigateFlashcards={() => switchTab("flashcards")} onNavigateProvas={() => switchTab("provas")} onNavigateRevisoes={() => switchTab("revisoes")} />}
             {tab === "sessoes" && <Sessoes sessions={sessions} onAdd={addSession} onDel={delSession} />}
             {tab === "revisoes" && <Revisoes due={dueR} upcoming={upR} revLogs={revLogs} reviews={reviews} sessions={sessions} subtopics={subtopics} onMark={markReview} onQuick={addRevLog} onEditLog={editRevLog} onDelLog={delRevLog} onSubtopicReview={addSubtopicReview} onSaveSubtopics={saveSubtopics} onUndoMark={undoMarkReview} />}
-            {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} subtopics={subtopics} onAdd={addExam} onDel={delExam} onUpdate={updateExam} />}
+            {tab === "provas" && <Provas exams={exams} revLogs={revLogs} sessions={sessions} reviews={reviews} subtopics={subtopics} onAdd={addExam} onDel={delExam} onUpdate={updateExam} onCreateCardsFromGap={createCardsFromGap} />}
             {tab === "temas" && <Temas reviews={reviews} revLogs={revLogs} subtopics={subtopics} onEditInterval={editReview} onSaveSubtopics={saveSubtopics} onDeleteReviews={persistReviews} onRecalcIntervals={recalcSubtopicIntervals} onUndoRecalc={undoRecalc} hasRecalcBackup={hasRecalcBackup} />}
             {tab === "flashcards" && <Flashcards decks={flashcardDecks} onReview={handleFlashcardReview} />}
           </Suspense>

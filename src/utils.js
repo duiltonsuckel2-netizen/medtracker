@@ -42,6 +42,83 @@ export function getEffDueUtil(r, allReviews) {
   return subs.map((s) => s.nextDue).sort()[0];
 }
 
+// Shared helper: returns a deduped list of due/overdue reviews for the given window.
+// Handles parent/subtopic awareness — emits one row per due subtopic if a parent has
+// subtopics, otherwise emits the parent. Subtopics with no matching parent show as orphans.
+// Row shape: { key, area, parentTheme, subtopic, nextDue, isOverdue, revId }
+export function getDueReviewsForWeek(allReviews, weekStart, weekEnd) {
+  const stripSem = (s) => (s || "").replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+  // Dedup parents by base theme, keep most recently studied
+  const parentsByKey = new Map();
+  allReviews.forEach((r) => {
+    if (r.isSubtopic || !r.nextDue || !r.theme) return;
+    const k = `${r.area}__${stripSem(r.theme.toLowerCase().trim())}`;
+    const ex = parentsByKey.get(k);
+    if (!ex || (r.lastStudied || "") > (ex.lastStudied || "")) parentsByKey.set(k, r);
+  });
+  const isChildOf = (sub, parent) => {
+    if (!sub.isSubtopic || sub.area !== parent.area) return false;
+    const pNorm = parent.theme.toLowerCase().trim();
+    const pBase = stripSem(pNorm);
+    if (sub.key) {
+      if (sub.key.startsWith(`${parent.area}__${pNorm}::`)) return true;
+      if (sub.key.startsWith(`${parent.area}__${pBase}::`)) return true;
+    }
+    if (sub.parentTheme) {
+      const spn = sub.parentTheme.toLowerCase().trim();
+      if (spn === pNorm || stripSem(spn) === pBase) return true;
+    }
+    return false;
+  };
+  const consumedSubIds = new Set();
+  const results = [];
+  parentsByKey.forEach((parent, key) => {
+    const subs = allReviews.filter((s) => s.isSubtopic && s.nextDue && isChildOf(s, parent));
+    if (subs.length > 0) {
+      subs.forEach((s) => consumedSubIds.add(s.id));
+      subs.filter((s) => s.nextDue <= weekEnd).forEach((s) => {
+        results.push({
+          key: `${key}::${s.theme.toLowerCase().trim()}`,
+          area: s.area,
+          parentTheme: parent.theme,
+          subtopic: s.theme,
+          nextDue: s.nextDue,
+          isOverdue: s.nextDue < weekStart,
+          revId: s.id
+        });
+      });
+    } else if (parent.nextDue && parent.nextDue <= weekEnd) {
+      results.push({
+        key,
+        area: parent.area,
+        parentTheme: parent.theme,
+        subtopic: null,
+        nextDue: parent.nextDue,
+        isOverdue: parent.nextDue < weekStart,
+        revId: parent.id
+      });
+    }
+  });
+  // Orphan subtopics (no matching parent in reviews)
+  allReviews.forEach((r) => {
+    if (!r.isSubtopic || !r.nextDue || !r.theme) return;
+    if (consumedSubIds.has(r.id)) return;
+    if (r.nextDue > weekEnd) return;
+    const pt = r.parentTheme || r.theme;
+    results.push({
+      key: `orphan__${r.area}__${stripSem((pt || "").toLowerCase().trim())}::${r.theme.toLowerCase().trim()}`,
+      area: r.area,
+      parentTheme: pt,
+      subtopic: r.parentTheme ? r.theme : null,
+      nextDue: r.nextDue,
+      isOverdue: r.nextDue < weekStart,
+      revId: r.id
+    });
+  });
+  results.sort((a, b) => a.nextDue.localeCompare(b.nextDue));
+  return results;
+}
+
 export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   const sem = SEMANAS[semIdx] || SEMANAS[0];
   const satStr = SEM_SAT[sem.semana] || today();
@@ -53,45 +130,38 @@ export function buildWeekTemplate(semIdx, allReviews, alertThemes) {
   const dayIds = Object.keys(dates);
   const weekStart = dates.sab;
   const weekEnd = dates.sex;
-  // Dedup parent reviews by base theme (strip Sem. suffix), keep most recently studied
-  const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
-  const dedupMap = new Map();
-  const parentRevs = allReviews.filter((r) => !r.isSubtopic);
-  parentRevs.forEach((r) => {
-    if (!r.nextDue) return;
-    const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
-    const existing = dedupMap.get(dk);
-    if (existing) {
-      if ((r.lastStudied || "") > (existing.lastStudied || "")) dedupMap.set(dk, r);
-    } else { dedupMap.set(dk, r); }
-  });
-  [...dedupMap.values()].forEach((r) => {
-    const effDue = getEffDueUtil(r, allReviews);
-    // Include if due within this week OR overdue (before this week)
-    if (effDue <= weekEnd) {
-      const dayId = dayIds.find((k) => dates[k] === effDue);
-      if (dayId) {
-        // Due on a specific day this week
-        rbd[dayId].push({ id: uid(), text: `🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true });
-      } else if (effDue < weekStart) {
-        // Overdue from before this week — distribute across seg-qui
-        const targetDays = ["seg", "ter", "qua", "qui"];
-        const best = targetDays.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
-        rbd[best].push({ id: uid(), text: `⚠️ 🔄 ${r.theme} (${areaMap[r.area]?.short || r.area})`, done: false, fixed: false, isReview: true });
-      }
+  const stripSem = (s) => (s || "").replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
+  const dueReviews = getDueReviewsForWeek(allReviews, weekStart, weekEnd);
+  const reviewParentKeys = new Set();
+  dueReviews.forEach((d) => {
+    reviewParentKeys.add(`${d.area}__${stripSem((d.parentTheme || "").toLowerCase().trim())}`);
+    const label = d.subtopic ? `${d.parentTheme} → ${d.subtopic}` : d.parentTheme;
+    const text = d.isOverdue
+      ? `⚠️ 🔄 ${label} (${areaMap[d.area]?.short || d.area})`
+      : `🔄 ${label} (${areaMap[d.area]?.short || d.area})`;
+    // Stable ID based on review key — survives rebuilds
+    const id = `rev_${d.key}`;
+    const item = { id, text, done: false, fixed: false, isReview: true, revKey: d.key, isOverdue: d.isOverdue };
+    if (d.isOverdue) {
+      const targets = ["seg", "ter", "qua", "qui"];
+      const best = targets.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
+      rbd[best].push(item);
+    } else {
+      const dayId = dayIds.find((k) => dates[k] === d.nextDue);
+      if (dayId) rbd[dayId].push(item);
     }
   });
-  const targetDays = ["seg", "ter", "qua", "qui"];
+  const targets = ["seg", "ter", "qua", "qui"];
   (alertThemes || []).forEach((at) => {
-    // Skip if already added as overdue review
-    const dk = `${at.area}__${stripSem((at.theme || "").toLowerCase().trim())}`;
-    if (dedupMap.has(dk)) return;
-    const best = targetDays.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
-    rbd[best].push({ id: uid(), text: `🎯 Revisar: ${at.theme} (${areaMap[at.area]?.short || at.area})`, done: false, fixed: false, isReview: true });
+    const k = `${at.area}__${stripSem((at.theme || "").toLowerCase().trim())}`;
+    if (reviewParentKeys.has(k)) return;
+    reviewParentKeys.add(k);
+    const best = targets.reduce((a, b) => rbd[a].length <= rbd[b].length ? a : b);
+    rbd[best].push({ id: `alert_${k}`, text: `🎯 Revisar: ${at.theme} (${areaMap[at.area]?.short || at.area})`, done: false, fixed: false, isReview: true, revKey: `alert__${k}` });
   });
   const fl = (id) => ({ id, text: "📚 Flashcards", done: false, fixed: true });
   return [
-    { id: "sab", label: `Sábado ${fmtDate(dates.sab)}`, items: [fl("fl_sab"), ...(a1 ? [{ id: "sa1", text: `📖 Aula: ${a1.topic} (${a1.area})`, done: false, fixed: false }] : []), ...(a2 ? [{ id: "sa2", text: `📖 Aula: ${a2.topic} (${a2.area})`, done: false, fixed: false }] : []), ...rbd.sab] },
+    { id: "sab", label: `Sábado ${fmtDate(dates.sab)}`, items: [fl("fl_sab"), ...(a1 ? [{ id: "sa1", text: `📖 Aula: ${a1.topic} (${a1.area})`, done: false, fixed: false, isAula: true }] : []), ...(a2 ? [{ id: "sa2", text: `📖 Aula: ${a2.topic} (${a2.area})`, done: false, fixed: false, isAula: true }] : []), ...rbd.sab] },
     { id: "dom", label: `Domingo ${fmtDate(dates.dom)}`, items: [fl("fl_dom"), ...(a1 ? [{ id: "dq1", text: `✏️ Questões: ${a1.topic}`, done: false, fixed: false }] : []), ...(a2 ? [{ id: "dq2", text: `✏️ Questões: ${a2.topic}`, done: false, fixed: false }] : []), { id: "dp", text: "📝 Corrigir simulado da sexta", done: false, fixed: false }, ...rbd.dom] },
     { id: "seg", label: `Segunda ${fmtDate(dates.seg)}`, items: [fl("fl_seg"), ...rbd.seg] },
     { id: "ter", label: `Terça ${fmtDate(dates.ter)}`, items: [fl("fl_ter"), ...rbd.ter] },

@@ -1,13 +1,52 @@
 import React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AREAS, areaMap, AREA_SHORT_MAP, SEMANAS, SEM_SAT } from "../data.js";
 import { C, F, FM, FN, R, S, H, SH, card, inp, btn, tag, NUM } from "../theme.js";
-import { today, fmtDate, uid, weekDates, buildWeekTemplate, getEffDueUtil } from "../utils.js";
+import { today, fmtDate, uid, weekDates, buildWeekTemplate, getDueReviewsForWeek } from "../utils.js";
 import { loadKey, saveKey } from "../storage.js";
 import { debouncedPush } from "../sync.js";
 import { Empty } from "./UI.jsx";
 
-function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
+// Compute "real current week" Saturday key (anchor for current calendar week)
+function currentSatKey() {
+  const now = new Date(); const dow = now.getDay();
+  const daysSinceSat = dow === 6 ? 0 : dow + 1;
+  const sat = new Date(now); sat.setDate(now.getDate() - daysSinceSat); sat.setHours(12, 0, 0, 0);
+  return sat.toISOString().slice(0, 10);
+}
+
+// Merge a freshly-built week template with the user's saved week, preserving done states
+// and manual items. Matches reviews/alerts by stable revKey; others by text.
+function mergeWeeks(fresh, saved) {
+  if (!saved) return fresh;
+  return fresh.map((freshDay) => {
+    const oldDay = saved.find((d) => d.id === freshDay.id);
+    if (!oldDay) return freshDay;
+    // Build lookup of old done states
+    const oldDoneByKey = new Map();
+    const oldDoneByText = new Set();
+    oldDay.items.forEach((it) => {
+      if (!it.done) return;
+      if (it.revKey) oldDoneByKey.set(it.revKey, true);
+      else oldDoneByText.add(it.text);
+    });
+    // Keep old manual items (not review, not fixed) that aren't in fresh by text
+    const oldManual = oldDay.items.filter((it) => !it.isReview && !it.fixed && !freshDay.items.some((fi) => fi.text === it.text));
+    return {
+      ...freshDay,
+      items: [
+        ...freshDay.items.map((it) => {
+          if (it.revKey && oldDoneByKey.has(it.revKey)) return { ...it, done: true };
+          if (oldDoneByText.has(it.text)) return { ...it, done: true };
+          return it;
+        }),
+        ...oldManual
+      ]
+    };
+  });
+}
+
+function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked, onNavigateRevisoes }) {
   const [week, setWeek] = useState(null);
   const [history, setHistory] = useState([]);
   const [view, setView] = useState("current");
@@ -15,10 +54,22 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
   const [editText, setEditText] = useState("");
   const [addingTo, setAddingTo] = useState(null);
   const [newItem, setNewItem] = useState("");
-  const [semIdx, setSemIdx] = useState(0);
+  const [semIdx, setSemIdx] = useState(() => {
+    const sk = currentSatKey();
+    const i = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === sk);
+    return i >= 0 ? i : 0;
+  });
   const [justToggled, setJustToggled] = useState(null);
   const [ankiInput, setAnkiInput] = useState("");
   const [ankiData, setAnkiData] = useState(() => loadKey("rp26_anki", { base: 10030, dailyLogs: [] }));
+
+  // "Real current week" index (based on today's date) — stable across session
+  const realSemIdx = useMemo(() => {
+    const sk = currentSatKey();
+    const i = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === sk);
+    return i >= 0 ? i : 0;
+  }, []);
+  const isPreview = semIdx !== realSemIdx;
 
   const ankiToday = (ankiData.dailyLogs || []).find(l => l.date === today());
   const ankiTotal = ankiData.base + (ankiData.dailyLogs || []).reduce((s, l) => s + (l.count || 0), 0);
@@ -33,44 +84,58 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
     const updated = { ...ankiData, dailyLogs: logs };
     setAnkiData(updated);
     saveKey("rp26_anki", updated);
+    debouncedPush();
     setAnkiInput("");
   }
 
-  function currentSatKey() {
-    const now = new Date(); const dow = now.getDay();
-    const daysSinceSat = dow === 6 ? 0 : dow + 1;
-    const sat = new Date(now); sat.setDate(now.getDate() - daysSinceSat); sat.setHours(12, 0, 0, 0);
-    return sat.toISOString().slice(0, 10);
-  }
+  // Initial mount: load saved agenda for real current week, rollover pending from past days, or build fresh
   useEffect(() => {
     const satKey = currentSatKey();
     Promise.all([loadKey("rp_agenda_v7", null), loadKey("rp_agenda_history", [])]).then(([raw, hist]) => {
       const nh = hist || [];
-      // Handle both old format (array with custom props) and new format (object with .days)
       const saved = raw && raw.days ? raw.days : (Array.isArray(raw) ? raw : null);
       const savedWeekKey = raw && raw._weekKey ? raw._weekKey : (raw && raw.days ? raw._weekKey : undefined);
       const savedSemana = raw && raw._semana ? raw._semana : undefined;
       if (saved && savedWeekKey === satKey) {
+        // Same week — rollover unfinished reviews from past days to today (deduped by revKey)
         const todayDow = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][new Date().getDay()];
         const dayOrder = ["sab", "dom", "seg", "ter", "qua", "qui", "sex"];
         const todayIdx = dayOrder.indexOf(todayDow);
+        const seenRollKeys = new Set();
         const rollovers = [];
         const updated = saved.map((day) => {
           if (dayOrder.indexOf(day.id) >= todayIdx) return day;
           const pendingReviews = day.items.filter((it) => !it.done && it.isReview);
           if (!pendingReviews.length) return day;
-          rollovers.push(...pendingReviews.map((it) => ({ ...it, id: uid(), text: it.text.replace(/^⚠️\s*/, "") + "", done: false })));
+          pendingReviews.forEach((it) => {
+            const k = it.revKey || it.text;
+            if (seenRollKeys.has(k)) return;
+            seenRollKeys.add(k);
+            rollovers.push({ ...it, done: false });
+          });
           return { ...day, items: day.items.filter((it) => it.done || !it.isReview) };
         });
-        if (rollovers.length > 0) {
-          const rolled = updated.map((day) => day.id !== todayDow ? day : {
-            ...day, items: [...day.items, ...rollovers.map((r) => ({ ...r, text: "⚠️ " + r.text.replace(/^🔄\s*/, "🔄 ") }))]
+        // Also dedup against reviews already on today
+        const todayDay = updated.find((d) => d.id === todayDow);
+        const existingTodayKeys = new Set((todayDay?.items || []).filter((it) => it.isReview).map((it) => it.revKey || it.text));
+        const freshRollovers = rollovers.filter((r) => !existingTodayKeys.has(r.revKey || r.text));
+        let next = updated;
+        if (freshRollovers.length > 0) {
+          next = updated.map((day) => day.id !== todayDow ? day : {
+            ...day,
+            items: [...day.items, ...freshRollovers.map((r) => ({
+              ...r,
+              text: r.text.startsWith("⚠️") ? r.text : `⚠️ ${r.text.replace(/^🔄\s*/, "🔄 ")}`,
+              isOverdue: true
+            }))]
           });
-          setWeek(rolled); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: savedSemana, days: rolled });
-        } else { setWeek(saved); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: savedSemana, days: saved }); }
+        }
+        setWeek(next);
+        saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: savedSemana, days: next });
         const idx = SEMANAS.findIndex((s) => SEM_SAT[s.semana] === satKey);
         if (idx >= 0) setSemIdx(idx);
       } else {
+        // Different week — archive old (if had progress) and build fresh for real current week
         if (saved && savedWeekKey) {
           const tot = saved.reduce((s, d) => s + d.items.length, 0);
           const don = saved.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
@@ -85,38 +150,49 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
       setHistory(nh.slice(0, 12));
     });
   }, []);
+
+  // Rebuild week template with current reviews, preserving done states and manual items.
+  // Only persists (and debouncedPush) when not in preview mode.
   function refreshReviews() {
-    // Rebuild the week template with current reviews, preserving done states
     const sem = SEMANAS[semIdx];
     if (!sem || !week) return;
-    const satKey = SEM_SAT[sem.semana] || currentSatKey();
     const fresh = buildWeekTemplate(semIdx, reviews, alertThemes);
-    // Preserve done states from current week by matching item text
-    const merged = fresh.map((freshDay) => {
-      const oldDay = week.find((d) => d.id === freshDay.id);
-      if (!oldDay) return freshDay;
-      const oldDone = new Set(oldDay.items.filter((it) => it.done).map((it) => it.text));
-      // Keep old manual (non-review, non-fixed) items that aren't in fresh
-      const oldManual = oldDay.items.filter((it) => !it.isReview && !it.fixed && !freshDay.items.some((fi) => fi.text === it.text));
-      return {
-        ...freshDay,
-        items: [
-          ...freshDay.items.map((it) => oldDone.has(it.text) ? { ...it, done: true } : it),
-          ...oldManual
-        ]
-      };
-    });
+    const merged = mergeWeeks(fresh, week);
     setWeek(merged);
-    saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: sem.semana, days: merged });
+    if (!isPreview) {
+      saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: sem.semana, days: merged });
+      debouncedPush();
+    }
   }
-  function rebuildForSem(ni) {
+
+  // Navigate to another semana. If it's the real current week, load the saved version (or fresh
+  // if stale); otherwise switch to preview mode without touching storage.
+  function navigateToSem(ni) {
     setSemIdx(ni);
-    const satKey = SEM_SAT[SEMANAS[ni]?.semana] || currentSatKey();
-    const w = buildWeekTemplate(ni, reviews, alertThemes);
-    setWeek(w); saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: SEMANAS[ni]?.semana, days: w });
+    if (ni === realSemIdx) {
+      const satKey = currentSatKey();
+      loadKey("rp_agenda_v7", null).then((raw) => {
+        const saved = raw && raw.days ? raw.days : null;
+        const savedKey = raw && raw._weekKey;
+        if (saved && savedKey === satKey) {
+          setWeek(saved);
+        } else {
+          const w = buildWeekTemplate(ni, reviews, alertThemes);
+          setWeek(w);
+          saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: SEMANAS[ni]?.semana, days: w });
+        }
+      });
+    } else {
+      // Preview: build a fresh template but don't save — keeps real week intact
+      const w = buildWeekTemplate(ni, reviews, alertThemes);
+      setWeek(w);
+    }
   }
+
+  // Save current week. No-op on storage when in preview mode (keeps real week safe).
   function save(days) {
     setWeek(days);
+    if (isPreview) return;
     saveKey("rp_agenda_v7", { _weekKey: currentSatKey(), _semana: SEMANAS[semIdx]?.semana, days });
     debouncedPush();
   }
@@ -140,31 +216,36 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
     }
   }
   function toggleDone(did, iid) {
-    const day = week.find((d) => d.id === did);
-    const item = day?.items.find((it) => it.id === iid);
-    const wasUnchecked = item && !item.done;
     save(week.map((d) => d.id !== did ? d : { ...d, items: d.items.map((it) => it.id !== iid ? it : { ...it, done: !it.done }) }));
     setJustToggled(iid);
     setTimeout(() => setJustToggled(null), 350);
-    // If checking an aula item, trigger subtopic modal
-    if (wasUnchecked && isAulaItem(item)) {
-      openSubtopicsFor(item);
-    }
+    // NOTE: removed auto-open of subtopic modal on aula check — user has an explicit
+    // "📋 subtemas" inline button. Auto-opening was surprising and annoying.
   }
   function startEdit(did, item) { setEditing({ did, iid: item.id }); setEditText(item.text); }
   function commitEdit() { if (!editing) return; save(week.map((d) => d.id !== editing.did ? d : { ...d, items: d.items.map((it) => it.id !== editing.iid ? it : { ...it, text: editText }) })); setEditing(null); }
   function deleteItem(did, iid) { save(week.map((d) => d.id !== did ? d : { ...d, items: d.items.filter((it) => it.id !== iid) })); }
   function addItem(did) { if (!newItem.trim()) return; save(week.map((d) => d.id !== did ? d : { ...d, items: [...d.items, { id: uid(), text: newItem.trim(), done: false, fixed: false }] })); setNewItem(""); setAddingTo(null); }
-  function archiveAndReset(newIdx) {
-    const tot = week.reduce((s, d) => s + d.items.length, 0); const don = week.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
+  // Archive real current week to history and move to next. Disabled in preview mode.
+  function archiveAndReset() {
+    if (isPreview) return;
+    const tot = week.reduce((s, d) => s + d.items.length, 0);
+    const don = week.reduce((s, d) => s + d.items.filter((i) => i.done).length, 0);
     const entry = { savedAt: today(), label: `${SEMANAS[semIdx]?.semana || "Semana"} — ${fmtDate(currentSatKey())}`, progress: tot > 0 ? Math.round((don / tot) * 100) : 0, done: don, total: tot, days: week };
-    const nh = [entry, ...history].slice(0, 12); setHistory(nh); saveKey("rp_agenda_history", nh);
-    const ni = newIdx ?? Math.min(semIdx + 1, SEMANAS.length - 1);
-    rebuildForSem(ni);
+    const nh = [entry, ...history].slice(0, 12);
+    setHistory(nh);
+    saveKey("rp_agenda_history", nh);
+    const ni = Math.min(semIdx + 1, SEMANAS.length - 1);
+    setSemIdx(ni);
+    const satKey = SEM_SAT[SEMANAS[ni]?.semana] || currentSatKey();
+    const w = buildWeekTemplate(ni, reviews, alertThemes);
+    setWeek(w);
+    saveKey("rp_agenda_v7", { _weekKey: satKey, _semana: SEMANAS[ni]?.semana, days: w });
+    debouncedPush();
   }
 
-  // Streak calculation
-  const streak = (() => {
+  // Streak calculation (memoized)
+  const streak = useMemo(() => {
     let count = 0;
     if (week) {
       const tot = week.reduce((s, d) => s + d.items.length, 0);
@@ -175,7 +256,17 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
       if (h.progress >= 50) count++; else break;
     }
     return count;
-  })();
+  }, [week, history]);
+
+  // Deduped due-reviews list for summary section (shared helper — same logic as buildWeekTemplate)
+  const summaryDue = useMemo(() => {
+    const semana = SEMANAS[semIdx];
+    if (!semana) return [];
+    const satStr = SEM_SAT[semana.semana];
+    if (!satStr) return [];
+    const dates = weekDates(satStr);
+    return getDueReviewsForWeek(reviews, dates.sab, dates.sex);
+  }, [reviews, semIdx]);
 
   const todayDayFallback = ["dom", "seg", "ter", "qua", "qui", "sex", "sab"][new Date().getDay()];
   if (!week) return <Empty msg="Carregando…" />;
@@ -213,61 +304,85 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
           )}
         </div>
       </div>
+      {/* Preview banner */}
+      {isPreview && (
+        <div style={{ background: C.yellow + "14", border: `1px solid ${C.yellow}44`, borderRadius: R.md, padding: "10px 14px", display: "flex", alignItems: "center", gap: S.md, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 14 }}>👁️</span>
+          <span style={{ flex: 1, fontSize: 12, color: C.text2 }}>
+            Visualizando <b>{semana?.semana}</b> em modo leitura. Alterações não são salvas. A semana real é <b>{SEMANAS[realSemIdx]?.semana}</b>.
+          </span>
+          <button onClick={() => navigateToSem(realSemIdx)} style={btn(C.yellow, { padding: "6px 14px", fontSize: 11, color: "#000" })}>← Voltar pra semana atual</button>
+        </div>
+      )}
+      {/* Anki widget (visible always, not buried in today's flashcard item) */}
+      <div style={{ background: C.card, border: `1px solid ${C.yellow}25`, borderRadius: R.md, padding: "10px 14px", display: "flex", alignItems: "center", gap: S.md, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 16 }}>📚</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.text3, textTransform: "uppercase", letterSpacing: 0.5 }}>Anki</span>
+        <span style={{ fontSize: 13, color: C.yellow, fontWeight: 700, fontFamily: FN }}>{ankiTotal.toLocaleString("pt-BR")}</span>
+        <span style={{ fontSize: 10, color: C.text3 }}>total</span>
+        <div style={{ height: 14, width: 1, background: C.border2, margin: "0 2px" }} />
+        <span style={{ fontSize: 12, color: ankiToday ? C.green : C.text3, fontWeight: 600, fontFamily: FN }}>+{ankiToday?.count || 0} hoje</span>
+        <div style={{ flex: 1 }} />
+        <input value={ankiInput} onChange={(e) => setAnkiInput(e.target.value.replace(/[^0-9]/g, ""))} onKeyDown={(e) => { if (e.key === "Enter") addAnkiCards(); }} placeholder="qtd" style={{ ...inp(), width: 64, padding: "5px 10px", fontSize: 11, textAlign: "center" }} />
+        <button onClick={addAnkiCards} style={btn(C.yellow, { padding: "5px 12px", fontSize: 11, color: "#000" })}>+</button>
+      </div>
       <div style={{ display: "flex", gap: S.md, alignItems: "center", flexWrap: "wrap" }}>
         <div style={{ display: "flex", background: C.card, border: `1px solid ${C.border}`, borderRadius: R.pill, padding: 3, gap: 2, boxShadow: SH.sm }}>
           {["current", "history"].map((v) => <button key={v} onClick={() => setView(v)} style={{ background: view === v ? C.purple + "20" : "none", border: view === v ? `1px solid ${C.purple}35` : "1px solid transparent", borderRadius: R.pill, padding: "8px 18px", color: view === v ? C.purple : C.text3, fontSize: 12, fontFamily: F, cursor: "pointer", fontWeight: view === v ? 700 : 500, boxShadow: view === v ? SH.glow(C.purple) : "none", minHeight: 36, transition: "all .2s ease" }}>{v === "current" ? "Semana" : "Histórico"}</button>)}
         </div>
         <div style={{ flex: 1 }} />
-        <select value={semIdx} onChange={(e) => rebuildForSem(Number(e.target.value))} style={{ ...inp(), width: "auto", fontSize: 11, padding: "6px 10px" }}>
-          {SEMANAS.map((s, i) => <option key={i} value={i}>{s.semana} — {s.aulas.map((a) => a.area).join(" + ")}</option>)}
+        <select value={semIdx} onChange={(e) => navigateToSem(Number(e.target.value))} style={{ ...inp(), width: "auto", fontSize: 11, padding: "6px 10px" }}>
+          {SEMANAS.map((s, i) => <option key={i} value={i}>{i === realSemIdx ? "● " : ""}{s.semana} — {s.aulas.map((a) => a.area).join(" + ")}</option>)}
         </select>
         <button onClick={refreshReviews} style={btn(C.purple, { padding: "7px 12px", fontSize: 12 })} title="Atualizar revisões na agenda">{"🔄"}</button>
-        <button onClick={() => { if (confirm("Arquivar semana atual e ir para a próxima?")) archiveAndReset(); }} style={btn(C.blue, { padding: "7px 16px", fontSize: 12 })}>Próxima semana →</button>
+        <button
+          onClick={() => { if (confirm("Arquivar semana atual e ir para a próxima?")) archiveAndReset(); }}
+          disabled={isPreview}
+          title={isPreview ? "Disponível apenas na semana real" : "Arquivar e ir para a próxima semana"}
+          style={{ ...btn(C.blue, { padding: "7px 16px", fontSize: 12 }), opacity: isPreview ? 0.4 : 1, cursor: isPreview ? "not-allowed" : "pointer" }}
+        >Próxima semana →</button>
       </div>
-      {view === "current" && semana && (() => {
-        const satStr = SEM_SAT[semana.semana];
-        const dates = satStr ? weekDates(satStr) : {};
-        const weekDateSet = new Set(Object.values(dates));
-        const stripSem = (s) => s.replace(/\s*\(sem\.\s*\d+\)\s*/gi, "").trim();
-        // Dedup by base theme, keeping the most recently studied card
-        const revDedupMap = new Map();
-        reviews.filter((r) => !r.isSubtopic && r.nextDue).forEach((r) => {
-          const dk = `${r.area}__${stripSem((r.theme || "").toLowerCase().trim())}`;
-          const existing = revDedupMap.get(dk);
-          if (existing) {
-            if ((r.lastStudied || "") > (existing.lastStudied || "")) revDedupMap.set(dk, r);
-          } else { revDedupMap.set(dk, r); }
-        });
-        const revs = [...revDedupMap.values()].map((r) => {
-          const effDue = getEffDueUtil(r, reviews);
-          return { theme: r.theme, area: r.area, nextDue: effDue };
-        }).filter((r) => r.nextDue <= dates.sex)
-          .sort((a, b) => a.nextDue.localeCompare(b.nextDue));
-        return (
-          <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.lg, padding: `${S.xl}px`, boxShadow: SH.sm }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: S.lg }}>{semana.semana} — aulas + revisões agendadas</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {semana.aulas.map((a, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", minHeight: 36, padding: "6px 0", gap: 0 }}>
-                  <span style={{ ...tag(areaMap[AREA_SHORT_MAP[a.area]]?.color || C.blue), width: 48, minWidth: 48, textAlign: "center", fontSize: 10, padding: "3px 0", display: "inline-flex", justifyContent: "center" }}>{a.area}</span>
-                  <span style={{ width: 28, textAlign: "center", fontSize: 14, flexShrink: 0 }}>{"📖"}</span>
-                  <span style={{ flex: 1, fontSize: 13, color: C.text }}>{a.topic}</span>
-                </div>
-              ))}
-              {revs.length > 0 && <div style={{ height: 1, background: C.border, margin: `${S.sm}px 0` }} />}
-              {revs.map((r, i) => { const ao = areaMap[r.area]; return (
-                <div key={i} style={{ display: "flex", alignItems: "center", minHeight: 36, padding: "6px 0", gap: 0 }}>
+      {view === "current" && semana && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.lg, padding: `${S.xl}px`, boxShadow: SH.sm }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: C.text3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: S.lg }}>{semana.semana} — aulas + revisões agendadas</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {semana.aulas.map((a, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", minHeight: 36, padding: "6px 0", gap: 0 }}>
+                <span style={{ ...tag(areaMap[AREA_SHORT_MAP[a.area]]?.color || C.blue), width: 48, minWidth: 48, textAlign: "center", fontSize: 10, padding: "3px 0", display: "inline-flex", justifyContent: "center" }}>{a.area}</span>
+                <span style={{ width: 28, textAlign: "center", fontSize: 14, flexShrink: 0 }}>{"📖"}</span>
+                <span style={{ flex: 1, fontSize: 13, color: C.text }}>{a.topic}</span>
+              </div>
+            ))}
+            {summaryDue.length > 0 && <div style={{ height: 1, background: C.border, margin: `${S.sm}px 0` }} />}
+            {summaryDue.map((r, i) => {
+              const ao = areaMap[r.area];
+              const clickable = !!onNavigateRevisoes;
+              return (
+                <div
+                  key={r.key}
+                  onClick={clickable ? () => onNavigateRevisoes() : undefined}
+                  style={{
+                    display: "flex", alignItems: "center", minHeight: 36, padding: "6px 8px", gap: 0,
+                    background: r.isOverdue ? C.red + "0C" : "transparent",
+                    borderLeft: r.isOverdue ? `2px solid ${C.red}` : "2px solid transparent",
+                    borderRadius: r.isOverdue ? R.sm : 0,
+                    cursor: clickable ? "pointer" : "default"
+                  }}
+                >
                   <span style={{ ...tag(ao?.color || C.text3), width: 48, minWidth: 48, textAlign: "center", fontSize: 10, padding: "3px 0", display: "inline-flex", justifyContent: "center" }}>{ao?.short}</span>
-                  <span style={{ width: 28, textAlign: "center", fontSize: 14, flexShrink: 0 }}>{"🔄"}</span>
-                  <span style={{ flex: 1, fontSize: 13, color: C.text2 }}>{r.theme}</span>
-                  <span style={{ fontSize: 11, color: C.text3, fontFamily: FM, flexShrink: 0, minWidth: 48, textAlign: "right" }}>{fmtDate(r.nextDue)}</span>
+                  <span style={{ width: 28, textAlign: "center", fontSize: 14, flexShrink: 0 }}>{r.isOverdue ? "⚠️" : "🔄"}</span>
+                  <span style={{ flex: 1, fontSize: 13, color: C.text2, minWidth: 0 }}>
+                    <span>{r.parentTheme}</span>
+                    {r.subtopic && <span style={{ color: C.text3, fontSize: 11 }}> → {r.subtopic}</span>}
+                  </span>
+                  <span style={{ fontSize: 11, color: r.isOverdue ? C.red : C.text3, fontFamily: FM, flexShrink: 0, minWidth: 48, textAlign: "right", fontWeight: r.isOverdue ? 700 : 400 }}>{fmtDate(r.nextDue)}</span>
                 </div>
-              ); })}
-              {revs.length === 0 && <div style={{ padding: "8px 0", fontSize: 11, color: C.text3, fontStyle: "italic" }}>Nenhuma revisão agendada para esta semana</div>}
-            </div>
+              );
+            })}
+            {summaryDue.length === 0 && <div style={{ padding: "8px 0", fontSize: 11, color: C.text3, fontStyle: "italic" }}>Nenhuma revisão agendada para esta semana</div>}
           </div>
-        );
-      })()}
+        </div>
+      )}
       {view === "current" && (
         <div style={{ display: "flex", flexDirection: "column", gap: S.lg }}>
           {week.map((day) => {
@@ -295,8 +410,7 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
                     const wasPulsed = justToggled === item.id;
                     const isFlashcard = item.id && item.id.startsWith("fl_");
                     return (
-                      <div key={item.id} style={{ display: "flex", flexDirection: isFlashcard ? "column" : "row", gap: isFlashcard ? S.sm : S.md, padding: "12px 14px", background: item.done ? C.card : C.card2, borderRadius: R.md, border: `1px solid ${isFlashcard ? C.yellow + "25" : (item.done ? C.green + "15" : C.border)}`, transition: "all .2s ease" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: S.md }}>
+                      <div key={item.id} style={{ display: "flex", flexDirection: "row", gap: S.md, padding: "12px 14px", background: item.done ? C.card : C.card2, borderRadius: R.md, border: `1px solid ${isFlashcard ? C.yellow + "25" : (item.done ? C.green + "15" : C.border)}`, transition: "all .2s ease", alignItems: "center" }}>
                         <div onClick={() => toggleDone(day.id, item.id)} className={wasPulsed && item.done ? "pulse-check" : ""} style={{ width: 22, height: 22, borderRadius: 7, border: item.done ? `2px solid ${C.green}` : `2px solid ${C.border2}`, background: item.done ? C.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", flexShrink: 0, transition: "all .2s cubic-bezier(.4,0,.2,1)" }}>
                           {item.done && <span style={{ fontSize: 11, color: "#000", fontWeight: 800 }}>{"✓"}</span>}
                         </div>
@@ -319,17 +433,6 @@ function Agenda({ reviews, revLogs, alertThemes, subtopics, onAulaChecked }) {
                             </div>
                           );
                         })()}
-                        </div>
-                        {isFlashcard && isToday && (
-                          <div style={{ display: "flex", alignItems: "center", gap: S.sm, paddingLeft: 34 }}>
-                            <span style={{ fontSize: 11, color: C.yellow, fontWeight: 700, fontFamily: FN }}>{ankiTotal.toLocaleString("pt-BR")}</span>
-                            <span style={{ fontSize: 10, color: C.text3 }}>total</span>
-                            <div style={{ height: 14, width: 1, background: C.border2, margin: "0 2px" }} />
-                            <span style={{ fontSize: 11, color: ankiToday ? C.green : C.text3, fontWeight: 600, fontFamily: FN }}>+{ankiToday?.count || 0} hoje</span>
-                            <input value={ankiInput} onChange={(e) => setAnkiInput(e.target.value.replace(/[^0-9]/g, ""))} onKeyDown={(e) => { if (e.key === "Enter") addAnkiCards(); }} placeholder="qtd" style={{ ...inp(), width: 56, padding: "4px 8px", fontSize: 11, textAlign: "center" }} />
-                            <button onClick={addAnkiCards} style={btn(C.yellow, { padding: "4px 10px", fontSize: 11, color: "#000" })}>+</button>
-                          </div>
-                        )}
                       </div>
                     );
                   })}

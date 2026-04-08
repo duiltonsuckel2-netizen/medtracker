@@ -80,16 +80,78 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
-      // Purge old SW caches immediately — ensures PWA gets fresh files
+      // Purge stale SW caches from previous versions. We can't hardcode the
+      // "current" name here because it must stay in sync with sw.js — so we
+      // only purge OLD medtracker caches once the SW activates (sw.js does
+      // this on its activate event). This block is a fallback for browsers
+      // where the SW hasn't run yet.
       (function() {
-        var CURRENT = 'medtracker-v97';
-        if ('caches' in window) {
-          caches.keys().then(function(names) {
-            names.forEach(function(name) {
-              if (name !== CURRENT) caches.delete(name);
-            });
+        if (!('caches' in window)) return;
+        // Delete any "medtracker-*" cache older than what the SW will install.
+        // Safe no-op if SW is already managing them.
+        caches.keys().then(function(names) {
+          names.forEach(function(name) {
+            // Keep only things that look current; purge very old numbered caches.
+            // sw.js also purges non-current caches on activate, so this is best-effort.
+            if (/^medtracker-v([0-9]|[1-9][0-9])$/.test(name)) {
+              // v0..v99 → definitely stale (we're on v100+)
+              caches.delete(name);
+            }
           });
+        });
+      })();
+    </script>
+    <script>
+      // Recovery from stale deploys: when a lazy chunk fails to load (because
+      // the user had the tab open across a deploy and their index.html
+      // references chunk hashes that no longer exist), do a hard reload once.
+      (function() {
+        var RELOAD_KEY = '__medtracker_chunk_reload';
+        function isChunkError(msg) {
+          if (!msg) return false;
+          msg = String(msg);
+          return (
+            msg.indexOf('Importing a module script failed') !== -1 ||
+            msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+            msg.indexOf('error loading dynamically imported module') !== -1 ||
+            /Loading chunk [\w-]+ failed/.test(msg)
+          );
         }
+        function recover() {
+          // Only reload once per session to avoid infinite loops
+          try {
+            if (sessionStorage.getItem(RELOAD_KEY)) return;
+            sessionStorage.setItem(RELOAD_KEY, '1');
+          } catch (e) {}
+          // Clear caches and unregister SW, then hard reload
+          var done = function() { window.location.reload(); };
+          try {
+            if ('caches' in window) {
+              caches.keys().then(function(names) {
+                return Promise.all(names.map(function(n) { return caches.delete(n); }));
+              }).then(function() {
+                if ('serviceWorker' in navigator) {
+                  return navigator.serviceWorker.getRegistrations().then(function(regs) {
+                    return Promise.all(regs.map(function(r) { return r.unregister(); }));
+                  });
+                }
+              }).then(done).catch(done);
+            } else { done(); }
+          } catch (e) { done(); }
+        }
+        window.addEventListener('error', function(e) {
+          if (isChunkError(e && e.message)) recover();
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+          var msg = e && e.reason && (e.reason.message || e.reason);
+          if (isChunkError(msg)) recover();
+        });
+        // Clear the flag after a successful load so future deploys can trigger recovery again
+        window.addEventListener('load', function() {
+          setTimeout(function() {
+            try { sessionStorage.removeItem(RELOAD_KEY); } catch (e) {}
+          }, 5000);
+        });
       })();
     </script>
     <script>

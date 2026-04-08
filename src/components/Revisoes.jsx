@@ -8,7 +8,7 @@ import { Fld, Empty } from "./UI.jsx";
 import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 import { useThemeProgress } from "../hooks/useThemeProgress.js";
 
-function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics, onUndoMark, onDeleteReview }) {
+function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics, onUndoMark, onDeleteReview, onAnticipate }) {
   const [subTab, setSubTab] = useState("proximas");
   const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id && r.theme).map((r) => r.theme), ...revLogs.filter((r) => r.area === a.id && r.theme).map((r) => r.theme)])].sort(); }); return o; }, [reviews, revLogs]);
   const emptyQ = { area: "clinica", theme: "", freeTheme: false, total: "", acertos: "" };
@@ -378,6 +378,11 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                         ? <button onClick={() => setStReviewModal({ area: r.area, theme: r.theme, items: st.map(s => s.name) })} style={{ background: C.purple + "14", border: `1px solid ${C.purple}30`, borderRadius: R.md, cursor: "pointer", fontSize: 10, color: C.purple, height: 32, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 600, fontFamily: FM, gap: 3 }} title="Detalhar subtemas">📋 {st.length}</button>
                         : <button onClick={() => setStRegisterModal({ area: r.area, theme: r.theme })} style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: R.md, cursor: "pointer", fontSize: 10, color: C.text3, height: 32, padding: "0 8px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontFamily: FM, gap: 3 }} title="Adicionar subtemas">📋 sub</button>;
                       })()}
+                      {onAnticipate && <button
+                        onClick={() => { if (confirm(`Antecipar "${r.theme}" para hoje?`)) onAnticipate(r.id); }}
+                        title="Antecipar para hoje"
+                        style={{ background: C.yellow + "14", border: `1px solid ${C.yellow}30`, borderRadius: R.md, cursor: "pointer", fontSize: 12, color: C.yellow, height: 32, padding: "0 10px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 600, fontFamily: FM }}
+                      >⏩</button>}
                     </div>
                   </div>
                 );

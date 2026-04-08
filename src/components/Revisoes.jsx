@@ -8,7 +8,7 @@ import { Fld, Empty } from "./UI.jsx";
 import { SubtopicModal, SubtopicReviewModal, CONFIDENCE_OPTS } from "./SubtopicModal.jsx";
 import { useThemeProgress } from "../hooks/useThemeProgress.js";
 
-function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics, onUndoMark }) {
+function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark, onQuick, onEditLog, onDelLog, onSubtopicReview, onSaveSubtopics, onUndoMark, onDeleteReview }) {
   const [subTab, setSubTab] = useState("proximas");
   const themesByArea = useMemo(() => { const o = {}; AREAS.forEach((a) => { o[a.id] = [...new Set([...reviews.filter((r) => r.area === a.id && r.theme).map((r) => r.theme), ...revLogs.filter((r) => r.area === a.id && r.theme).map((r) => r.theme)])].sort(); }); return o; }, [reviews, revLogs]);
   const emptyQ = { area: "clinica", theme: "", freeTheme: false, total: "", acertos: "" };
@@ -296,6 +296,17 @@ function Revisoes({ due, upcoming, revLogs, reviews, sessions, subtopics, onMark
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {!isM && <button onClick={() => { const allSt = resolveSubtopicsWithScores(r); const subtemas = allSt.length > 0 ? allSt.map(s => ({ name: s.name, pct: "" })) : null; setMarking({ id: r.id, total: "", acertos: "", subtemas }); }} style={btn(C.blue, { padding: "8px 14px" })}>Registrar</button>}
+                  {!isM && onDeleteReview && <button
+                    onClick={() => {
+                      const hasSubs = reviews.some((sr) => sr.isSubtopic && sr.area === r.area && (sr.parentTheme || "").toLowerCase().trim() === (r.theme || "").toLowerCase().trim());
+                      const msg = hasSubs
+                        ? `Excluir "${r.theme}" e seus subtemas? Esta ação não pode ser desfeita.`
+                        : `Excluir "${r.theme}"? Esta ação não pode ser desfeita.`;
+                      if (confirm(msg)) onDeleteReview(r.id);
+                    }}
+                    title="Excluir esta revisão"
+                    style={{ background: "none", border: `1px solid ${C.border}`, color: C.text3, cursor: "pointer", fontSize: 12, padding: "6px 10px", borderRadius: R.sm, fontFamily: FM }}
+                  >🗑</button>}
                 </div>
               </div>
             </div>

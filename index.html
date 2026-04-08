@@ -123,21 +123,10 @@
             if (sessionStorage.getItem(RELOAD_KEY)) return;
             sessionStorage.setItem(RELOAD_KEY, '1');
           } catch (e) {}
-          // Clear caches and unregister SW, then hard reload
-          var done = function() { window.location.reload(); };
-          try {
-            if ('caches' in window) {
-              caches.keys().then(function(names) {
-                return Promise.all(names.map(function(n) { return caches.delete(n); }));
-              }).then(function() {
-                if ('serviceWorker' in navigator) {
-                  return navigator.serviceWorker.getRegistrations().then(function(regs) {
-                    return Promise.all(regs.map(function(r) { return r.unregister(); }));
-                  });
-                }
-              }).then(done).catch(done);
-            } else { done(); }
-          } catch (e) { done(); }
+          // Just reload — the SW is network-first, so fresh index.html
+          // with fresh chunk hashes comes back automatically. No cache wipe,
+          // no SW unregister, no data loss.
+          window.location.reload();
         }
         window.addEventListener('error', function(e) {
           if (isChunkError(e && e.message)) recover();
